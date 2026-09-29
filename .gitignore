@@ -23,3 +23,6 @@ secrets*
 .DS_Store
 .idea/
 .vscode/
+
+# CV PDF has personal contacts: it lives only on the server
+services/public/site/*.pdf

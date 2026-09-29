@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609291500">
+  <link rel="stylesheet" href="/styles.css?v=202609291600">
 </head>
 <body>
   <header class="topbar">
@@ -28,6 +28,7 @@
         <a href="#projects" data-i18n="nav.projects">Projects</a>
         <a href="#homelab" data-i18n="nav.homelab">Homelab</a>
         <a href="#sandbox" data-i18n="nav.sandbox">Sandbox</a>
+        <a href="#learning" data-i18n="nav.learning">Learning</a>
       </nav>
       <button class="lang" type="button" id="lang-toggle" aria-label="Switch language">
         <span data-lang="en">EN</span><span class="lang__sep">/</span><span data-lang="ru">RU</span>
@@ -148,6 +149,7 @@
 
     <section class="section wrap" id="homelab" aria-labelledby="lab-title">
       <h2 class="section__title" id="lab-title"><span class="section__num">05</span><span data-i18n="lab.title">Homelab</span></h2>
+      <p class="section__lead" data-i18n="lab.lead">This site runs on a mini-PC at my home.</p>
       <div class="arch" id="arch" aria-labelledby="arch-title">
         <div class="arch__head">
           <h3 id="arch-title" data-i18n="arch.title">Architecture</h3>
@@ -157,21 +159,30 @@
       </div>
       <div class="lab">
         <div class="lab__about">
-          <p class="lab__lead" data-i18n="lab.lead">This site runs on a mini-PC at my home.</p>
           <ul class="lab__facts">
             <li data-i18n="lab.f1">Proxmox VE on ZFS.</li>
             <li data-i18n="lab.f3">Local DNS with ad blocking and wildcard Let's Encrypt certificates issued via DNS-01.</li>
             <li data-i18n="lab.f4">No open ports. I connect over Tailscale, and this site is published through Cloudflare Tunnel.</li>
             <li data-i18n="lab.f5">Monitoring with Gatus (configured in YAML) and Uptime Kuma.</li>
           </ul>
-        </div>
-        <div class="status" aria-live="polite">
-          <div class="status__head">
-            <span class="status__overall" id="status-overall"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="lab.checking">Checking…</span></span>
-            <span class="status__updated" id="status-updated"></span>
+          <div class="commits" id="commits" aria-live="polite">
+            <div class="commits__head">
+              <h3 data-i18n="lab.commits">Recent changes in the repo</h3>
+              <a class="commits__all" href="https://github.com/kalikys/homelab/commits/main" target="_blank" rel="noopener" data-i18n="lab.commitsAll">All commits</a>
+            </div>
+            <ol class="commits__list" id="commits-list"></ol>
           </div>
-          <ul class="status__list" id="status-list"></ul>
-          <a class="status__link" href="https://status.kalik8s.ru" target="_blank" rel="noopener" data-i18n="lab.full">Full status page</a>
+        </div>
+        <div class="lab__live">
+          <div class="stats" id="stats" aria-live="polite" hidden></div>
+          <div class="status" aria-live="polite">
+            <div class="status__head">
+              <span class="status__overall" id="status-overall"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="lab.checking">Checking…</span></span>
+              <span class="status__updated" id="status-updated"></span>
+            </div>
+            <ul class="status__list" id="status-list"></ul>
+            <a class="status__link" href="https://status.kalik8s.ru" target="_blank" rel="noopener" data-i18n="lab.full">Full status page</a>
+          </div>
         </div>
       </div>
     </section>
@@ -198,8 +209,15 @@
       </div>
     </section>
 
-    <section class="section wrap section--last" aria-labelledby="edu-title">
-      <h2 class="section__title" id="edu-title"><span class="section__num">07</span><span data-i18n="edu.title">Education &amp; languages</span></h2>
+    <section class="section wrap section--last" id="learning" aria-labelledby="edu-title">
+      <h2 class="section__title" id="edu-title"><span class="section__num">07</span><span data-i18n="edu.title">Learning &amp; education</span></h2>
+      <div class="learning">
+        <div class="learning__head">
+          <p class="edu__main" data-i18n="learn.goal">Kubernetes certifications: CKA, then CKAD</p>
+          <span class="chip chip--progress"><span class="dot dot--warn" aria-hidden="true"></span><span data-i18n="learn.status">In progress</span></span>
+        </div>
+        <p class="edu__sub" data-i18n="learn.sub">Preparing for the Certified Kubernetes Administrator exam first, then Certified Kubernetes Application Developer. Started in 2026.</p>
+      </div>
       <div class="edu">
         <div>
           <p class="edu__main" data-i18n="edu.degree">Master of Engineering, Aerospace, Aeronautical and Astronautical Engineering</p>
@@ -220,6 +238,6 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=202609291500" defer></script>
+  <script src="/app.js?v=202609291600" defer></script>
 </body>
 </html>

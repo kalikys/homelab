@@ -1,0 +1,2 @@
+# /etc/cron.d/site-stats
+*/5 * * * * root /usr/local/sbin/site-stats.sh >/dev/null 2>&1

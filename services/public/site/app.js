@@ -77,6 +77,13 @@
     "sandbox.f4": "Одновременно до 5 человек.",
     "sandbox.start": "Запустить сессию",
     "sandbox.newtab": "Открыть в новой вкладке",
+    "nav.learning": "Обучение",
+    "lab.commits": "Последние изменения в репозитории",
+    "lab.commitsAll": "Все коммиты",
+    "edu.title": "Обучение и образование",
+    "learn.goal": "Сертификации по Kubernetes: сначала CKA, затем CKAD",
+    "learn.status": "В процессе",
+    "learn.sub": "Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer. Начал в 2026 году.",
   };
 
   const UI = {
@@ -95,6 +102,13 @@
       mb: "MB",
       gb: "GB",
       restart: "Restart session",
+      ci: { label: "infra checks", success: "passing", failure: "failing", other: "unknown" },
+      archBelow: "architecture below ↓",
+      commitsError: "Commits are not available right now.",
+      stats: {
+        uptime: "host uptime", guests: "guests running, LXC + VM", containers: "Docker containers",
+        load: (n) => `load average, ${n} threads`, d: "d", h: "h",
+      },
     },
     ru: {
       updated: "обновлён",
@@ -111,6 +125,13 @@
       mb: "МБ",
       gb: "ГБ",
       restart: "Перезапустить сессию",
+      ci: { label: "проверки инфры", success: "проходят", failure: "падают", other: "нет данных" },
+      archBelow: "архитектура ниже ↓",
+      commitsError: "Коммиты сейчас недоступны.",
+      stats: {
+        uptime: "аптайм хоста", guests: "гостей запущено, LXC + ВМ", containers: "Docker-контейнеров",
+        load: (n) => `load average, ${n} потоков`, d: "дн", h: "ч",
+      },
       roles: {
         adguard: "DNS и блокировка рекламы для LAN и VPN",
         tailscale: "VPN: маршрутизатор подсети и exit node",
@@ -144,6 +165,9 @@
   let lastStatus = null;
   let repos;      // undefined: loading, null: failed, array: loaded
   let inventory;  // undefined: loading, null: failed, object: loaded
+  let ciRun;      // undefined: loading, null: failed, object: latest completed run
+  let commits;    // undefined: loading, null: failed, array: loaded
+  let stats;      // undefined: loading, null: failed, object: loaded
   let sandboxStarted = false;
 
   function storageGet(key) {
@@ -167,6 +191,8 @@
     if (lastStatus) renderStatus(lastStatus);
     renderProjects();
     renderArch();
+    renderCommits();
+    renderStats();
     updateSandboxButton();
   }
 
@@ -280,11 +306,14 @@
     const list = repos.filter((r) => !r.fork && !r.archived);
     if (!list.length) { box.append(el("p", "projects__empty", t.reposEmpty)); return; }
     list.forEach((r) => {
-      const card = el("a", "project");
-      card.href = r.html_url;
-      card.target = "_blank";
-      card.rel = "noopener";
-      card.append(el("p", "project__name", r.name), el("p", "project__desc", r.description || t.noDesc));
+      // The name link stretches over the whole card, so the card can still hold its own links.
+      const card = el("div", "project");
+      const name = el("a", "project__name", r.name);
+      name.href = r.html_url;
+      name.target = "_blank";
+      name.rel = "noopener";
+      card.append(name, el("p", "project__desc", r.description || t.noDesc));
+      if (r.name === "homelab") card.append(homelabExtras(t));
       if (r.topics && r.topics.length) {
         const tags = el("p", "tags");
         r.topics.slice(0, 5).forEach((topic) => tags.append(el("span", "", topic)));
@@ -303,11 +332,95 @@
     });
   }
 
-  fetch("/api/github/repos")
-    .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+  function homelabExtras(t) {
+    const row = el("p", "project__extras");
+    if (ciRun !== undefined) {
+      const state = ciRun && (ciRun.conclusion === "success" || ciRun.conclusion === "failure") ? ciRun.conclusion : "other";
+      const badge = el("a", `ci-badge ci-badge--${state}`);
+      badge.href = ciRun ? ciRun.html_url : "https://github.com/kalikys/homelab/actions";
+      badge.target = "_blank";
+      badge.rel = "noopener";
+      badge.append(el("span", "ci-badge__label", t.ci.label), el("span", "ci-badge__value", t.ci[state]));
+      if (ciRun && ciRun.head_sha) badge.title = ciRun.head_sha.slice(0, 7);
+      row.append(badge);
+    }
+    const arch = el("a", "project__arch", t.archBelow);
+    arch.href = "#homelab";
+    row.append(arch);
+    return row;
+  }
+
+  function getJSON(url) {
+    return fetch(url).then((res) => (res.ok ? res.json() : Promise.reject(res.status)));
+  }
+
+  getJSON("/api/github/repos")
     .then((data) => { repos = Array.isArray(data) ? data : null; })
     .catch(() => { repos = null; })
     .then(renderProjects);
+
+  getJSON("/api/github/actions")
+    .then((data) => { ciRun = (data.workflow_runs && data.workflow_runs[0]) || null; })
+    .catch(() => { ciRun = null; })
+    .then(renderProjects);
+
+  // ---- Homelab: recent commits and live stats ----
+
+  function renderCommits() {
+    const list = document.getElementById("commits-list");
+    if (!list || commits === undefined) return;
+    list.replaceChildren();
+    if (!commits || !commits.length) { list.append(el("li", "commits__empty", UI[lang].commitsError)); return; }
+    commits.forEach((c) => {
+      const li = el("li", "commit");
+      const sha = el("a", "commit__sha", c.sha.slice(0, 7));
+      sha.href = c.html_url;
+      sha.target = "_blank";
+      sha.rel = "noopener";
+      li.append(sha, el("span", "commit__msg", c.commit.message.split("\n")[0]), el("span", "commit__time", relativeTime(c.commit.author.date)));
+      list.append(li);
+    });
+  }
+
+  getJSON("/api/github/commits")
+    .then((data) => { commits = Array.isArray(data) ? data : null; })
+    .catch(() => { commits = null; })
+    .then(renderCommits);
+
+  function formatUptime(sec, t) {
+    const days = Math.floor(sec / 86400);
+    return days >= 1 ? `${days} ${t.d}` : `${Math.max(1, Math.floor(sec / 3600))} ${t.h}`;
+  }
+
+  function renderStats() {
+    const box = document.getElementById("stats");
+    if (!box || stats === undefined) return;
+    box.hidden = !stats;
+    if (!stats) return;
+    const t = UI[lang].stats;
+    const tiles = [
+      [formatUptime(stats.uptime_seconds, t), t.uptime],
+      [`${stats.guests_running}/${stats.guests_total}`, t.guests],
+      [String(stats.containers_running), t.containers],
+      [stats.load[0].toFixed(2), t.load(stats.cpus)],
+    ];
+    box.replaceChildren(...tiles.map(([value, label]) => {
+      const tile = el("div", "metric metric--live");
+      tile.append(el("p", "metric__value", value), el("p", "metric__label", label));
+      return tile;
+    }));
+  }
+
+  function loadStats() {
+    fetch("/data/stats.json", { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data) => { stats = data; })
+      .catch(() => { stats = null; })
+      .then(renderStats);
+  }
+
+  loadStats();
+  setInterval(loadStats, 300000);
 
   // ---- Architecture diagram (data exported from Terraform) ----
 
@@ -378,8 +491,7 @@
     body.append(edge, link, host);
   }
 
-  fetch("/data/homelab.json")
-    .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+  getJSON("/data/homelab.json")
     .then((data) => { inventory = data; renderArch(); })
     .catch(() => { const a = document.getElementById("arch"); if (a) a.hidden = true; });
 
