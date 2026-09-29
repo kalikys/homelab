@@ -10,7 +10,10 @@ terminal:
   container_cpu: 1
   container_memory: 1024
   container_disk: 5120
-  container_persistent: false
+  # One long-lived sandbox container shared by all sessions and cron jobs; work/ survives container recreation.
+  container_persistent: true
+  docker_volumes:
+    - /home/hermes/work:/workspace/work
   cwd: /home/hermes/work
 security:
   allow_private_urls: true
