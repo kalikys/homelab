@@ -72,6 +72,18 @@
         "dmz"
       ],
       "role": "Public web terminal, isolated network, reset every 30 minutes"
+    },
+    {
+      "cores": 2,
+      "disk_gb": 30,
+      "id": 220,
+      "kind": "vm",
+      "memory_mb": 4096,
+      "name": "agent",
+      "network": [
+        "lan"
+      ],
+      "role": "AI ops agent (Telegram), read-only"
     }
   ],
   "host": {

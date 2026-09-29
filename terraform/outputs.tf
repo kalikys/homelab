@@ -43,6 +43,16 @@ locals {
         role      = "Public web terminal, isolated network, reset every 30 minutes"
         network   = ["dmz"]
       }],
+      [{
+        name      = "agent"
+        id        = local.agent.vm_id
+        kind      = "vm"
+        cores     = local.agent.cores
+        memory_mb = local.agent.memory_mb
+        disk_gb   = local.agent.disk_gb
+        role      = local.agent.role
+        network   = ["lan"]
+      }],
     )
     networks = {
       lan = "Home LAN behind double NAT, no inbound ports"

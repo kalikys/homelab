@@ -32,3 +32,9 @@ variable "cloudflare_zone" {
   type        = string
   default     = "kalik8s.com"
 }
+
+variable "lab_ssh_public_key" {
+  description = "SSH public key for the admin user on VMs created from cloud images."
+  type        = string
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB35wNepEsb8AdYVR/g7VwgKj93mQlByi6E9ecBZSabl kalikys@Kalislavs-MacBook-Pro.local"
+}
