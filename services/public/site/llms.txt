@@ -1,0 +1,16 @@
+# Kalislav Smirnov, DevOps Engineer
+
+> DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines. Based in Tbilisi, Georgia. Open to offers now: full-time as an employee, B2B or contract; relocation to the EU, the USA or Kazakhstan (needs visa sponsorship), or remote work for a company in any country.
+
+Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in/devops-kalislav-smirnov/ · https://github.com/kalikys
+
+## Pages
+
+- [CV in Markdown](https://cv.kalik8s.ru/cv.md): experience, case studies, skills, education and hiring details in one file
+- [CV website (English)](https://cv.kalik8s.ru/): the same content with a live homelab status and a public sandbox shell
+- [CV website (Russian)](https://cv.kalik8s.ru/ru/)
+- [homelab repository](https://github.com/kalikys/homelab): Terraform, service configs and CI for the Proxmox home lab that hosts the site
+
+## Optional
+
+- [Press release about the secure development project](https://habr.com/ru/companies/swordfish_security/news/1064506/) (in Russian; case study 1 in the CV)

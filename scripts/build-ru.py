@@ -19,6 +19,16 @@ page = (PUBLIC / "site/index.html").read_text()
 ru = json.loads((PUBLIC / "i18n/ru.json").read_text())
 
 
+# The FAQPage JSON-LD must repeat the visible English Q&A word for word.
+ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
+faq_ld = next(n for n in ld["@graph"] if n["@type"] == "FAQPage")["mainEntity"]
+for i, item in enumerate(faq_ld, 1):
+    q = html.unescape(re.search(rf'data-i18n="faq.q{i}">([^<]*)<', page).group(1))
+    a = html.unescape(re.search(rf'data-i18n="faq.a{i}">([^<]*)<', page).group(1))
+    if (item["name"], item["acceptedAnswer"]["text"]) != (q, a):
+        sys.exit(f"build-ru: FAQ #{i} in JSON-LD differs from the page text")
+
+
 def swap(old, new):
     global page
     if page.count(old) != 1:
@@ -43,6 +53,19 @@ swap(f'<meta property="og:image:alt" content="{en_alt}">', f'<meta property="og:
 swap('<meta property="og:locale" content="en_US">', '<meta property="og:locale" content="ru_RU">')
 swap(f'<meta property="og:url" content="{SITE}/">', f'<meta property="og:url" content="{SITE}/ru/">')
 swap(f'<link rel="canonical" href="{SITE}/">', f'<link rel="canonical" href="{SITE}/ru/">')
+
+# JSON-LD: the page node and the FAQ describe the Russian page; the Person entity is shared.
+for node in ld["@graph"]:
+    if node["@type"] == "ProfilePage":
+        node.update({"@id": f"{SITE}/ru/#page", "url": f"{SITE}/ru/", "name": ru["meta.title"], "inLanguage": "ru"})
+    elif node["@type"] == "FAQPage":
+        node["@id"] = f"{SITE}/ru/#recruiters"
+        for i, item in enumerate(node["mainEntity"], 1):
+            item["name"] = ru[f"faq.q{i}"]
+            item["acceptedAnswer"]["text"] = ru[f"faq.a{i}"]
+ld_block = json.dumps(ld, ensure_ascii=False, indent=2)
+page = re.sub(r'(<script type="application/ld\+json">\n).*?(\n  </script>)',
+              lambda m: m.group(1) + ld_block + m.group(2), page, count=1, flags=re.S)
 
 # Language switch points back to the English page.
 swap('href="/ru/" hreflang="ru" data-target="ru"', 'href="/" hreflang="en" data-target="en"')

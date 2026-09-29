@@ -17,36 +17,151 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://cv.kalik8s.ru/og.jpg">
   <link rel="canonical" href="https://cv.kalik8s.ru/">
+  <link rel="alternate" type="text/markdown" href="/cv.md" title="CV in Markdown">
   <link rel="alternate" hreflang="en" href="https://cv.kalik8s.ru/">
   <link rel="alternate" hreflang="ru" href="https://cv.kalik8s.ru/ru/">
   <link rel="alternate" hreflang="x-default" href="https://cv.kalik8s.ru/">
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    "name": "Kalislav Smirnov",
-    "alternateName": "Калислав Смирнов",
-    "jobTitle": "DevOps Engineer",
-    "description": "DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines. Banks and government, including air-gapped environments.",
-    "url": "https://cv.kalik8s.ru/",
-    "email": "mailto:kalikys@outlook.com",
-    "address": { "@type": "PostalAddress", "addressLocality": "Tbilisi", "addressCountry": "GE" },
-    "alumniOf": { "@type": "CollegeOrUniversity", "name": "Bauman Moscow State Technical University" },
-    "knowsLanguage": ["en", "ru"],
-    "knowsAbout": ["DevOps", "Kubernetes", "Helm", "Docker", "GitLab CI/CD", "Ansible", "Terraform", "DevSecOps", "Prometheus", "Grafana", "Linux", "Python"],
-    "sameAs": [
-      "https://github.com/kalikys",
-      "https://www.linkedin.com/in/devops-kalislav-smirnov/",
-      "https://t.me/kalikys"
-    ]
-  }
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "ProfilePage",
+      "@id": "https://cv.kalik8s.ru/#page",
+      "url": "https://cv.kalik8s.ru/",
+      "name": "Kalislav Smirnov, DevOps Engineer",
+      "dateModified": "2026-09-29",
+      "inLanguage": "en",
+      "mainEntity": {
+        "@id": "https://cv.kalik8s.ru/#person"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://cv.kalik8s.ru/#person",
+      "name": "Kalislav Smirnov",
+      "alternateName": "Калислав Смирнов",
+      "jobTitle": "DevOps Engineer",
+      "description": "DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines. Banks and government, including air-gapped environments. Based in Tbilisi, Georgia, open to relocation (EU, USA, Kazakhstan) or remote work.",
+      "url": "https://cv.kalik8s.ru/",
+      "image": "https://cv.kalik8s.ru/og.jpg",
+      "email": "mailto:kalikys@outlook.com",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Tbilisi",
+        "addressCountry": "GE"
+      },
+      "alumniOf": {
+        "@type": "CollegeOrUniversity",
+        "name": "Bauman Moscow State Technical University"
+      },
+      "hasCredential": {
+        "@type": "EducationalOccupationalCredential",
+        "credentialCategory": "degree",
+        "name": "Master of Engineering, Aerospace, Aeronautical and Astronautical Engineering",
+        "recognizedBy": {
+          "@type": "CollegeOrUniversity",
+          "name": "Bauman Moscow State Technical University"
+        }
+      },
+      "hasOccupation": {
+        "@type": "Occupation",
+        "name": "DevOps Engineer",
+        "occupationLocation": {
+          "@type": "City",
+          "name": "Tbilisi"
+        },
+        "skills": "Kubernetes, Helm, Docker, GitLab CI/CD, Jenkins, Nexus, Ansible, Terraform, Python, Bash, Linux, Prometheus, Grafana, ELK, SAST, DAST, SCA, Semgrep, Trivy, PostgreSQL, ClickHouse, RabbitMQ, Airflow"
+      },
+      "knowsLanguage": [
+        "en",
+        "ru"
+      ],
+      "knowsAbout": [
+        "DevOps",
+        "Platform engineering",
+        "Kubernetes",
+        "Helm",
+        "Docker",
+        "GitLab CI/CD",
+        "Ansible",
+        "Terraform",
+        "DevSecOps",
+        "Air-gapped environments",
+        "Prometheus",
+        "Grafana",
+        "Linux",
+        "Python"
+      ],
+      "sameAs": [
+        "https://github.com/kalikys",
+        "https://www.linkedin.com/in/devops-kalislav-smirnov/",
+        "https://t.me/kalikys"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://cv.kalik8s.ru/#recruiters",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where are you based, and will you relocate?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "I live in Tbilisi, Georgia. I am open to relocation to the EU, the USA or Kazakhstan, and to remote work for a company in any country."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What type of employment are you looking for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Full-time work as an employee, on a B2B basis or on a contract."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "When can you start?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Right away. I am open to offers now."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do you need a visa?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For relocation, yes: I need visa sponsorship or another work permit. I do not have a right to work outside Georgia yet. Remote work does not need one."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What roles are the best fit?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "DevOps and platform engineering: Kubernetes, GitLab CI/CD, Ansible and Terraform, with security checks built into pipelines. I have the most experience with banks, fintech and government projects, including air-gapped environments."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What languages do you work in?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "English (B2) and Russian."
+          }
+        }
+      ]
+    }
+  ]
+}
   </script>
   <meta name="theme-color" content="#0a0d14">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609291800">
+  <link rel="stylesheet" href="/styles.css?v=202609291900">
 </head>
 <body>
   <header class="topbar">
@@ -74,7 +189,7 @@
       <p class="prompt"><span class="prompt__path">~</span> <span class="prompt__sign">$</span> whoami</p>
       <h1 class="hero__name">Kalislav Smirnov</h1>
       <p class="hero__role" data-i18n="hero.role">DevOps Engineer</p>
-      <p class="hero__lead" data-i18n="hero.lead">DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines.</p>
+      <p class="hero__lead" data-i18n="hero.lead">DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. I live in Tbilisi, Georgia, and I am open to relocation or remote work.</p>
       <div class="hero__meta">
         <span class="chip chip--ok"><span class="dot dot--ok" aria-hidden="true"></span><span data-i18n="hero.open">Open to offers now</span></span>
         <span class="chip" data-i18n="hero.relocation">Ready for Relocation :)</span>
@@ -297,7 +412,7 @@
       </div>
     </section>
 
-    <section class="section wrap section--last" id="learning" aria-labelledby="edu-title">
+    <section class="section wrap" id="learning" aria-labelledby="edu-title">
       <h2 class="section__title" id="edu-title"><span class="section__num">08</span><span data-i18n="edu.title">Learning &amp; education</span></h2>
       <div class="learning">
         <div class="learning__head">
@@ -317,16 +432,50 @@
         </div>
       </div>
     </section>
+
+    <section class="section wrap section--last" id="recruiters" aria-labelledby="faq-title">
+      <h2 class="section__title" id="faq-title"><span class="section__num">09</span><span data-i18n="faq.title">For recruiters</span></h2>
+      <div class="faq">
+        <div class="faq__item">
+          <h3 data-i18n="faq.q1">Where are you based, and will you relocate?</h3>
+          <p data-i18n="faq.a1">I live in Tbilisi, Georgia. I am open to relocation to the EU, the USA or Kazakhstan, and to remote work for a company in any country.</p>
+        </div>
+        <div class="faq__item">
+          <h3 data-i18n="faq.q2">What type of employment are you looking for?</h3>
+          <p data-i18n="faq.a2">Full-time work as an employee, on a B2B basis or on a contract.</p>
+        </div>
+        <div class="faq__item">
+          <h3 data-i18n="faq.q3">When can you start?</h3>
+          <p data-i18n="faq.a3">Right away. I am open to offers now.</p>
+        </div>
+        <div class="faq__item">
+          <h3 data-i18n="faq.q4">Do you need a visa?</h3>
+          <p data-i18n="faq.a4">For relocation, yes: I need visa sponsorship or another work permit. I do not have a right to work outside Georgia yet. Remote work does not need one.</p>
+        </div>
+        <div class="faq__item">
+          <h3 data-i18n="faq.q5">What roles are the best fit?</h3>
+          <p data-i18n="faq.a5">DevOps and platform engineering: Kubernetes, GitLab CI/CD, Ansible and Terraform, with security checks built into pipelines. I have the most experience with banks, fintech and government projects, including air-gapped environments.</p>
+        </div>
+        <div class="faq__item">
+          <h3 data-i18n="faq.q6">What languages do you work in?</h3>
+          <p data-i18n="faq.a6">English (B2) and Russian.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="faq.email">Email kalikys@outlook.com</a>
+        <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram @kalikys</a>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <span>© 2026 Kalislav Smirnov</span>
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Updated</span> <time datetime="2026-09-29">2026-09-29</time></span>
       <span class="footer__mono" data-i18n="footer.served">hosted at home, published via Cloudflare Tunnel</span>
     </div>
   </footer>
 
-  <script src="/app.js?v=202609291800" defer></script>
+  <script src="/app.js?v=202609291900" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

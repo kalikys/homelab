@@ -320,6 +320,13 @@ a:focus-visible, button:focus-visible {
 .chip--progress { color: var(--warn); font-family: var(--mono); font-size: 12px; padding: 4px 10px; }
 .learning .edu__sub { margin-top: 8px; }
 
+/* For recruiters */
+.faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.faq__item { padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.faq__item h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.faq__item p { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+#recruiters .actions { margin-top: 22px; }
+
 .edu { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .edu > div { padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .edu__main { margin: 0; font-weight: 500; }
@@ -341,7 +348,7 @@ a:focus-visible, button:focus-visible {
   .nav { display: none; }
   .lang { margin-left: auto; }
   .hero { padding-top: 64px; padding-bottom: 48px; }
-  .metrics, .stack, .edu, .cases { grid-template-columns: 1fr; }
+  .metrics, .stack, .edu, .cases, .faq { grid-template-columns: 1fr; }
   .metric__value { font-size: 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
