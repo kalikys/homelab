@@ -8,6 +8,7 @@
   <meta property="og:title" content="Kalislav Smirnov, DevOps Engineer">
   <meta property="og:description" content="DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform. Tbilisi, ready for relocation.">
   <meta property="og:type" content="profile">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="https://cv.kalik8s.ru/">
   <meta property="og:image" content="https://cv.kalik8s.ru/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -16,11 +17,15 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://cv.kalik8s.ru/og.jpg">
   <link rel="canonical" href="https://cv.kalik8s.ru/">
+  <link rel="alternate" hreflang="en" href="https://cv.kalik8s.ru/">
+  <link rel="alternate" hreflang="ru" href="https://cv.kalik8s.ru/ru/">
+  <link rel="alternate" hreflang="x-default" href="https://cv.kalik8s.ru/">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Person",
     "name": "Kalislav Smirnov",
+    "alternateName": "Калислав Смирнов",
     "jobTitle": "DevOps Engineer",
     "description": "DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines. Banks and government, including air-gapped environments.",
     "url": "https://cv.kalik8s.ru/",
@@ -41,7 +46,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609291710">
+  <link rel="stylesheet" href="/styles.css?v=202609291800">
 </head>
 <body>
   <header class="topbar">
@@ -58,9 +63,9 @@
         <a href="#sandbox" data-i18n="nav.sandbox">Sandbox</a>
         <a href="#learning" data-i18n="nav.learning">Learning</a>
       </nav>
-      <button class="lang" type="button" id="lang-toggle" aria-label="Switch language">
-        <span data-lang="en">EN</span><span class="lang__sep">/</span><span data-lang="ru">RU</span>
-      </button>
+      <a class="lang" id="lang-toggle" href="/ru/" hreflang="ru" data-target="ru" aria-label="Switch language">
+        <span data-lang="en" class="is-active">EN</span><span class="lang__sep">/</span><span data-lang="ru">RU</span>
+      </a>
     </div>
   </header>
 
@@ -321,7 +326,7 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=202609291710" defer></script>
+  <script src="/app.js?v=202609291800" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

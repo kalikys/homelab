@@ -44,6 +44,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ru/index.html is up to date
+        run: |
+          python3 scripts/build-ru.py
+          git diff --exit-code -- services/public/site/ru/index.html
+
+      - name: app.js parses
+        run: node --check services/public/site/app.js
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest

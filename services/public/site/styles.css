@@ -69,6 +69,7 @@ a:focus-visible, button:focus-visible {
 .nav a { transition: color 0.15s ease; }
 .nav a:hover { color: var(--text); }
 .lang {
+  display: inline-flex; align-items: center;
   font: 500 13px var(--mono);
   color: var(--faint);
   background: var(--surface);

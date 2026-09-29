@@ -3,120 +3,6 @@
 
   const LINKEDIN_URL = "https://www.linkedin.com/in/devops-kalislav-smirnov/";
 
-  const RU = {
-    "nav.impact": "Результаты",
-    "nav.experience": "Опыт",
-    "nav.skills": "Навыки",
-    "nav.homelab": "Homelab",
-    "hero.role": "DevOps-инженер",
-    "hero.lead": "DevOps-инженер, 4,5 года опыта. Строю Kubernetes-платформы, CI/CD в GitLab и автоматизацию инфраструктуры на Ansible и Terraform, в последнее время для банков и госсектора, в том числе в полностью изолированных средах. Также встраиваю в пайплайны проверки SAST, DAST и SCA.",
-    "hero.relocation": "Готов к релокации :)",
-    "hero.location": "Грузия, Тбилиси",
-    "hero.email": "Обсудить вакансию",
-    "hero.cv": "Скачать резюме (PDF)",
-    "impact.title": "Результаты",
-    "impact.m1": "Автоматизировал весь процесс развёртывания инфраструктуры для edge-устройств (мини-ПК)",
-    "impact.m2": "Комплексных внедрений DevSecOps-платформ для банковских и государственных клиентов",
-    "impact.m3": "Kubernetes-платформы в нескольких дата-центрах с протоколами аварийного восстановления",
-    "impact.m4": "Цикл релиза для 20+ микросервисов",
-    "exp.title": "Опыт",
-    "exp.j1.period": "фев 2025 - авг 2026",
-    "exp.j1.type": "Полная занятость",
-    "exp.j1.intro": "Развёртывание и сопровождение DevSecOps-платформ для корпоративных клиентов в банковском, финтех- и государственном секторах, включая полностью изолированные (air-gapped) среды.",
-    "exp.j1.p1": "Руководил 5 комплексными внедрениями DevSecOps-платформ для банковских и государственных клиентов, от проектирования архитектуры до финальной передачи.",
-    "exp.j1.p2": "Спроектировал и развернул защищённый сервис доставки пакетов с GPG-подписью на Python и Kubernetes для изолированного (air-gapped) репозитория Nexus крупного банка.",
-    "exp.j1.p3": "Автоматизировал интеграцию инструментов SAST, DAST и SCA (Semgrep, Trivy) в GitLab CI, обеспечив проверку безопасности 100% новых коммитов.",
-    "exp.j1.p4": "Разработал набор из 15+ переиспользуемых ролей Ansible для стандартизации развёртываний в окружениях клиентов, сократив время настройки новых проектов примерно на 30%.",
-    "exp.j1.p5": "Проектировал и сопровождал Kubernetes-платформы в нескольких дата-центрах (100+ ВМ) с протоколами аварийного восстановления для высокодоступных финансовых систем.",
-    "exp.j1.p6": "Готовил и проводил демонстрации продуктов и приёмочные испытания (Nexus, GitLab, DevSecOps-продукты).",
-    "exp.j1.p7": "Сопровождал внутреннюю инфраструктуру: GitLab, собственные продукты, окружения RnD и PROD",
-    "exp.j2.period": "окт 2024 - фев 2025",
-    "exp.j2.p1": "Автоматизировал весь процесс развёртывания инфраструктуры для edge-устройств (мини-ПК), сократив время настройки с 10 часов до 20 минут с помощью Ansible и собственных скриптов.",
-    "exp.j2.p2": "Спроектировал и провёл первоначальную миграцию основного монолитного приложения на 10 контейнеризированных микросервисов в Kubernetes.",
-    "exp.j2.p3": "С нуля построил полноценный стек наблюдаемости на Prometheus, Grafana и ELK, обеспечив мониторинг и оповещения в реальном времени для новой микросервисной архитектуры.",
-    "exp.j2.p4": "Разработал и сопровождал Helm-чарты для всех 10 сервисов, обеспечив развёртывание и откат одной командой.",
-    "exp.j3.period": "апр 2022 - окт 2024",
-    "exp.j3.company": "Инженерно-производственная компания",
-    "exp.j3.p1": "Перестроил процесс CI/CD, внедрив автоматизированное тестирование и пайплайны развёртывания в GitLab CI, и сократил цикл релиза для 20+ микросервисов с 2 недель до 3 дней.",
-    "exp.j3.p2": "Автоматизировал ручные чек-листы развёртывания с помощью Ansible и Bash-скриптов, сократив время ручного развёртывания с более чем 4 часов до менее чем 30 минут на релиз.",
-    "exp.j3.p3": "Руководил контейнеризацией 20+ устаревших микросервисов на Java с помощью Docker, стандартизировав окружения и устранив дрейф конфигураций между staging и production.",
-    "exp.j3.p4": "Управлял и сопровождал production-инфраструктуру компании, состоящую из 50+ Linux-серверов в двух дата-центрах.",
-    "skills.title": "Навыки",
-    "skills.platform": "Платформа",
-    "skills.iac": "Автоматизация и IaC",
-    "skills.cicd": "CI/CD",
-    "skills.security": "Безопасность",
-    "skills.observability": "Наблюдаемость",
-    "skills.data": "Данные и очереди",
-    "lab.title": "Homelab",
-    "lab.lead": "Этот сайт работает на мини-ПК у меня дома.",
-    "lab.f1": "Proxmox VE на ZFS.",
-    "lab.f3": "Локальный DNS с блокировкой рекламы, wildcard-сертификаты Let's Encrypt через DNS-01.",
-    "lab.f4": "Открытых портов нет. Сам подключаюсь через Tailscale, сайт опубликован через Cloudflare Tunnel.",
-    "lab.f5": "Мониторинг на Gatus (конфиг в YAML) и Uptime Kuma.",
-    "lab.checking": "Проверяю…",
-    "lab.full": "Подробная страница статуса",
-    "edu.title": "Образование и языки",
-    "edu.degree": "Специалитет, Аэрокосмические системы",
-    "edu.school": "Московский государственный технический университет им. Н. Э. Баумана, 2020 - 2026",
-    "edu.lang1": "Английский - B2",
-    "edu.lang2": "Русский",
-    "footer.served": "размещено дома, опубликовано через Cloudflare Tunnel",
-    "nav.projects": "Проекты",
-    "nav.sandbox": "Песочница",
-    "projects.title": "Проекты",
-    "projects.lead": "Публичные репозитории на GitHub, данные подгружаются вживую.",
-    "projects.all": "Все репозитории на GitHub",
-    "arch.title": "Архитектура",
-    "arch.note": "Схема собрана из Terraform-кода в репозитории homelab.",
-    "sandbox.title": "Песочница",
-    "sandbox.lead": "Настоящий shell в одноразовой ВМ на моём Proxmox.",
-    "sandbox.f1": "Изолированная сеть: нет интернета и доступа к другим хостам.",
-    "sandbox.f2": "1 vCPU с лимитом 50%, 768 МБ RAM, диск 6 ГБ.",
-    "sandbox.f3": "Каждые 30 минут откатывается к чистому снапшоту.",
-    "sandbox.f4": "Одновременно до 5 человек.",
-    "sandbox.start": "Запустить сессию",
-    "sandbox.newtab": "Открыть в новой вкладке",
-    "nav.learning": "Обучение",
-    "nav.cases": "Кейсы",
-    "hero.open": "Открыт к предложениям",
-    "cases.title": "Кейсы",
-    "cases.lead": "Названия заказчиков не указываю намеренно. Цифры взяты из самих проектов.",
-    "cases.c1.context": "Федеральная компания · 90+ команд разработки · 200+ продуктов · команда из 3 инженеров · 1 год",
-    "cases.c1.source": "Пресс-релиз о проекте",
-    "cases.c1.title": "Процесс безопасной разработки на всю компанию",
-    "cases.c1.problem": "Десятки команд выпускали код без общих проверок безопасности, а open source пакеты доходили до разработчиков без проверки.",
-    "cases.c1.p1": "Развернули OSA Firewall и встроили его в цепочку поставки пакетов: open source зависимости проверяются до того, как их получат разработчики.",
-    "cases.c1.p2": "Развернули ASOC-платформу, которая собирает находки всех сканеров в одном месте.",
-    "cases.c1.p3": "Добавили проверки Gitleaks, Trivy, SCA и OSA в общие шаблоны GitLab CI, и команды получили их без ручной настройки пайплайнов.",
-    "cases.c1.p4": "Обучили DevOps-инженеров и разработчиков работать с находками. Вместе с заказчиком подготовили и согласовали 30+ документов и инструкций по процессу.",
-    "cases.c1.result": "пайплайнов запускают проверки безопасности",
-    "cases.c2.context": "Крупный банк · изолированная (air-gapped) сеть",
-    "cases.c2.title": "Доставка подписанных пакетов в закрытый контур",
-    "cases.c2.problem": "У репозитория Nexus в банке нет доступа в интернет, и каждый пакет, который туда попадает, должен прийти из доверенного источника.",
-    "cases.c2.p1": "Написал сервис доставки на Python, который работает в Kubernetes.",
-    "cases.c2.p2": "Каждый пакет подписывается GPG, подпись проверяется до того, как пакет попадёт в Nexus.",
-    "cases.c2.result": "Разработчики в закрытом контуре получают нужные пакеты, и у каждого пакета можно проверить подпись.",
-    "cases.c3.context": "Инвестиционный банк · edge-устройства",
-    "cases.c3.title": "Полная автоматизация настройки мини-ПК",
-    "cases.c3.problem": "Каждое edge-устройство (мини-ПК) настраивали вручную, на это уходил целый рабочий день.",
-    "cases.c3.p1": "Автоматизировал весь процесс развёртывания инфраструктуры с помощью Ansible и собственных скриптов.",
-    "cases.c3.result": "на настройку одного устройства",
-    "cases.c4.context": "Инвестиционный банк · основное приложение",
-    "cases.c4.title": "От монолита к 10 сервисам в Kubernetes",
-    "cases.c4.problem": "Основное приложение было одним монолитом, и мониторинга для сервисной архитектуры не было.",
-    "cases.c4.p1": "Спроектировал и провёл первую миграцию монолита на 10 контейнеризированных микросервисов в Kubernetes.",
-    "cases.c4.p2": "Написал Helm-чарты для всех 10 сервисов.",
-    "cases.c4.p3": "С нуля построил мониторинг и оповещения на Prometheus, Grafana и ELK.",
-    "cases.c4.result": "Любой сервис разворачивается или откатывается одной командой, а команда видит проблемы в реальном времени.",
-    "lab.commits": "Последние изменения в репозитории",
-    "lab.commitsAll": "Все коммиты",
-    "edu.title": "Обучение и образование",
-    "learn.goal": "Сертификации по Kubernetes: сначала CKA, затем CKAD",
-    "learn.status": "В процессе",
-    "learn.sub": "Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer. Начал в 2026 году.",
-  };
-
   const UI = {
     en: {
       updated: "updated",
@@ -188,11 +74,9 @@
     ru: { ok: "Все системы работают", partial: "Частичный сбой", down: "Серьёзный сбой", error: "Статус недоступен", checked: "проверено", ago: "назад", s: "с", m: "мин" },
   };
 
-  const nodes = Array.from(document.querySelectorAll("[data-i18n]"));
-  const EN = {};
-  nodes.forEach((el) => { EN[el.dataset.i18n] = el.textContent; });
-
-  let lang = "en";
+  // Each language is its own static page (/ and /ru/, built by scripts/build-ru.py).
+  // JS only renders the live blocks in the page language.
+  const lang = document.documentElement.lang === "ru" ? "ru" : "en";
   let lastStatus = null;
   let repos;      // undefined: loading, null: failed, array: loaded
   let inventory;  // undefined: loading, null: failed, object: loaded
@@ -208,33 +92,21 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
   }
 
-  function applyLang(next) {
-    lang = next;
-    const dict = lang === "ru" ? RU : EN;
-    nodes.forEach((el) => {
-      const text = dict[el.dataset.i18n];
-      if (text) el.textContent = text;
-    });
-    document.documentElement.lang = lang;
-    document.querySelectorAll(".lang [data-lang]").forEach((el) => {
-      el.classList.toggle("is-active", el.dataset.lang === lang);
-    });
-    if (lastStatus) renderStatus(lastStatus);
-    renderProjects();
-    renderArch();
-    renderCommits();
-    renderStats();
-    updateSandboxButton();
+  // First visit from a Russian-language browser goes to /ru/; an explicit choice is remembered.
+  // Crawlers are never redirected, so each URL is indexed in its own language.
+  const saved = storageGet("lang");
+  const isBot = /bot|crawl|spider|slurp|preview/i.test(navigator.userAgent);
+  const preferred = saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
+  if (!isBot && preferred !== lang) {
+    window.location.replace((preferred === "ru" ? "/ru/" : "/") + window.location.search + window.location.hash);
+    return;
   }
 
-  const saved = storageGet("lang");
-  const initial = saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
-  applyLang(initial);
-
-  document.getElementById("lang-toggle").addEventListener("click", () => {
-    const next = lang === "en" ? "ru" : "en";
-    storageSet("lang", next);
-    applyLang(next);
+  const toggle = document.getElementById("lang-toggle");
+  toggle.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    storageSet("lang", toggle.dataset.target);
+    window.location.assign(toggle.getAttribute("href") + window.location.hash);
   });
 
   if (LINKEDIN_URL) {

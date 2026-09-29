@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Калислав Смирнов, DevOps-инженер</title>
+  <meta name="description" content="DevOps-инженер, 4,5 года опыта: Kubernetes, GitLab CI/CD, Ansible, Terraform. Тбилиси, готов к релокации.">
+  <meta property="og:title" content="Калислав Смирнов, DevOps-инженер">
+  <meta property="og:description" content="DevOps-инженер, 4,5 года опыта: Kubernetes, GitLab CI/CD, Ansible, Terraform. Тбилиси, готов к релокации.">
+  <meta property="og:type" content="profile">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:url" content="https://cv.kalik8s.ru/ru/">
+  <meta property="og:image" content="https://cv.kalik8s.ru/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Калислав Смирнов, DevOps-инженер: Kubernetes, GitLab CI/CD, Terraform, Ansible">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://cv.kalik8s.ru/og.jpg">
+  <link rel="canonical" href="https://cv.kalik8s.ru/ru/">
+  <link rel="alternate" hreflang="en" href="https://cv.kalik8s.ru/">
+  <link rel="alternate" hreflang="ru" href="https://cv.kalik8s.ru/ru/">
+  <link rel="alternate" hreflang="x-default" href="https://cv.kalik8s.ru/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Kalislav Smirnov",
+    "alternateName": "Калислав Смирнов",
+    "jobTitle": "DevOps Engineer",
+    "description": "DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines. Banks and government, including air-gapped environments.",
+    "url": "https://cv.kalik8s.ru/",
+    "email": "mailto:kalikys@outlook.com",
+    "address": { "@type": "PostalAddress", "addressLocality": "Tbilisi", "addressCountry": "GE" },
+    "alumniOf": { "@type": "CollegeOrUniversity", "name": "Bauman Moscow State Technical University" },
+    "knowsLanguage": ["en", "ru"],
+    "knowsAbout": ["DevOps", "Kubernetes", "Helm", "Docker", "GitLab CI/CD", "Ansible", "Terraform", "DevSecOps", "Prometheus", "Grafana", "Linux", "Python"],
+    "sameAs": [
+      "https://github.com/kalikys",
+      "https://www.linkedin.com/in/devops-kalislav-smirnov/",
+      "https://t.me/kalikys"
+    ]
+  }
+  </script>
+  <meta name="theme-color" content="#0a0d14">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202609291800">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="#top" aria-label="Kalislav Smirnov">
+        <span class="brand__mark">ks</span><span class="brand__cursor" aria-hidden="true"></span>
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#cases" data-i18n="nav.cases">Кейсы</a>
+        <a href="#experience" data-i18n="nav.experience">Опыт</a>
+        <a href="#skills" data-i18n="nav.skills">Навыки</a>
+        <a href="#projects" data-i18n="nav.projects">Проекты</a>
+        <a href="#homelab" data-i18n="nav.homelab">Homelab</a>
+        <a href="#sandbox" data-i18n="nav.sandbox">Песочница</a>
+        <a href="#learning" data-i18n="nav.learning">Обучение</a>
+      </nav>
+      <a class="lang" id="lang-toggle" href="/" hreflang="en" data-target="en" aria-label="Switch language">
+        <span data-lang="en">EN</span><span class="lang__sep">/</span><span data-lang="ru" class="is-active">RU</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <p class="prompt"><span class="prompt__path">~</span> <span class="prompt__sign">$</span> whoami</p>
+      <h1 class="hero__name">Kalislav Smirnov</h1>
+      <p class="hero__role" data-i18n="hero.role">DevOps-инженер</p>
+      <p class="hero__lead" data-i18n="hero.lead">DevOps-инженер, 4,5 года опыта. Строю Kubernetes-платформы, CI/CD в GitLab и автоматизацию инфраструктуры на Ansible и Terraform, в последнее время для банков и госсектора, в том числе в полностью изолированных средах. Также встраиваю в пайплайны проверки SAST, DAST и SCA.</p>
+      <div class="hero__meta">
+        <span class="chip chip--ok"><span class="dot dot--ok" aria-hidden="true"></span><span data-i18n="hero.open">Открыт к предложениям</span></span>
+        <span class="chip" data-i18n="hero.relocation">Готов к релокации :)</span>
+        <span class="chip" data-i18n="hero.location">Грузия, Тбилиси</span>
+      </div>
+      <div class="actions">
+        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="hero.email">Обсудить вакансию</a>
+        <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+        <a class="btn" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
+        <a class="btn btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Скачать резюме (PDF)</a>
+      </div>
+    </section>
+
+    <section class="section wrap" id="impact" aria-labelledby="impact-title">
+      <h2 class="section__title" id="impact-title"><span class="section__num">01</span><span data-i18n="impact.title">Результаты</span></h2>
+      <div class="metrics">
+        <article class="metric">
+          <p class="metric__value">10h <span class="metric__arrow">→</span> 20min</p>
+          <p class="metric__label" data-i18n="impact.m1">Автоматизировал весь процесс развёртывания инфраструктуры для edge-устройств (мини-ПК)</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">5</p>
+          <p class="metric__label" data-i18n="impact.m2">Комплексных внедрений DevSecOps-платформ для банковских и государственных клиентов</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">100+ <span class="metric__unit">VMs</span></p>
+          <p class="metric__label" data-i18n="impact.m3">Kubernetes-платформы в нескольких дата-центрах с протоколами аварийного восстановления</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">2w <span class="metric__arrow">→</span> 3d</p>
+          <p class="metric__label" data-i18n="impact.m4">Цикл релиза для 20+ микросервисов</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="cases" aria-labelledby="cases-title">
+      <h2 class="section__title" id="cases-title"><span class="section__num">02</span><span data-i18n="cases.title">Кейсы</span></h2>
+      <p class="section__lead" data-i18n="cases.lead">Названия заказчиков не указываю намеренно. Цифры взяты из самих проектов.</p>
+      <div class="cases">
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c1.context">Федеральная компания · 90+ команд разработки · 200+ продуктов · команда из 3 инженеров · 1 год</p>
+          <h3 class="case__title" data-i18n="cases.c1.title">Процесс безопасной разработки на всю компанию</h3>
+          <p class="case__problem" data-i18n="cases.c1.problem">Десятки команд выпускали код без общих проверок безопасности, а open source пакеты доходили до разработчиков без проверки.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c1.p1">Развернули OSA Firewall и встроили его в цепочку поставки пакетов: open source зависимости проверяются до того, как их получат разработчики.</li>
+            <li data-i18n="cases.c1.p2">Развернули ASOC-платформу, которая собирает находки всех сканеров в одном месте.</li>
+            <li data-i18n="cases.c1.p3">Добавили проверки Gitleaks, Trivy, SCA и OSA в общие шаблоны GitLab CI, и команды получили их без ручной настройки пайплайнов.</li>
+            <li data-i18n="cases.c1.p4">Обучили DevOps-инженеров и разработчиков работать с находками. Вместе с заказчиком подготовили и согласовали 30+ документов и инструкций по процессу.</li>
+          </ul>
+          <p class="case__source"><a href="https://habr.com/ru/companies/swordfish_security/news/1064506/" target="_blank" rel="noopener" data-i18n="cases.c1.source">Пресс-релиз о проекте</a></p>
+          <p class="case__result"><span class="case__value">100%</span> <span data-i18n="cases.c1.result">пайплайнов запускают проверки безопасности</span></p>
+          <p class="tags"><span>GitLab CI</span><span>OSA Firewall</span><span>ASOC</span><span>Gitleaks</span><span>Trivy</span><span>SCA</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c2.context">Крупный банк · изолированная (air-gapped) сеть</p>
+          <h3 class="case__title" data-i18n="cases.c2.title">Доставка подписанных пакетов в закрытый контур</h3>
+          <p class="case__problem" data-i18n="cases.c2.problem">У репозитория Nexus в банке нет доступа в интернет, и каждый пакет, который туда попадает, должен прийти из доверенного источника.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c2.p1">Написал сервис доставки на Python, который работает в Kubernetes.</li>
+            <li data-i18n="cases.c2.p2">Каждый пакет подписывается GPG, подпись проверяется до того, как пакет попадёт в Nexus.</li>
+          </ul>
+          <p class="case__result" data-i18n="cases.c2.result">Разработчики в закрытом контуре получают нужные пакеты, и у каждого пакета можно проверить подпись.</p>
+          <p class="tags"><span>Python</span><span>Kubernetes</span><span>GPG</span><span>Nexus</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c3.context">Инвестиционный банк · edge-устройства</p>
+          <h3 class="case__title" data-i18n="cases.c3.title">Полная автоматизация настройки мини-ПК</h3>
+          <p class="case__problem" data-i18n="cases.c3.problem">Каждое edge-устройство (мини-ПК) настраивали вручную, на это уходил целый рабочий день.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c3.p1">Автоматизировал весь процесс развёртывания инфраструктуры с помощью Ansible и собственных скриптов.</li>
+          </ul>
+          <p class="case__result"><span class="case__value">10h → 20min</span> <span data-i18n="cases.c3.result">на настройку одного устройства</span></p>
+          <p class="tags"><span>Ansible</span><span>Bash</span><span>Linux</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c4.context">Инвестиционный банк · основное приложение</p>
+          <h3 class="case__title" data-i18n="cases.c4.title">От монолита к 10 сервисам в Kubernetes</h3>
+          <p class="case__problem" data-i18n="cases.c4.problem">Основное приложение было одним монолитом, и мониторинга для сервисной архитектуры не было.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c4.p1">Спроектировал и провёл первую миграцию монолита на 10 контейнеризированных микросервисов в Kubernetes.</li>
+            <li data-i18n="cases.c4.p2">Написал Helm-чарты для всех 10 сервисов.</li>
+            <li data-i18n="cases.c4.p3">С нуля построил мониторинг и оповещения на Prometheus, Grafana и ELK.</li>
+          </ul>
+          <p class="case__result" data-i18n="cases.c4.result">Любой сервис разворачивается или откатывается одной командой, а команда видит проблемы в реальном времени.</p>
+          <p class="tags"><span>Kubernetes</span><span>Helm</span><span>Prometheus</span><span>Grafana</span><span>ELK</span></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="experience" aria-labelledby="exp-title">
+      <h2 class="section__title" id="exp-title"><span class="section__num">03</span><span data-i18n="exp.title">Опыт</span></h2>
+      <ol class="timeline">
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevSecOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j1.period">фев 2025 - авг 2026</span>
+          </div>
+          <p class="job__company"><a class="job__link" href="https://swordfish-security.ru/" target="_blank" rel="noopener">Swordfish Security</a> <span class="job__type" data-i18n="exp.j1.type">Полная занятость</span></p>
+          <p class="job__summary" data-i18n="exp.j1.intro">Развёртывание и сопровождение DevSecOps-платформ для корпоративных клиентов в банковском, финтех- и государственном секторах, включая полностью изолированные (air-gapped) среды.</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j1.p1">Руководил 5 комплексными внедрениями DevSecOps-платформ для банковских и государственных клиентов, от проектирования архитектуры до финальной передачи.</li>
+            <li data-i18n="exp.j1.p2">Спроектировал и развернул защищённый сервис доставки пакетов с GPG-подписью на Python и Kubernetes для изолированного (air-gapped) репозитория Nexus крупного банка.</li>
+            <li data-i18n="exp.j1.p3">Автоматизировал интеграцию инструментов SAST, DAST и SCA (Semgrep, Trivy) в GitLab CI, обеспечив проверку безопасности 100% новых коммитов.</li>
+            <li data-i18n="exp.j1.p4">Разработал набор из 15+ переиспользуемых ролей Ansible для стандартизации развёртываний в окружениях клиентов, сократив время настройки новых проектов примерно на 30%.</li>
+            <li data-i18n="exp.j1.p5">Проектировал и сопровождал Kubernetes-платформы в нескольких дата-центрах (100+ ВМ) с протоколами аварийного восстановления для высокодоступных финансовых систем.</li>
+            <li data-i18n="exp.j1.p6">Готовил и проводил демонстрации продуктов и приёмочные испытания (Nexus, GitLab, DevSecOps-продукты).</li>
+            <li data-i18n="exp.j1.p7">Сопровождал внутреннюю инфраструктуру: GitLab, собственные продукты, окружения RnD и PROD</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>Ansible</span><span>GitLab CI</span><span>Nexus</span><span>Python</span><span>Bash</span><span>Linux</span><span>SAST/DAST/SCA scanners</span></p>
+        </li>
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j2.period">окт 2024 - фев 2025</span>
+          </div>
+          <p class="job__company">Sinara Investment Bank</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j2.p1">Автоматизировал весь процесс развёртывания инфраструктуры для edge-устройств (мини-ПК), сократив время настройки с 10 часов до 20 минут с помощью Ansible и собственных скриптов.</li>
+            <li data-i18n="exp.j2.p2">Спроектировал и провёл первоначальную миграцию основного монолитного приложения на 10 контейнеризированных микросервисов в Kubernetes.</li>
+            <li data-i18n="exp.j2.p3">С нуля построил полноценный стек наблюдаемости на Prometheus, Grafana и ELK, обеспечив мониторинг и оповещения в реальном времени для новой микросервисной архитектуры.</li>
+            <li data-i18n="exp.j2.p4">Разработал и сопровождал Helm-чарты для всех 10 сервисов, обеспечив развёртывание и откат одной командой.</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>GitLab CI</span><span>Python</span><span>ELK Stack</span><span>Airflow</span><span>ClickHouse</span><span>PostgreSQL</span><span>RabbitMQ</span><span>Grafana</span><span>Prometheus</span></p>
+        </li>
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j3.period">апр 2022 - окт 2024</span>
+          </div>
+          <p class="job__company" data-i18n="exp.j3.company">Инженерно-производственная компания</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j3.p1">Перестроил процесс CI/CD, внедрив автоматизированное тестирование и пайплайны развёртывания в GitLab CI, и сократил цикл релиза для 20+ микросервисов с 2 недель до 3 дней.</li>
+            <li data-i18n="exp.j3.p2">Автоматизировал ручные чек-листы развёртывания с помощью Ansible и Bash-скриптов, сократив время ручного развёртывания с более чем 4 часов до менее чем 30 минут на релиз.</li>
+            <li data-i18n="exp.j3.p3">Руководил контейнеризацией 20+ устаревших микросервисов на Java с помощью Docker, стандартизировав окружения и устранив дрейф конфигураций между staging и production.</li>
+            <li data-i18n="exp.j3.p4">Управлял и сопровождал production-инфраструктуру компании, состоящую из 50+ Linux-серверов в двух дата-центрах.</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Terraform</span><span>GitLab CI</span><span>Git</span><span>Python</span><span>Linux</span></p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section wrap" id="skills" aria-labelledby="skills-title">
+      <h2 class="section__title" id="skills-title"><span class="section__num">04</span><span data-i18n="skills.title">Навыки</span></h2>
+      <div class="stack">
+        <div class="stack__group"><h3 data-i18n="skills.platform">Платформа</h3><p class="tags"><span>kubernetes</span><span>helm</span><span>docker</span><span>linux</span><span>microservices</span><span>disaster recovery</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.iac">Автоматизация и IaC</h3><p class="tags"><span>ansible</span><span>terraform</span><span>python</span><span>bash</span><span>oop</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.cicd">CI/CD</h3><p class="tags"><span>gitlab ci</span><span>jenkins</span><span>nexus</span><span>git</span><span>ci cd</span><span>acceptance testing</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.security">Безопасность</h3><p class="tags"><span>sast</span><span>dast</span><span>sca</span><span>semgrep</span><span>trivy</span><span>appscreener</span><span>appsec.hub</span><span>appsec.track</span><span>gpg</span><span>osa firewall</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.observability">Наблюдаемость</h3><p class="tags"><span>prometheus</span><span>grafana</span><span>alertmanager</span><span>elk</span><span>observability</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.data">Данные и очереди</h3><p class="tags"><span>postgresql</span><span>clickhouse</span><span>rabbitmq</span><span>airflow</span></p></div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="projects" aria-labelledby="projects-title">
+      <h2 class="section__title" id="projects-title"><span class="section__num">05</span><span data-i18n="projects.title">Проекты</span></h2>
+      <p class="section__lead" data-i18n="projects.lead">Публичные репозитории на GitHub, данные подгружаются вживую.</p>
+      <div class="projects" id="projects-list" aria-live="polite"></div>
+      <a class="section__link" href="https://github.com/kalikys" target="_blank" rel="noopener" data-i18n="projects.all">Все репозитории на GitHub</a>
+    </section>
+
+    <section class="section wrap" id="homelab" aria-labelledby="lab-title">
+      <h2 class="section__title" id="lab-title"><span class="section__num">06</span><span data-i18n="lab.title">Homelab</span></h2>
+      <p class="section__lead" data-i18n="lab.lead">Этот сайт работает на мини-ПК у меня дома.</p>
+      <div class="arch" id="arch" aria-labelledby="arch-title">
+        <div class="arch__head">
+          <h3 id="arch-title" data-i18n="arch.title">Архитектура</h3>
+          <p class="arch__note"><span data-i18n="arch.note">Схема собрана из Terraform-кода в репозитории homelab.</span> <a href="https://github.com/kalikys/homelab/blob/main/terraform/outputs.tf" target="_blank" rel="noopener">terraform/outputs.tf</a></p>
+        </div>
+        <div class="arch__body" id="arch-body"></div>
+      </div>
+      <div class="lab">
+        <div class="lab__about">
+          <ul class="lab__facts">
+            <li data-i18n="lab.f1">Proxmox VE на ZFS.</li>
+            <li data-i18n="lab.f3">Локальный DNS с блокировкой рекламы, wildcard-сертификаты Let's Encrypt через DNS-01.</li>
+            <li data-i18n="lab.f4">Открытых портов нет. Сам подключаюсь через Tailscale, сайт опубликован через Cloudflare Tunnel.</li>
+            <li data-i18n="lab.f5">Мониторинг на Gatus (конфиг в YAML) и Uptime Kuma.</li>
+          </ul>
+          <div class="commits" id="commits" aria-live="polite">
+            <div class="commits__head">
+              <h3 data-i18n="lab.commits">Последние изменения в репозитории</h3>
+              <a class="commits__all" href="https://github.com/kalikys/homelab/commits/main" target="_blank" rel="noopener" data-i18n="lab.commitsAll">Все коммиты</a>
+            </div>
+            <ol class="commits__list" id="commits-list"></ol>
+          </div>
+        </div>
+        <div class="lab__live">
+          <div class="stats" id="stats" aria-live="polite" hidden></div>
+          <div class="status" aria-live="polite">
+            <div class="status__head">
+              <span class="status__overall" id="status-overall"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="lab.checking">Проверяю…</span></span>
+              <span class="status__updated" id="status-updated"></span>
+            </div>
+            <ul class="status__list" id="status-list"></ul>
+            <a class="status__link" href="https://status.kalik8s.ru" target="_blank" rel="noopener" data-i18n="lab.full">Подробная страница статуса</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="sandbox" aria-labelledby="sandbox-title">
+      <h2 class="section__title" id="sandbox-title"><span class="section__num">07</span><span data-i18n="sandbox.title">Песочница</span></h2>
+      <div class="sandbox">
+        <div class="sandbox__about">
+          <p class="lab__lead" data-i18n="sandbox.lead">Настоящий shell в одноразовой ВМ на моём Proxmox.</p>
+          <ul class="lab__facts">
+            <li data-i18n="sandbox.f1">Изолированная сеть: нет интернета и доступа к другим хостам.</li>
+            <li data-i18n="sandbox.f2">1 vCPU с лимитом 50%, 768 МБ RAM, диск 6 ГБ.</li>
+            <li data-i18n="sandbox.f3">Каждые 30 минут откатывается к чистому снапшоту.</li>
+            <li data-i18n="sandbox.f4">Одновременно до 5 человек.</li>
+          </ul>
+          <div class="actions">
+            <button class="btn btn--primary" type="button" id="sandbox-start" data-i18n="sandbox.start">Запустить сессию</button>
+            <a class="btn btn--ghost" href="https://shell.kalik8s.ru" target="_blank" rel="noopener" data-i18n="sandbox.newtab">Открыть в новой вкладке</a>
+          </div>
+        </div>
+        <div class="sandbox__screen" id="sandbox-screen">
+          <p class="sandbox__placeholder"><span class="prompt__path">guest@sandbox</span>:<span class="prompt__sign">~$</span> <span class="brand__cursor" aria-hidden="true"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap section--last" id="learning" aria-labelledby="edu-title">
+      <h2 class="section__title" id="edu-title"><span class="section__num">08</span><span data-i18n="edu.title">Обучение и образование</span></h2>
+      <div class="learning">
+        <div class="learning__head">
+          <p class="edu__main" data-i18n="learn.goal">Сертификации по Kubernetes: сначала CKA, затем CKAD</p>
+          <span class="chip chip--progress"><span class="dot dot--warn" aria-hidden="true"></span><span data-i18n="learn.status">В процессе</span></span>
+        </div>
+        <p class="edu__sub" data-i18n="learn.sub">Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer. Начал в 2026 году.</p>
+      </div>
+      <div class="edu">
+        <div>
+          <p class="edu__main" data-i18n="edu.degree">Специалитет, Аэрокосмические системы</p>
+          <p class="edu__sub" data-i18n="edu.school">Московский государственный технический университет им. Н. Э. Баумана, 2020 - 2026</p>
+        </div>
+        <div>
+          <p class="edu__main" data-i18n="edu.lang1">Английский - B2</p>
+          <p class="edu__main" data-i18n="edu.lang2">Русский</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov</span>
+      <span class="footer__mono" data-i18n="footer.served">размещено дома, опубликовано через Cloudflare Tunnel</span>
+    </div>
+  </footer>
+
+  <script src="/app.js?v=202609291800" defer></script>
+  <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
+</body>
+</html>
