@@ -46,13 +46,28 @@ flowchart LR
 | `npm` | 102 | Nginx Proxy Manager |
 | `apps` | 103 | Homepage, Paperless-ngx, Speedtest Tracker, Uptime Kuma |
 | `public` | 104 | CV site (nginx), Gatus, cloudflared |
+| `sandbox` | 200 (VM) | Public web terminal (ttyd), see below |
+
+## Public sandbox
+
+`shell.kalik8s.ru` opens a real shell in a throwaway Debian VM. Isolation, from the outside in:
+
+- The VM sits alone on `vmbr1`, a bridge with no physical port and no host address. It has no gateway and no DNS.
+- The only other member of `vmbr1` is the `public` container (second NIC, `10.66.0.2`), where cloudflared forwards visitors to the terminal.
+- Proxmox firewall on the VM: inbound only TCP 7681 from `10.66.0.2`, outbound `DROP`, IP and MAC filtering on. On the `public` container's DMZ NIC: inbound `DROP`, so the sandbox cannot open connections to it.
+- Inside the VM the terminal runs as an unprivileged user under a systemd unit with `NoNewPrivileges`, a read-only system, and task, memory and CPU limits. SSH, cloud-init and the build user are removed.
+- VM limits: 1 vCPU capped at 50%, 768 MB RAM, 6 GB disk with I/O throttling, 5 MB/s NIC.
+- A cron job on the host rolls the VM back to the `clean` snapshot every 30 minutes.
+
+`host/sandbox/build.sh` builds the VM from the official Debian cloud image (checksum-verified) and `host/sandbox/isolation-test.py` checks the isolation through the same websocket a visitor uses.
 
 ## Repository layout
 
 ```
 terraform/   Proxmox LXC guests and Cloudflare tunnel + DNS (bpg/proxmox, cloudflare/cloudflare)
 services/    docker compose files and app configs, one directory per LXC
-host/        files placed on the Proxmox host by hand (systemd units, apt hook, sshd drop-in)
+host/        files placed on the Proxmox host (systemd units, firewall rules, sandbox build)
+scripts/     export-site-data.py: Terraform inventory -> services/public/site/data/homelab.json
 ```
 
 ## Terraform
@@ -67,6 +82,10 @@ terraform plan
 ```
 
 State is kept locally and is not committed. The Proxmox API token belongs to a dedicated `terraform@pve` user.
+
+Note: changing a container's network interfaces through the provider restarts the container, even though the plan shows an in-place update.
+
+The CV site's architecture data comes from Terraform: `local.site_inventory` in `terraform/outputs.tf` (no addresses) is exported with `scripts/export-site-data.py`.
 
 ## Secrets
 

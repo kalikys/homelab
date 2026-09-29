@@ -1,0 +1,7 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+# Only net1 (sandbox DMZ, firewall=1) is filtered; net0 (LAN) has the firewall off.
+# The sandbox cannot open connections to this container; replies to our own requests pass.

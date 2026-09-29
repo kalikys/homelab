@@ -1,0 +1,91 @@
+{
+  "guests": [
+    {
+      "cores": 1,
+      "disk_gb": 4,
+      "id": 100,
+      "kind": "lxc",
+      "memory_mb": 512,
+      "name": "adguard",
+      "network": [
+        "lan"
+      ],
+      "role": "DNS and ad blocking for the LAN and VPN"
+    },
+    {
+      "cores": 4,
+      "disk_gb": 32,
+      "id": 103,
+      "kind": "lxc",
+      "memory_mb": 4096,
+      "name": "apps",
+      "network": [
+        "lan"
+      ],
+      "role": "Home apps in Docker"
+    },
+    {
+      "cores": 2,
+      "disk_gb": 8,
+      "id": 102,
+      "kind": "lxc",
+      "memory_mb": 1024,
+      "name": "npm",
+      "network": [
+        "lan"
+      ],
+      "role": "Reverse proxy with wildcard TLS"
+    },
+    {
+      "cores": 1,
+      "disk_gb": 6,
+      "id": 104,
+      "kind": "lxc",
+      "memory_mb": 768,
+      "name": "public",
+      "network": [
+        "lan",
+        "dmz"
+      ],
+      "role": "Public edge: CV, status page, Cloudflare Tunnel"
+    },
+    {
+      "cores": 1,
+      "disk_gb": 4,
+      "id": 101,
+      "kind": "lxc",
+      "memory_mb": 512,
+      "name": "tailscale",
+      "network": [
+        "lan"
+      ],
+      "role": "VPN subnet router and exit node"
+    },
+    {
+      "cores": 1,
+      "disk_gb": 6,
+      "id": 200,
+      "kind": "vm",
+      "memory_mb": 768,
+      "name": "sandbox",
+      "network": [
+        "dmz"
+      ],
+      "role": "Public web terminal, isolated network, reset every 30 minutes"
+    }
+  ],
+  "host": {
+    "name": "pve",
+    "platform": "Proxmox VE",
+    "storage": "ZFS"
+  },
+  "networks": {
+    "dmz": "Isolated bridge without uplink; only the edge container can reach the sandbox",
+    "lan": "Home LAN behind double NAT, no inbound ports"
+  },
+  "public_hostnames": [
+    "cv.kalik8s.ru",
+    "shell.kalik8s.ru",
+    "status.kalik8s.ru"
+  ]
+}

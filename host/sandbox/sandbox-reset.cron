@@ -1,0 +1,2 @@
+# /etc/cron.d/sandbox-reset
+*/30 * * * * root /usr/local/sbin/sandbox-reset.sh >/dev/null 2>&1

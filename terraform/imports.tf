@@ -24,3 +24,5 @@ import {
   to = cloudflare_dns_record.tunnel["status"]
   id = "${local.cloudflare_zone_id}/821fd5b07dc962619e757a1f0b394eeb"
 }
+
+# cloudflare_dns_record.tunnel["shell"]: import once the record exists (created together with the tunnel route).

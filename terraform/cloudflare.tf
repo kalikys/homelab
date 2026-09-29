@@ -5,6 +5,7 @@ locals {
   tunnel_routes = {
     cv     = "http://site:80"
     status = "http://gatus:8080"
+    shell  = "http://10.66.0.10:7681" # sandbox VM on the isolated bridge, reached through LXC 104 eth1
   }
 }
 

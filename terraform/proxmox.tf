@@ -23,6 +23,7 @@ locals {
       dns         = ["1.1.1.1", "9.9.9.9"]
       keyctl      = false
       tun         = false
+      dmz_ip      = null
     }
     tailscale = {
       vm_id       = 101
@@ -37,6 +38,7 @@ locals {
       dns         = ["192.168.1.2"]
       keyctl      = false
       tun         = true
+      dmz_ip      = null
     }
     npm = {
       vm_id       = 102
@@ -51,6 +53,7 @@ locals {
       dns         = ["192.168.1.2"]
       keyctl      = true
       tun         = false
+      dmz_ip      = null
     }
     apps = {
       vm_id       = 103
@@ -65,6 +68,7 @@ locals {
       dns         = ["192.168.1.2"]
       keyctl      = true
       tun         = false
+      dmz_ip      = null
     }
     public = {
       vm_id       = 104
@@ -79,6 +83,7 @@ locals {
       dns         = ["192.168.1.2"]
       keyctl      = true
       tun         = false
+      dmz_ip      = "10.66.0.2"
     }
   }
 }
@@ -136,12 +141,31 @@ resource "proxmox_virtual_environment_container" "lxc" {
         gateway = local.lan.gateway
       }
     }
+
+    # Second leg into the isolated sandbox bridge: no gateway, filtered by the PVE firewall.
+    dynamic "ip_config" {
+      for_each = each.value.dmz_ip == null ? [] : [each.value.dmz_ip]
+      content {
+        ipv4 {
+          address = "${ip_config.value}/24"
+        }
+      }
+    }
   }
 
   network_interface {
     name        = "eth0"
     bridge      = local.lan.bridge
     mac_address = each.value.mac
+  }
+
+  dynamic "network_interface" {
+    for_each = each.value.dmz_ip == null ? [] : [each.value.dmz_ip]
+    content {
+      name     = "eth1"
+      bridge   = "vmbr1"
+      firewall = true
+    }
   }
 
   operating_system {

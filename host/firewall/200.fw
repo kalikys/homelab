@@ -1,0 +1,15 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: DROP
+dhcp: 0
+ndp: 0
+radv: 0
+ipfilter: 1
+macfilter: 1
+
+[IPSET ipfilter-net0]
+10.66.0.10
+
+[RULES]
+IN ACCEPT -source 10.66.0.2 -p tcp -dport 7681 # web terminal, only from cloudflared on LXC 104
