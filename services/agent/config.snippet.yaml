@@ -1,0 +1,23 @@
+# Non-secret part of /home/hermes/.hermes/config.yaml on VM 220 (secrets live in ~/.hermes/.env, mode 600).
+model:
+  provider: openrouter
+  default: anthropic/claude-sonnet-5.5
+approvals:
+  mode: manual
+unauthorized_dm_behavior: ignore
+terminal:
+  backend: docker
+  container_cpu: 1
+  container_memory: 1024
+  container_disk: 5120
+  container_persistent: false
+  cwd: /home/hermes/work
+security:
+  allow_private_urls: true
+  website_blocklist:
+    enabled: true
+    domains:
+      - "npm.home.kalik8s.ru"
+      - "adguard.home.kalik8s.ru"
+      - "192.168.1.4"
+      - "192.168.1.2"
