@@ -50,10 +50,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ru/index.html is up to date
+      - name: Russian pages are up to date
         run: |
           python3 scripts/build-ru.py
-          git diff --exit-code -- services/public/site/ru/index.html
+          git diff --exit-code -- services/public/site/ru/
+          test -z "$(git status --porcelain -- services/public/site/ru/)"
 
       - name: app.js parses
         run: node --check services/public/site/app.js
