@@ -1,4 +1,6 @@
+# Content signals (contentsignals.org): this is a public CV, reuse for search, AI answers and training is welcome.
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
 Sitemap: https://kalik8s.com/sitemap.xml
