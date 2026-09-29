@@ -1,6 +1,6 @@
 # Existing guests were created by hand before this repo existed and are adopted into state here.
 import {
-  for_each = { for name, container in local.containers : name => container if container.vm_id <= 104 }
+  for_each = local.containers
   to       = proxmox_virtual_environment_container.lxc[each.key]
   id       = "${var.proxmox_node}/${each.value.vm_id}"
 }

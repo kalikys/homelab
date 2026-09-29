@@ -85,21 +85,6 @@ locals {
       tun         = false
       dmz_ip      = "10.66.0.2"
     }
-    monitoring = {
-      vm_id       = 105
-      description = "Prometheus, Grafana and monitoring exporters (Docker)"
-      ip          = "192.168.1.12"
-      mac         = "BC:24:11:65:4A:12"
-      cores       = 2
-      memory      = 2048
-      swap        = 512
-      disk_gb     = 16
-      order       = 6
-      dns         = ["192.168.1.2"]
-      keyctl      = true
-      tun         = false
-      dmz_ip      = null
-    }
   }
 }
 
@@ -196,7 +181,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 
   lifecycle {
-    prevent_destroy = false
+    prevent_destroy = true
     # The template is only used at creation time and cannot be read back from an existing container.
     ignore_changes = [operating_system[0].template_file_id]
   }
