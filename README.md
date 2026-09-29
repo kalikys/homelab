@@ -1,11 +1,14 @@
 # homelab
 
+[![infra checks](https://github.com/kalikys/homelab/actions/workflows/ci.yml/badge.svg)](https://github.com/kalikys/homelab/actions/workflows/ci.yml)
+
 Infrastructure code and service configs for my home lab: one mini-PC running Proxmox VE, a handful of LXC containers, and two public pages published through Cloudflare Tunnel.
 
 Live pages:
 
 - CV: <https://kalik8s.com>
 - Status (Gatus): <https://status.kalik8s.com>
+- Public sandbox shell: <https://shell.kalik8s.com> (see [below](#public-sandbox))
 
 ## Hardware
 
@@ -94,3 +97,9 @@ Nothing secret is committed: `.env` files, `*.tfvars`, and Terraform state are i
 ## Install notes
 
 Proxmox was installed without a monitor or keyboard. `kexec` into the installer hung on this hardware, so the unattended installer was network-booted instead: iPXE (`snponly.efi` with an embedded script) chain-loads the kernel, initrd and the installer ISO over HTTP, and the answer file is fetched over HTTP too. The Keenetic DHCP server needed `next-server`/`bootfile` set explicitly, because the Intel PXE ROM ignores options 66/67.
+
+## About the author
+
+I'm Kalislav Smirnov, a DevOps engineer based in Tbilisi, Georgia. This repo is the infrastructure behind my CV site. At work I build Kubernetes platforms, GitLab CI/CD pipelines and automation with Ansible and Terraform, mostly for banks and government agencies, including air-gapped environments.
+
+I'm open to offers (relocation to the EU, the USA or Kazakhstan, or remote). CV and case studies: [kalik8s.com](https://kalik8s.com/?utm_source=github&utm_medium=readme&utm_campaign=jobsearch) · kalikys@outlook.com · [Telegram](https://t.me/kalikys) · [LinkedIn](https://www.linkedin.com/in/devops-kalislav-smirnov/)
