@@ -81,7 +81,7 @@ terraform init
 terraform plan
 ```
 
-State is kept locally and is not committed. The Proxmox API token belongs to a dedicated `terraform@pve` user.
+State is kept locally and is not committed. The Proxmox API token belongs to a dedicated `terraform@pve` user. Cloudflare (tunnel `CV`, its ingress rules and the three CNAME records) is imported the same way; `terraform plan` is clean for both providers.
 
 Note: changing a container's network interfaces through the provider restarts the container, even though the plan shows an in-place update.
 

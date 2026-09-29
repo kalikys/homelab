@@ -7,6 +7,9 @@ locals {
     status = "http://gatus:8080"
     shell  = "http://10.66.0.10:7681" # sandbox VM on the isolated bridge, reached through LXC 104 eth1
   }
+
+  # Ingress rules are an ordered list; keep this order stable to avoid no-op diffs.
+  tunnel_route_order = ["cv", "status", "shell"]
 }
 
 # Remotely managed tunnel: cloudflared on LXC "public" only needs the token,
@@ -23,9 +26,9 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "public" {
 
   config = {
     ingress = concat(
-      [for sub, service in local.tunnel_routes : {
+      [for sub in local.tunnel_route_order : {
         hostname = "${sub}.${var.cloudflare_zone}"
-        service  = service
+        service  = local.tunnel_routes[sub]
       }],
       [{ service = "http_status:404" }],
     )

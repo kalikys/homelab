@@ -112,6 +112,8 @@ GROUPS = [
     ("Публичное", [
         http("Визитка cv.kalik8s.ru", "https://cv.kalik8s.ru", expiryNotification=True, interval=300),
         http("Статус status.kalik8s.ru", "https://status.kalik8s.ru", expiryNotification=True, interval=300),
+        # The sandbox is rolled back every 30 min (~15 s down): retries keep that from raising alerts.
+        http("Консоль shell.kalik8s.ru", "https://shell.kalik8s.ru", interval=300, retryInterval=60, maxretries=3),
     ]),
 ]
 
