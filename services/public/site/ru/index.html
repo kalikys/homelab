@@ -30,7 +30,7 @@
       "@id": "https://kalik8s.com/ru/#page",
       "url": "https://kalik8s.com/ru/",
       "name": "Калислав Смирнов, DevOps-инженер",
-      "dateModified": "2026-09-29T18:00:00+04:00",
+      "dateModified": "2026-09-30T04:00:00+04:00",
       "inLanguage": "ru",
       "mainEntity": {
         "@id": "https://kalik8s.com/#person"
@@ -171,7 +171,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609292210">
+  <link rel="stylesheet" href="/styles.css?v=202609300400">
 </head>
 <body>
   <header class="topbar">
@@ -365,8 +365,8 @@
     </section>
 
     <section class="section wrap" id="homelab" aria-labelledby="lab-title">
-      <h2 class="section__title" id="lab-title"><span class="section__num">06</span><span data-i18n="lab.title">Homelab</span></h2>
-      <p class="section__lead" data-i18n="lab.lead">Этот сайт работает на мини-ПК у меня дома.</p>
+      <h2 class="section__title" id="lab-title"><span class="section__num">06</span><span data-i18n="lab.title">Лаборатория для сертификаций Kubernetes</span></h2>
+      <p class="section__lead" data-i18n="lab.lead">Готовлюсь к CKA, затем к CKAD и CKS на собственном кластере kubeadm из трёх узлов дома. Прогресс берётся из чеклистов в публичном репозитории, а терминал выходит в эфир, пока я тренируюсь.</p>
       <div class="arch" id="arch" aria-labelledby="arch-title">
         <div class="arch__head">
           <h3 id="arch-title" data-i18n="arch.title">Архитектура</h3>
@@ -430,10 +430,12 @@
       <h2 class="section__title" id="edu-title"><span class="section__num">08</span><span data-i18n="edu.title">Обучение и образование</span></h2>
       <div class="learning">
         <div class="learning__head">
-          <p class="edu__main" data-i18n="learn.goal">Сертификации по Kubernetes: сначала CKA, затем CKAD</p>
+          <p class="edu__main" data-i18n="learn.goal">Сертификации по Kubernetes: сначала CKA, затем CKAD и CKS</p>
           <span class="chip chip--progress"><span class="dot dot--warn" aria-hidden="true"></span><span data-i18n="learn.status">В процессе</span></span>
         </div>
-        <p class="edu__sub" data-i18n="learn.sub">Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer. Начал в 2026 году.</p>
+        <p class="edu__sub" data-i18n="learn.sub">Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer и Certified Kubernetes Security Specialist. Начал в 2026 году.</p>
+        <p class="learn-progress" id="learn-progress" hidden></p>
+        <a class="status__link" href="/ru/lab/" data-i18n="learn.follow">Следить за подготовкой в реальном времени →</a>
       </div>
       <div class="edu">
         <div>
@@ -485,12 +487,13 @@
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Обновлено</span> <time datetime="2026-09-29">2026-09-29</time></span>
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Обновлено</span> <time datetime="2026-09-30">2026-09-30</time></span>
       <span class="footer__mono" data-i18n="footer.served">размещено дома, опубликовано через Cloudflare Tunnel</span>
     </div>
   </footer>
 
-  <script src="/app.js?v=202609292130" defer></script>
+  <script src="/lab-core.js?v=202609300400" defer></script>
+  <script src="/app.js?v=202609300400" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

@@ -97,7 +97,7 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 
 ## Learning
 
-- Preparing for Kubernetes certifications: CKA first, then CKAD. Started in 2026.
+- Preparing for Kubernetes certifications: CKA first, then CKAD and CKS. Started in 2026. Live progress: https://kalik8s.com/lab/
 
 ## Education
 

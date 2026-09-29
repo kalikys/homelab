@@ -11,6 +11,7 @@ Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in
 - [CV in Markdown](https://kalik8s.com/cv.md): experience, case studies, skills, education and hiring details in one file
 - [CV website (English)](https://kalik8s.com/): the same content with a live homelab status and a public sandbox shell
 - [CV website (Russian)](https://kalik8s.com/ru/)
+- [Kubernetes certification lab](https://kalik8s.com/lab/): live progress towards CKA, CKAD and CKS, practice activity, the lab VMs and a live terminal stream
 - [homelab repository](https://github.com/kalikys/homelab): Terraform, service configs and CI for the Proxmox home lab that hosts the site
 
 ## Optional

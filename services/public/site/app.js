@@ -326,6 +326,23 @@
   loadStats();
   setInterval(loadStats, 300000);
 
+  // ---- Learning: live progress from the k8s-certs checklists (same parser as /lab/) ----
+
+  function loadLearning() {
+    const box = document.getElementById("learn-progress");
+    if (!box || !window.LabCore) return;
+    Promise.all(["cka", "ckad", "cks"].map((id) => fetch(`/api/github/certs/${id}.md`)
+      .then((res) => (res.ok ? res.text() : Promise.reject(res.status)))
+      .then((md) => [id, window.LabCore.parseChecklist(md).percent])))
+      .then((rows) => {
+        box.replaceChildren(...rows.map(([id, pct]) => el("span", "learn-progress__item", `${id.toUpperCase()} ${pct}%`)));
+        box.hidden = false;
+      })
+      .catch(() => { box.hidden = true; });
+  }
+
+  loadLearning();
+
   // ---- Architecture diagram (data exported from Terraform) ----
 
   function guestCard(g, t) {

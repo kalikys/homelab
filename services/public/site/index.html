@@ -30,7 +30,7 @@
       "@id": "https://kalik8s.com/#page",
       "url": "https://kalik8s.com/",
       "name": "Kalislav Smirnov, DevOps Engineer",
-      "dateModified": "2026-09-29T18:00:00+04:00",
+      "dateModified": "2026-09-30T04:00:00+04:00",
       "inLanguage": "en",
       "mainEntity": {
         "@id": "https://kalik8s.com/#person"
@@ -171,7 +171,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609292210">
+  <link rel="stylesheet" href="/styles.css?v=202609300400">
 </head>
 <body>
   <header class="topbar">
@@ -430,10 +430,12 @@
       <h2 class="section__title" id="edu-title"><span class="section__num">08</span><span data-i18n="edu.title">Learning &amp; education</span></h2>
       <div class="learning">
         <div class="learning__head">
-          <p class="edu__main" data-i18n="learn.goal">Kubernetes certifications: CKA, then CKAD</p>
+          <p class="edu__main" data-i18n="learn.goal">Kubernetes certifications: CKA, then CKAD and CKS</p>
           <span class="chip chip--progress"><span class="dot dot--warn" aria-hidden="true"></span><span data-i18n="learn.status">In progress</span></span>
         </div>
-        <p class="edu__sub" data-i18n="learn.sub">Preparing for the Certified Kubernetes Administrator exam first, then Certified Kubernetes Application Developer. Started in 2026.</p>
+        <p class="edu__sub" data-i18n="learn.sub">Preparing for the Certified Kubernetes Administrator exam first, then Certified Kubernetes Application Developer and Certified Kubernetes Security Specialist. Started in 2026.</p>
+        <p class="learn-progress" id="learn-progress" hidden></p>
+        <a class="status__link" href="/lab/" data-i18n="learn.follow">Follow the preparation live →</a>
       </div>
       <div class="edu">
         <div>
@@ -485,12 +487,13 @@
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Updated</span> <time datetime="2026-09-29">2026-09-29</time></span>
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Updated</span> <time datetime="2026-09-30">2026-09-30</time></span>
       <span class="footer__mono" data-i18n="footer.served">hosted at home, published via Cloudflare Tunnel</span>
     </div>
   </footer>
 
-  <script src="/app.js?v=202609292130" defer></script>
+  <script src="/lab-core.js?v=202609300400" defer></script>
+  <script src="/app.js?v=202609300400" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

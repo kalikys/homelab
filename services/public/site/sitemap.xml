@@ -12,4 +12,16 @@
     <xhtml:link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/"/>
   </url>
+  <url>
+    <loc>https://kalik8s.com/lab/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kalik8s.com/lab/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/lab/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/lab/"/>
+  </url>
+  <url>
+    <loc>https://kalik8s.com/ru/lab/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kalik8s.com/lab/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/lab/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/lab/"/>
+  </url>
 </urlset>

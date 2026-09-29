@@ -107,9 +107,9 @@
   "cases.c4.result": "Любой сервис разворачивается или откатывается одной командой, а команда видит проблемы в реальном времени.",
   "lab.commits": "Последние изменения в репозитории",
   "lab.commitsAll": "Все коммиты",
-  "learn.goal": "Сертификации по Kubernetes: сначала CKA, затем CKAD",
+  "learn.goal": "Сертификации по Kubernetes: сначала CKA, затем CKAD и CKS",
   "learn.status": "В процессе",
-  "learn.sub": "Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer. Начал в 2026 году.",
+  "learn.sub": "Сначала готовлюсь к экзамену Certified Kubernetes Administrator, затем к Certified Kubernetes Application Developer и Certified Kubernetes Security Specialist. Начал в 2026 году.",
   "faq.title": "Для рекрутеров",
   "faq.q1": "Где вы живёте и готовы ли к релокации?",
   "faq.a1": "Живу в Тбилиси, Грузия. Открыт к релокации в страны ЕС, США или Казахстан, а также к удалённой работе на компанию из любой страны.",
@@ -149,5 +149,6 @@
   "lab.live.checking": "Проверяю…",
   "lab.live.watch": "Смотреть",
   "lab.live.open": "Открыть на asciinema.org",
-  "lab.live.note": "Трансляция моего терминала только для просмотра, пока я тренируюсь. Она передаёт только вывод: ничего набранное здесь до лабы не доходит."
+  "lab.live.note": "Трансляция моего терминала только для просмотра, пока я тренируюсь. Она передаёт только вывод: ничего набранное здесь до лабы не доходит.",
+  "learn.follow": "Следить за подготовкой в реальном времени →"
 }

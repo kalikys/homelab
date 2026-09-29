@@ -19,7 +19,9 @@ ru = json.loads((PUBLIC / "i18n/ru.json").read_text())
 
 # English source, URL path, ru.json prefix of its meta strings, extra exact swaps for links between pages.
 PAGES = [
-    ("site/index.html", "/", "meta", []),
+    ("site/index.html", "/", "meta", [
+        ('href="/lab/"', 'href="/ru/lab/"'),
+    ]),
     ("site/lab/index.html", "/lab/", "lab.meta", [
         ('class="brand" href="/"', 'class="brand" href="/ru/"'),
         ('class="back" href="/"', 'class="back" href="/ru/"'),
