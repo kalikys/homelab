@@ -1,10 +1,11 @@
 locals {
   guest_roles = {
-    adguard   = "DNS and ad blocking for the LAN and VPN"
-    tailscale = "VPN subnet router and exit node"
-    npm       = "Reverse proxy with wildcard TLS"
-    apps      = "Home apps in Docker"
-    public    = "Public edge: CV, status page, Cloudflare Tunnel"
+    adguard    = "DNS and ad blocking for the LAN and VPN"
+    tailscale  = "VPN subnet router and exit node"
+    npm        = "Reverse proxy with wildcard TLS"
+    apps       = "Home apps in Docker"
+    public     = "Public edge: CV, status page, Cloudflare Tunnel"
+    monitoring = "Prometheus metrics, Grafana dashboards and network probes"
   }
 }
 

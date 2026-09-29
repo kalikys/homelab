@@ -138,7 +138,7 @@ a:focus-visible, button:focus-visible {
 .btn--primary { background: var(--text); color: var(--bg); border-color: var(--text); }
 .btn--primary:hover { background: #ffffff; }
 .btn--ghost { background: transparent; }
-.btn--lg { font-size: 16px; font-weight: 600; padding: 14px 26px; border-radius: 12px; }
+.btn--lg { font-size: 15px; padding: 11px 20px; }
 .btn--sm { font-size: 13px; padding: 8px 14px; border-radius: 9px; }
 
 /* Hero: one main action, the rest in a quieter row below it */
