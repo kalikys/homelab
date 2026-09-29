@@ -84,6 +84,42 @@
         "lan"
       ],
       "role": "AI ops agent (Telegram), read-only"
+    },
+    {
+      "cores": 2,
+      "disk_gb": 30,
+      "id": 210,
+      "kind": "vm",
+      "memory_mb": 4096,
+      "name": "k8s-cp",
+      "network": [
+        "lan"
+      ],
+      "role": "Kubernetes lab: control plane"
+    },
+    {
+      "cores": 2,
+      "disk_gb": 30,
+      "id": 211,
+      "kind": "vm",
+      "memory_mb": 4096,
+      "name": "k8s-w1",
+      "network": [
+        "lan"
+      ],
+      "role": "Kubernetes lab: worker"
+    },
+    {
+      "cores": 2,
+      "disk_gb": 30,
+      "id": 212,
+      "kind": "vm",
+      "memory_mb": 4096,
+      "name": "k8s-w2",
+      "network": [
+        "lan"
+      ],
+      "role": "Kubernetes lab: worker"
     }
   ],
   "host": {

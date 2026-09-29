@@ -57,6 +57,9 @@
         public: "Публичный узел: CV, страница статуса, Cloudflare Tunnel",
         sandbox: "Публичный веб-терминал, изолированная сеть, сброс каждые 30 минут",
         agent: "AI-агент для эксплуатации (Telegram), только чтение",
+        "k8s-cp": "Лаба Kubernetes: control plane",
+        "k8s-w1": "Лаба Kubernetes: worker",
+        "k8s-w2": "Лаба Kubernetes: worker",
       },
       networks: {
         lan: "Домашняя сеть за двойным NAT, без входящих портов",

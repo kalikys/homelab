@@ -53,6 +53,16 @@ locals {
         role      = local.agent.role
         network   = ["lan"]
       }],
+      [for name, vm in local.lab_vms : {
+        name      = name
+        id        = vm.vm_id
+        kind      = "vm"
+        cores     = local.lab_cores
+        memory_mb = local.lab_memory_mb
+        disk_gb   = local.lab_disk_gb
+        role      = vm.role
+        network   = ["lan"]
+      }],
     )
     networks = {
       lan = "Home LAN behind double NAT, no inbound ports"
