@@ -58,6 +58,14 @@ jobs:
       - name: app.js parses
         run: node --check services/public/site/app.js
 
+      - name: lab scripts parse
+        run: |
+          node --check services/public/site/lab-core.js
+          node --check services/public/site/lab.js
+
+      - name: lab-core tests
+        run: node --test tests/site/*.test.js
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
