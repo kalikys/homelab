@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://cv.kalik8s.ru/sitemap.xml
+Sitemap: https://cv.kalik8s.ru/sitemap.txt
