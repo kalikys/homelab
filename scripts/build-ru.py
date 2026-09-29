@@ -22,7 +22,7 @@ PAGES = [
     ("site/index.html", "/", "meta", [
         ('href="/lab/"', 'href="/ru/lab/"'),
     ]),
-    ("site/lab/index.html", "/lab/", "lab.meta", [
+    ("site/lab/index.html", "/lab/", "certlab.meta", [
         ('class="brand" href="/"', 'class="brand" href="/ru/"'),
         ('class="back" href="/"', 'class="back" href="/ru/"'),
     ]),

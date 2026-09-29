@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609300400">
+  <link rel="stylesheet" href="/styles.css?v=202609300430">
   <link rel="stylesheet" href="/vendor/asciinema-player/asciinema-player.css?v=3.17.0">
 </head>
 <body>
@@ -35,10 +35,10 @@
         <span class="brand__mark">ks</span><span class="brand__cursor" aria-hidden="true"></span>
       </a>
       <nav class="nav" aria-label="Sections">
-        <a href="#progress" data-i18n="lab.nav.progress">Progress</a>
-        <a href="#activity" data-i18n="lab.nav.activity">Activity</a>
-        <a href="#machines" data-i18n="lab.nav.machines">Lab</a>
-        <a href="#live" data-i18n="lab.nav.live">Live</a>
+        <a href="#progress" data-i18n="certlab.nav.progress">Progress</a>
+        <a href="#activity" data-i18n="certlab.nav.activity">Activity</a>
+        <a href="#machines" data-i18n="certlab.nav.machines">Lab</a>
+        <a href="#live" data-i18n="certlab.nav.live">Live</a>
       </nav>
       <a class="lang" id="lang-toggle" href="/ru/lab/" hreflang="ru" data-target="ru" aria-label="Switch language">
         <span data-lang="en" class="is-active">EN</span><span class="lang__sep">/</span><span data-lang="ru">RU</span>
@@ -49,53 +49,53 @@
   <main id="top">
     <section class="hero wrap lab-hero">
       <p class="prompt"><span class="prompt__path">~/lab</span> <span class="prompt__sign">$</span> kubectl get certifications</p>
-      <h1 class="hero__name" data-i18n="lab.title">Kubernetes certification lab</h1>
-      <p class="hero__lead" data-i18n="lab.lead">Preparing for CKA, then CKAD and CKS, on my own three-node kubeadm cluster at home. Progress comes from checklists in a public repository, and the terminal goes live while I practise.</p>
+      <h1 class="hero__name" data-i18n="certlab.title">Kubernetes certification lab</h1>
+      <p class="hero__lead" data-i18n="certlab.lead">Preparing for CKA, then CKAD and CKS, on my own three-node kubeadm cluster at home. Progress comes from checklists in a public repository, and the terminal goes live while I practise.</p>
       <p class="lab-countdown" id="lab-countdown" hidden></p>
       <p class="lab-hero__links">
-        <a class="back" href="/" data-i18n="lab.back">← Back to the CV</a>
+        <a class="back" href="/" data-i18n="certlab.back">← Back to the CV</a>
         <a class="status__link" href="https://github.com/kalikys/k8s-certs" target="_blank" rel="noopener">github.com/kalikys/k8s-certs</a>
       </p>
     </section>
 
     <section class="section wrap" id="progress" aria-labelledby="progress-title">
-      <h2 class="section__title" id="progress-title"><span class="section__num">01</span><span data-i18n="lab.progress.title">Progress</span></h2>
-      <div class="lab-certs" id="lab-certs"><p class="lab-empty" data-i18n="lab.loading">Loading…</p></div>
+      <h2 class="section__title" id="progress-title"><span class="section__num">01</span><span data-i18n="certlab.progress.title">Progress</span></h2>
+      <div class="lab-certs" id="lab-certs"><p class="lab-empty" data-i18n="certlab.loading">Loading…</p></div>
     </section>
 
     <section class="section wrap" id="activity" aria-labelledby="activity-title">
-      <h2 class="section__title" id="activity-title"><span class="section__num">02</span><span data-i18n="lab.activity.title">Activity</span></h2>
+      <h2 class="section__title" id="activity-title"><span class="section__num">02</span><span data-i18n="certlab.activity.title">Activity</span></h2>
       <div class="lab-activity">
         <div class="metric metric--live">
           <p class="metric__value" id="lab-streak">–</p>
-          <p class="metric__label" data-i18n="lab.activity.streak">days in a row with commits</p>
+          <p class="metric__label" data-i18n="certlab.activity.streak">days in a row with commits</p>
         </div>
         <div class="lab-heatmap" id="lab-heatmap" aria-hidden="true"></div>
       </div>
       <div class="commits">
         <div class="commits__head">
-          <h3 data-i18n="lab.activity.commits">Latest commits</h3>
-          <a class="commits__all" href="https://github.com/kalikys/k8s-certs/commits/main" target="_blank" rel="noopener" data-i18n="lab.activity.all">All commits →</a>
+          <h3 data-i18n="certlab.activity.commits">Latest commits</h3>
+          <a class="commits__all" href="https://github.com/kalikys/k8s-certs/commits/main" target="_blank" rel="noopener" data-i18n="certlab.activity.all">All commits →</a>
         </div>
         <ol class="commits__list" id="lab-commits"></ol>
       </div>
     </section>
 
     <section class="section wrap" id="machines" aria-labelledby="machines-title">
-      <h2 class="section__title" id="machines-title"><span class="section__num">03</span><span data-i18n="lab.machines.title">Lab machines</span></h2>
-      <p class="lab-note" data-i18n="lab.machines.note">Three Ubuntu 24.04 VMs on my Proxmox host: one control plane and two workers. They run only while I practise.</p>
+      <h2 class="section__title" id="machines-title"><span class="section__num">03</span><span data-i18n="certlab.machines.title">Lab machines</span></h2>
+      <p class="lab-note" data-i18n="certlab.machines.note">Three Ubuntu 24.04 VMs on my Proxmox host: one control plane and two workers. They run only while I practise.</p>
       <div class="lab-vms" id="lab-vms"></div>
     </section>
 
     <section class="section wrap section--last" id="live" aria-labelledby="live-title">
-      <h2 class="section__title" id="live-title"><span class="section__num">04</span><span data-i18n="lab.live.title">Live terminal</span></h2>
+      <h2 class="section__title" id="live-title"><span class="section__num">04</span><span data-i18n="certlab.live.title">Live terminal</span></h2>
       <div class="lab-live">
         <div class="lab-live__head">
-          <span class="chip" id="lab-live-state"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="lab.live.checking">Checking…</span></span>
-          <button class="btn btn--primary" type="button" id="lab-live-watch" hidden data-i18n="lab.live.watch">Watch</button>
-          <a class="status__link" id="lab-live-link" href="https://asciinema.org/" target="_blank" rel="noopener" hidden data-i18n="lab.live.open">Open on asciinema.org</a>
+          <span class="chip" id="lab-live-state"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="certlab.live.checking">Checking…</span></span>
+          <button class="btn btn--primary" type="button" id="lab-live-watch" hidden data-i18n="certlab.live.watch">Watch</button>
+          <a class="status__link" id="lab-live-link" href="https://asciinema.org/" target="_blank" rel="noopener" hidden data-i18n="certlab.live.open">Open on asciinema.org</a>
         </div>
-        <p class="lab-note" data-i18n="lab.live.note">A read-only stream of my terminal while I practise. It only sends output: nothing typed here reaches the lab.</p>
+        <p class="lab-note" data-i18n="certlab.live.note">A read-only stream of my terminal while I practise. It only sends output: nothing typed here reaches the lab.</p>
         <div class="lab-live__screen" id="lab-live-screen"></div>
       </div>
     </section>
@@ -103,14 +103,14 @@
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Updated</span> <time datetime="2026-09-29">2026-09-29</time></span>
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Updated</span> <time datetime="2026-09-30">2026-09-30</time></span>
       <span class="footer__mono" data-i18n="footer.served">hosted at home, published via Cloudflare Tunnel</span>
     </div>
   </footer>
 
-  <script src="/lab-core.js?v=202609300400" defer></script>
+  <script src="/lab-core.js?v=202609300430" defer></script>
   <script src="/vendor/asciinema-player/asciinema-player.min.js?v=3.17.0" defer></script>
-  <script src="/lab.js?v=202609300400" defer></script>
+  <script src="/lab.js?v=202609300445" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

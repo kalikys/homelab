@@ -16,6 +16,7 @@
     en: {
       error: "Data is not available right now.",
       noCommits: "No commits yet.",
+      domains: (n) => `${n} exam domains`,
       countdown: (name, days) => (days === 0 ? `${name} exam is today` : `${name} exam in ${days} ${days === 1 ? "day" : "days"}`),
       status: { running: "running", stopped: "stopped", other: "unknown" },
       roles: { cp: "control plane", worker: "worker" },
@@ -27,6 +28,7 @@
     ru: {
       error: "Данные сейчас недоступны.",
       noCommits: "Коммитов пока нет.",
+      domains: (n) => `${n} ${Core.ruPlural(n, "домен", "домена", "доменов")} экзамена`,
       countdown: (name, days) => (days === 0 ? `Экзамен ${name} сегодня` : `До экзамена ${name} ${days} ${Core.ruPlural(days, "день", "дня", "дней")}`),
       status: { running: "работает", stopped: "выключена", other: "нет данных" },
       roles: { cp: "control plane", worker: "worker" },
@@ -85,13 +87,15 @@
   // ---- Progress: one card per exam, domains inside ----
 
   function certCard(exam, result) {
-    const card = el("details", "lab-cert");
-    const summary = el("summary", "lab-cert__head");
-    summary.append(el("span", "lab-cert__name", exam.name), el("span", "lab-cert__pct", `${result.percent}%`));
+    const card = el("div", "lab-cert");
+    const head = el("div", "lab-cert__head");
+    head.append(el("span", "lab-cert__name", exam.name), el("span", "lab-cert__pct", `${result.percent}%`));
     const bar = el("div", "lab-bar");
     const fill = el("div", "lab-bar__fill");
     fill.style.width = `${result.percent}%`;
     bar.append(fill);
+    const more = el("details", "lab-cert__more");
+    more.append(el("summary", "lab-cert__toggle", t.domains(result.domains.length)));
     const list = el("ul", "lab-domains");
     result.domains.forEach((d) => {
       const li = el("li", "lab-domain");
@@ -99,7 +103,8 @@
       li.append(el("span", "lab-domain__name", d.name), el("span", "lab-domain__count", `${weight}${d.done}/${d.total}`));
       list.append(li);
     });
-    card.append(summary, el("p", "lab-cert__full", exam.full), bar, list);
+    more.append(list);
+    card.append(head, el("p", "lab-cert__full", exam.full), bar, more);
     return card;
   }
 
@@ -142,7 +147,7 @@
       sha.href = c.html_url;
       sha.target = "_blank";
       sha.rel = "noopener";
-      li.append(sha, el("span", "commit__msg", c.commit.message.split("\n")[0]), el("span", "commit__time", c.commit.author.date.slice(0, 10)));
+      li.append(sha, el("span", "commit__msg", c.commit.message.split("\n")[0]), el("span", "commit__time", Core.dayKey(new Date(c.commit.author.date))));
       box.append(li);
     });
   }
