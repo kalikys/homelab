@@ -83,9 +83,18 @@
     "dmz": "Isolated bridge without uplink; only the edge container can reach the sandbox",
     "lan": "Home LAN behind double NAT, no inbound ports"
   },
-  "public_hostnames": [
-    "cv.kalik8s.ru",
-    "shell.kalik8s.ru",
-    "status.kalik8s.ru"
+  "public_routes": [
+    {
+      "guest": "public",
+      "hostname": "cv.kalik8s.ru"
+    },
+    {
+      "guest": "public",
+      "hostname": "status.kalik8s.ru"
+    },
+    {
+      "guest": "sandbox",
+      "hostname": "shell.kalik8s.ru"
+    }
   ]
 }

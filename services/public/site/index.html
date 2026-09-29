@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kalislav Smirnov, DevOps Engineer</title>
+  <meta name="description" content="DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform. Tbilisi, ready for relocation.">
+  <meta property="og:title" content="Kalislav Smirnov, DevOps Engineer">
+  <meta property="og:description" content="DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform. Tbilisi, ready for relocation.">
+  <meta property="og:type" content="profile">
+  <meta name="theme-color" content="#0a0d14">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202609291500">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="#top" aria-label="Kalislav Smirnov">
+        <span class="brand__mark">ks</span><span class="brand__cursor" aria-hidden="true"></span>
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#impact" data-i18n="nav.impact">Impact</a>
+        <a href="#experience" data-i18n="nav.experience">Experience</a>
+        <a href="#skills" data-i18n="nav.skills">Skills</a>
+        <a href="#projects" data-i18n="nav.projects">Projects</a>
+        <a href="#homelab" data-i18n="nav.homelab">Homelab</a>
+        <a href="#sandbox" data-i18n="nav.sandbox">Sandbox</a>
+      </nav>
+      <button class="lang" type="button" id="lang-toggle" aria-label="Switch language">
+        <span data-lang="en">EN</span><span class="lang__sep">/</span><span data-lang="ru">RU</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <p class="prompt"><span class="prompt__path">~</span> <span class="prompt__sign">$</span> whoami</p>
+      <h1 class="hero__name">Kalislav Smirnov</h1>
+      <p class="hero__role" data-i18n="hero.role">DevOps Engineer</p>
+      <p class="hero__lead" data-i18n="hero.lead">DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines.</p>
+      <div class="hero__meta">
+        <span class="chip chip--ok"><span class="dot dot--ok" aria-hidden="true"></span><span data-i18n="hero.relocation">Ready for Relocation :)</span></span>
+        <span class="chip" data-i18n="hero.location">Georgia, Tbilisi</span>
+      </div>
+      <div class="actions">
+        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="hero.email">Email me</a>
+        <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+        <a class="btn" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
+        <a class="btn btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Download CV (PDF)</a>
+      </div>
+    </section>
+
+    <section class="section wrap" id="impact" aria-labelledby="impact-title">
+      <h2 class="section__title" id="impact-title"><span class="section__num">01</span><span data-i18n="impact.title">Impact</span></h2>
+      <div class="metrics">
+        <article class="metric">
+          <p class="metric__value">10h <span class="metric__arrow">→</span> 20min</p>
+          <p class="metric__label" data-i18n="impact.m1">Automated the entire infrastructure deployment process for edge devices (mini-PCs)</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">5</p>
+          <p class="metric__label" data-i18n="impact.m2">End-to-end DevSecOps platform implementations for banking and government clients</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">100+ <span class="metric__unit">VMs</span></p>
+          <p class="metric__label" data-i18n="impact.m3">Multi-datacenter Kubernetes platforms with disaster recovery protocols</p>
+        </article>
+        <article class="metric">
+          <p class="metric__value">2w <span class="metric__arrow">→</span> 3d</p>
+          <p class="metric__label" data-i18n="impact.m4">Release cycle for 20+ microservices</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="experience" aria-labelledby="exp-title">
+      <h2 class="section__title" id="exp-title"><span class="section__num">02</span><span data-i18n="exp.title">Experience</span></h2>
+      <ol class="timeline">
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevSecOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j1.period">Feb 2025 - Aug 2026</span>
+          </div>
+          <p class="job__company"><a class="job__link" href="https://swordfish-security.ru/" target="_blank" rel="noopener">Swordfish Security</a> <span class="job__type" data-i18n="exp.j1.type">Full-time</span></p>
+          <p class="job__summary" data-i18n="exp.j1.intro">Deploying and maintaining DevSecOps platforms for enterprise clients in banking, fintech, and government sectors, including fully air-gapped environments.</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j1.p1">Led 5 end-to-end DevSecOps platform implementations for banking and government clients, from architecture design to final handover.</li>
+            <li data-i18n="exp.j1.p2">Engineered and deployed a secure, GPG-signed package delivery service using Python and Kubernetes for a major bank's air-gapped Nexus repository.</li>
+            <li data-i18n="exp.j1.p3">Automated the integration of SAST, DAST, and SCA tools (Semgrep, Trivy) into GitLab CI, enabling security scans on 100% of new code commits.</li>
+            <li data-i18n="exp.j1.p4">Developed a suite of 15+ reusable Ansible roles to standardize deployments across client environments, reducing setup time for new projects by an estimated 30%.</li>
+            <li data-i18n="exp.j1.p5">Designed and managed multi-datacenter Kubernetes platforms (100+ VMs) with disaster recovery protocols for high-availability financial systems.</li>
+            <li data-i18n="exp.j1.p6">Prepared and conducted product demonstrations and acceptance testing (Nexus, GitLab, DevSecOps products).</li>
+            <li data-i18n="exp.j1.p7">Maintained internal infrastructure: GitLab, proprietary products, RnD and PROD environments</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>Ansible</span><span>GitLab CI</span><span>Nexus</span><span>Python</span><span>Bash</span><span>Linux</span><span>SAST/DAST/SCA scanners</span></p>
+        </li>
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j2.period">Oct 2024 - Feb 2025</span>
+          </div>
+          <p class="job__company">Sinara Investment Bank</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j2.p1">Automated the entire infrastructure deployment process for edge devices (mini-PCs), slashing setup time from 10 hours to 20 minutes using Ansible and custom scripts.</li>
+            <li data-i18n="exp.j2.p2">Architected and executed the initial migration of a core monolithic application to 10 containerized microservices on Kubernetes.</li>
+            <li data-i18n="exp.j2.p3">Built a complete observability stack from scratch using Prometheus, Grafana, and ELK, providing real-time monitoring and alerting for the new microservices architecture.</li>
+            <li data-i18n="exp.j2.p4">Developed and managed Helm charts for all 10 services, enabling one-command deployments and rollbacks.</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>GitLab CI</span><span>Python</span><span>ELK Stack</span><span>Airflow</span><span>ClickHouse</span><span>PostgreSQL</span><span>RabbitMQ</span><span>Grafana</span><span>Prometheus</span></p>
+        </li>
+        <li class="job">
+          <div class="job__head">
+            <h3 class="job__role">DevOps Engineer</h3>
+            <span class="job__period" data-i18n="exp.j3.period">Apr 2022 - Oct 2024</span>
+          </div>
+          <p class="job__company" data-i18n="exp.j3.company">Engineering &amp; Manufacturing Company</p>
+          <ul class="job__points">
+            <li data-i18n="exp.j3.p1">Overhauled the CI/CD process by implementing automated testing and deployment pipelines in GitLab CI, cutting the release cycle for 20+ microservices from 2 weeks to 3 days.</li>
+            <li data-i18n="exp.j3.p2">Automated manual deployment checklists with Ansible and Bash scripts, reducing hands-on deployment time from over 4 hours to under 30 minutes per release.</li>
+            <li data-i18n="exp.j3.p3">Led the containerization of 20+ legacy Java microservices using Docker, standardizing environments and eliminating configuration drift between staging and production.</li>
+            <li data-i18n="exp.j3.p4">Managed and maintained the company's production infrastructure, consisting of 50+ Linux servers across two data centers.</li>
+          </ul>
+          <p class="tags"><span>Docker</span><span>Terraform</span><span>GitLab CI</span><span>Git</span><span>Python</span><span>Linux</span></p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section wrap" id="skills" aria-labelledby="skills-title">
+      <h2 class="section__title" id="skills-title"><span class="section__num">03</span><span data-i18n="skills.title">Skills</span></h2>
+      <div class="stack">
+        <div class="stack__group"><h3 data-i18n="skills.platform">Platform</h3><p class="tags"><span>kubernetes</span><span>helm</span><span>docker</span><span>linux</span><span>microservices</span><span>disaster recovery</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.iac">Automation &amp; IaC</h3><p class="tags"><span>ansible</span><span>terraform</span><span>python</span><span>bash</span><span>oop</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.cicd">CI/CD</h3><p class="tags"><span>gitlab ci</span><span>jenkins</span><span>nexus</span><span>git</span><span>ci cd</span><span>acceptance testing</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.security">Security</h3><p class="tags"><span>sast</span><span>dast</span><span>sca</span><span>semgrep</span><span>trivy</span><span>appscreener</span><span>appsec.hub</span><span>appsec.track</span><span>gpg</span><span>osa firewall</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.observability">Observability</h3><p class="tags"><span>prometheus</span><span>grafana</span><span>alertmanager</span><span>elk</span><span>observability</span></p></div>
+        <div class="stack__group"><h3 data-i18n="skills.data">Data &amp; messaging</h3><p class="tags"><span>postgresql</span><span>clickhouse</span><span>rabbitmq</span><span>airflow</span></p></div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="projects" aria-labelledby="projects-title">
+      <h2 class="section__title" id="projects-title"><span class="section__num">04</span><span data-i18n="projects.title">Projects</span></h2>
+      <p class="section__lead" data-i18n="projects.lead">Public repositories on GitHub, loaded live.</p>
+      <div class="projects" id="projects-list" aria-live="polite"></div>
+      <a class="section__link" href="https://github.com/kalikys" target="_blank" rel="noopener" data-i18n="projects.all">All repositories on GitHub</a>
+    </section>
+
+    <section class="section wrap" id="homelab" aria-labelledby="lab-title">
+      <h2 class="section__title" id="lab-title"><span class="section__num">05</span><span data-i18n="lab.title">Homelab</span></h2>
+      <div class="arch" id="arch" aria-labelledby="arch-title">
+        <div class="arch__head">
+          <h3 id="arch-title" data-i18n="arch.title">Architecture</h3>
+          <p class="arch__note"><span data-i18n="arch.note">Built from the Terraform code in the homelab repo.</span> <a href="https://github.com/kalikys/homelab/blob/main/terraform/outputs.tf" target="_blank" rel="noopener">terraform/outputs.tf</a></p>
+        </div>
+        <div class="arch__body" id="arch-body"></div>
+      </div>
+      <div class="lab">
+        <div class="lab__about">
+          <p class="lab__lead" data-i18n="lab.lead">This site runs on a mini-PC at my home.</p>
+          <ul class="lab__facts">
+            <li data-i18n="lab.f1">Proxmox VE on ZFS.</li>
+            <li data-i18n="lab.f3">Local DNS with ad blocking and wildcard Let's Encrypt certificates issued via DNS-01.</li>
+            <li data-i18n="lab.f4">No open ports. I connect over Tailscale, and this site is published through Cloudflare Tunnel.</li>
+            <li data-i18n="lab.f5">Monitoring with Gatus (configured in YAML) and Uptime Kuma.</li>
+          </ul>
+        </div>
+        <div class="status" aria-live="polite">
+          <div class="status__head">
+            <span class="status__overall" id="status-overall"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="lab.checking">Checking…</span></span>
+            <span class="status__updated" id="status-updated"></span>
+          </div>
+          <ul class="status__list" id="status-list"></ul>
+          <a class="status__link" href="https://status.kalik8s.ru" target="_blank" rel="noopener" data-i18n="lab.full">Full status page</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="sandbox" aria-labelledby="sandbox-title">
+      <h2 class="section__title" id="sandbox-title"><span class="section__num">06</span><span data-i18n="sandbox.title">Sandbox</span></h2>
+      <div class="sandbox">
+        <div class="sandbox__about">
+          <p class="lab__lead" data-i18n="sandbox.lead">A real shell in a throwaway VM on my Proxmox host.</p>
+          <ul class="lab__facts">
+            <li data-i18n="sandbox.f1">Isolated network: no internet and no access to other hosts.</li>
+            <li data-i18n="sandbox.f2">1 vCPU capped at 50%, 768 MB RAM, 6 GB disk.</li>
+            <li data-i18n="sandbox.f3">Rolled back to a clean snapshot every 30 minutes.</li>
+            <li data-i18n="sandbox.f4">Up to 5 people at a time.</li>
+          </ul>
+          <div class="actions">
+            <button class="btn btn--primary" type="button" id="sandbox-start" data-i18n="sandbox.start">Start session</button>
+            <a class="btn btn--ghost" href="https://shell.kalik8s.ru" target="_blank" rel="noopener" data-i18n="sandbox.newtab">Open in a new tab</a>
+          </div>
+        </div>
+        <div class="sandbox__screen" id="sandbox-screen">
+          <p class="sandbox__placeholder"><span class="prompt__path">guest@sandbox</span>:<span class="prompt__sign">~$</span> <span class="brand__cursor" aria-hidden="true"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap section--last" aria-labelledby="edu-title">
+      <h2 class="section__title" id="edu-title"><span class="section__num">07</span><span data-i18n="edu.title">Education &amp; languages</span></h2>
+      <div class="edu">
+        <div>
+          <p class="edu__main" data-i18n="edu.degree">Master of Engineering, Aerospace, Aeronautical and Astronautical Engineering</p>
+          <p class="edu__sub" data-i18n="edu.school">Bauman Moscow State Technical University, 2020 - 2026</p>
+        </div>
+        <div>
+          <p class="edu__main" data-i18n="edu.lang1">English - B2</p>
+          <p class="edu__main" data-i18n="edu.lang2">Russian</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov</span>
+      <span class="footer__mono" data-i18n="footer.served">hosted at home, published via Cloudflare Tunnel</span>
+    </div>
+  </footer>
+
+  <script src="/app.js?v=202609291500" defer></script>
+</body>
+</html>

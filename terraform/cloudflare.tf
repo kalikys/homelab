@@ -10,6 +10,13 @@ locals {
 
   # Ingress rules are an ordered list; keep this order stable to avoid no-op diffs.
   tunnel_route_order = ["cv", "status", "shell"]
+
+  # Guest that ends up serving each route (used by the CV architecture diagram).
+  tunnel_route_guest = {
+    cv     = "public"
+    status = "public"
+    shell  = "sandbox"
+  }
 }
 
 # Remotely managed tunnel: cloudflared on LXC "public" only needs the token,

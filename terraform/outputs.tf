@@ -48,6 +48,9 @@ locals {
       lan = "Home LAN behind double NAT, no inbound ports"
       dmz = "Isolated bridge without uplink; only the edge container can reach the sandbox"
     }
-    public_hostnames = [for sub in keys(local.tunnel_routes) : "${sub}.${var.cloudflare_zone}"]
+    public_routes = [for sub in local.tunnel_route_order : {
+      hostname = "${sub}.${var.cloudflare_zone}"
+      guest    = local.tunnel_route_guest[sub]
+    }]
   }
 }
