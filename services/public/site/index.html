@@ -171,7 +171,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609292100">
+  <link rel="stylesheet" href="/styles.css?v=202609292200">
 </head>
 <body>
   <header class="topbar">
@@ -205,11 +205,15 @@
         <span class="chip" data-i18n="hero.relocation">Ready for Relocation :)</span>
         <span class="chip" data-i18n="hero.location">Georgia, Tbilisi</span>
       </div>
-      <div class="actions">
-        <a class="btn btn--primary" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=hero" target="_blank" rel="noopener" data-i18n="hero.call">Book a 20-min call</a>
-        <a class="btn" href="#recruiters" data-i18n="hero.recruiters">For recruiters</a>
-        <a class="btn" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
-        <a class="btn btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Download CV (PDF)</a>
+      <div class="hero__cta">
+        <a class="btn btn--primary btn--lg" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=hero" target="_blank" rel="noopener" data-i18n="hero.call">Book a 20-min call</a>
+        <p class="hero__cta-note" data-i18n="hero.callNote">Google Meet, pick any free slot in your time zone</p>
+      </div>
+      <div class="actions actions--secondary">
+        <a class="btn btn--sm" href="#recruiters" data-i18n="hero.recruiters">For recruiters</a>
+        <a class="btn btn--sm" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+        <a class="btn btn--sm" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
+        <a class="btn btn--sm btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Download CV (PDF)</a>
       </div>
     </section>
 
@@ -486,7 +490,7 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=202609292100" defer></script>
+  <script src="/app.js?v=202609292200" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>
