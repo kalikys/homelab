@@ -1,0 +1,33 @@
+- Быстрые ссылки:
+    - Почта:
+        - icon: gmail.png
+          href: https://mail.google.com
+    - Календарь:
+        - icon: google-calendar.png
+          href: https://calendar.google.com
+    - Диск:
+        - icon: google-drive.png
+          href: https://drive.google.com
+    - YouTube:
+        - icon: youtube.png
+          href: https://www.youtube.com
+    - Карты:
+        - icon: google-maps.png
+          href: https://maps.google.com
+
+- Админки:
+    - Proxmox напрямую:
+        - icon: proxmox.png
+          href: https://192.168.1.52:8006
+    - AdGuard напрямую:
+        - icon: adguard-home.png
+          href: http://192.168.1.2
+    - NPM напрямую:
+        - icon: nginx-proxy-manager.png
+          href: http://192.168.1.4:81
+    - Tailscale:
+        - icon: tailscale.png
+          href: https://login.tailscale.com/admin
+    - Cloudflare:
+        - icon: cloudflare.png
+          href: https://dash.cloudflare.com

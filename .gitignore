@@ -1,0 +1,25 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+tfplan
+.terraform.tfstate.lock.info
+
+# Secrets: only *.example files are committed
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+.env
+.env.*
+!.env.example
+secrets*
+*.pem
+*.key
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,5 @@
+# Copy to secrets.auto.tfvars (gitignored) and fill in.
+proxmox_api_token     = "terraform@pve!homelab=00000000-0000-0000-0000-000000000000"
+# Cloudflare token: Zone DNS Edit + Zone Read (kalik8s.ru), Account Cloudflare Tunnel Edit.
+cloudflare_api_token  = "change-me"
+cloudflare_account_id = "change-me"

@@ -1,0 +1,43 @@
+locals {
+  cloudflare_zone_id = "bf49c54c8775914b78435b97d296958f"
+
+  # Public hostname -> service inside the docker network on LXC "public".
+  tunnel_routes = {
+    cv     = "http://site:80"
+    status = "http://gatus:8080"
+  }
+}
+
+# Remotely managed tunnel: cloudflared on LXC "public" only needs the token,
+# routes live here.
+resource "cloudflare_zero_trust_tunnel_cloudflared" "public" {
+  account_id = var.cloudflare_account_id
+  name       = "CV"
+  config_src = "cloudflare"
+}
+
+resource "cloudflare_zero_trust_tunnel_cloudflared_config" "public" {
+  account_id = var.cloudflare_account_id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.public.id
+
+  config = {
+    ingress = concat(
+      [for sub, service in local.tunnel_routes : {
+        hostname = "${sub}.${var.cloudflare_zone}"
+        service  = service
+      }],
+      [{ service = "http_status:404" }],
+    )
+  }
+}
+
+resource "cloudflare_dns_record" "tunnel" {
+  for_each = local.tunnel_routes
+
+  zone_id = local.cloudflare_zone_id
+  name    = "${each.key}.${var.cloudflare_zone}"
+  type    = "CNAME"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.public.id}.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+}

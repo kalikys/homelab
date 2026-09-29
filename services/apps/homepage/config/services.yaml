@@ -1,0 +1,192 @@
+- Приложения:
+    - Документы:
+        icon: paperless-ngx.png
+        href: https://paperless.home.kalik8s.ru
+        description: Архив документов Paperless
+        server: local
+        container: paperless-webserver-1
+        widget:
+          type: paperlessngx
+          url: http://192.168.1.10:8000
+          key: "{{HOMEPAGE_VAR_PAPERLESS_TOKEN}}"
+    # - Календарь:
+    #     icon: mdi-calendar-heart
+    #     widget:
+    #       type: calendar
+    #       view: agenda
+    #       maxEvents: 8
+    #       showTime: true
+    #       integrations:
+    #         - type: ical
+    #           url: "{{HOMEPAGE_VAR_CALENDAR_ICAL}}"
+    #           name: Общий
+    #           color: pink
+
+- Интернет:
+    - Скорость интернета:
+        icon: speedtest-tracker.png
+        href: https://speedtest.home.kalik8s.ru
+        description: Замер раз в 3 часа
+        server: local
+        container: speedtest-tracker
+        widget:
+          type: speedtest
+          url: http://192.168.1.10:8081
+          version: 2
+          key: "{{HOMEPAGE_VAR_SPEEDTEST_TOKEN}}"
+    - Связь с миром:
+        icon: mdi-earth
+        description: Пинг до Cloudflare
+        ping: 1.1.1.1
+    - Реклама заблокирована:
+        icon: adguard-home.png
+        href: https://adguard.home.kalik8s.ru
+        description: AdGuard Home
+        ping: 192.168.1.2
+        widget:
+          type: adguard
+          url: http://192.168.1.2
+          username: "{{HOMEPAGE_VAR_ADGUARD_USER}}"
+          password: "{{HOMEPAGE_VAR_ADGUARD_PASS}}"
+          fields: ["queries", "blocked", "latency"]
+
+- Курсы валют:
+    - Доллар:
+        icon: mdi-currency-usd
+        description: 1 USD
+        widget:
+          type: customapi
+          url: https://open.er-api.com/v6/latest/USD
+          refreshInterval: 3600000
+          mappings:
+            - field:
+                rates: GEL
+              label: Лари
+              format: float
+              suffix: " ₾"
+            - field:
+                rates: RUB
+              label: Рубли
+              format: float
+              suffix: " ₽"
+    - Евро:
+        icon: mdi-currency-eur
+        description: 1 EUR
+        widget:
+          type: customapi
+          url: https://open.er-api.com/v6/latest/EUR
+          refreshInterval: 3600000
+          mappings:
+            - field:
+                rates: GEL
+              label: Лари
+              format: float
+              suffix: " ₾"
+            - field:
+                rates: RUB
+              label: Рубли
+              format: float
+              suffix: " ₽"
+    - Лари:
+        icon: mdi-cash
+        description: 1 GEL
+        widget:
+          type: customapi
+          url: https://open.er-api.com/v6/latest/GEL
+          refreshInterval: 3600000
+          mappings:
+            - field:
+                rates: RUB
+              label: Рубли
+              format: float
+              suffix: " ₽"
+            - field:
+                rates: USD
+              label: Доллары
+              format: float
+              suffix: " $"
+
+- Сервер:
+    - Proxmox:
+        icon: proxmox.png
+        href: https://proxmox.home.kalik8s.ru
+        description: Гипервизор pve
+        ping: 192.168.1.52
+        widget:
+          type: proxmox
+          url: https://proxmox.home.kalik8s.ru
+          username: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_ID}}"
+          password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}}"
+          node: pve
+    - Процессор:
+        icon: mdi-cpu-64-bit
+        widget:
+          type: glances
+          url: http://192.168.1.52:61208
+          version: 4
+          metric: cpu
+    - Память:
+        icon: mdi-memory
+        widget:
+          type: glances
+          url: http://192.168.1.52:61208
+          version: 4
+          metric: memory
+    - Сеть сервера:
+        icon: mdi-lan
+        widget:
+          type: glances
+          url: http://192.168.1.52:61208
+          version: 4
+          metric: network:vmbr0
+    - Температура CPU:
+        icon: mdi-thermometer
+        widget:
+          type: glances
+          url: http://192.168.1.52:61208
+          version: 4
+          metric: sensor:Package id 0
+    - Температура NVMe:
+        icon: mdi-harddisk
+        widget:
+          type: glances
+          url: http://192.168.1.52:61208
+          version: 4
+          metric: sensor:Composite
+- Сеть:
+    - AdGuard Home:
+        icon: adguard-home.png
+        href: https://adguard.home.kalik8s.ru
+        description: DNS всей сети
+        ping: 192.168.1.2
+    - Nginx Proxy Manager:
+        icon: nginx-proxy-manager.png
+        href: https://npm.home.kalik8s.ru
+        description: Прокси и сертификаты
+        ping: 192.168.1.4
+    - Tailscale:
+        icon: tailscale.png
+        href: https://login.tailscale.com/admin/machines
+        description: VPN, доступ к дому снаружи
+        ping: 192.168.1.3
+    - Keenetic:
+        icon: mdi-router-wireless
+        href: http://192.168.1.1
+        description: Роутер
+        ping: 192.168.1.1
+
+- Мониторинг:
+    - Uptime Kuma:
+        icon: uptime-kuma.png
+        href: https://uptime.home.kalik8s.ru
+        description: Проверки и оповещения
+        server: local
+        container: uptime-kuma
+        widget:
+          type: uptimekuma
+          url: http://192.168.1.10:3001
+          slug: home
+    - Контейнер apps:
+        icon: mdi-docker
+        description: Docker, 192.168.1.10
+        ping: 192.168.1.10

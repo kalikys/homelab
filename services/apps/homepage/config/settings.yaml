@@ -1,0 +1,45 @@
+title: Дом
+description: Домашний портал
+language: ru
+theme: dark
+color: slate
+headerStyle: clean
+statusStyle: dot
+hideVersion: true
+target: _blank
+cardBlur: md
+useEqualHeights: true
+
+layout:
+  Приложения:
+    tab: Дом
+    style: row
+    columns: 3
+  Интернет:
+    tab: Дом
+    style: row
+    columns: 3
+  Курсы валют:
+    tab: Дом
+    style: row
+    columns: 3
+  Быстрые ссылки:
+    tab: Дом
+    style: row
+    columns: 5
+  Сервер:
+    tab: Инфраструктура
+    style: row
+    columns: 3
+  Сеть:
+    tab: Инфраструктура
+    style: row
+    columns: 4
+  Мониторинг:
+    tab: Инфраструктура
+    style: row
+    columns: 3
+  Админки:
+    tab: Инфраструктура
+    style: row
+    columns: 5

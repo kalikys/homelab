@@ -1,0 +1,15 @@
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:2
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      TZ: Asia/Tbilisi
+      DISABLE_IPV6: "false"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt

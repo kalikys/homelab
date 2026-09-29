@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, #page_wrapper, #inner_wrapper {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+}
+
+body, #page_wrapper {
+  background-color: #0b1020 !important;
+  background-image:
+    radial-gradient(1100px 750px at 8% -12%, rgba(99, 102, 241, 0.38), transparent 60%),
+    radial-gradient(900px 650px at 105% 5%, rgba(236, 72, 153, 0.24), transparent 60%),
+    radial-gradient(1000px 700px at 50% 115%, rgba(20, 184, 166, 0.22), transparent 60%) !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
+}
+
+.service-card {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.service-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(129, 140, 248, 0.45) !important;
+}
+
+.service-name, .service-title-text {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+}
+.service-description {
+  opacity: 0.7;
+}
+
+.service-group-name, .bookmark-group-name {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  opacity: 0.8;
+  background: linear-gradient(90deg, #a5b4fc, #f0abfc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+.bookmark-list a, .bookmark-list > li > * {
+  border-radius: 14px !important;
+}
+.bookmark-list li {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.bookmark-list li:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+#information-widgets {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  padding: 0.75rem 1rem !important;
+  margin-bottom: 1rem;
+}
+
+.widget-container {
+  border-radius: 12px;
+}
+
+.bookmark-description {
+  display: none !important;
+}
+.bookmark-name {
+  font-weight: 500;
+}

@@ -1,0 +1,26 @@
+- greeting:
+    text_size: xl
+    text: Добро пожаловать домой
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: long
+      timeStyle: short
+      hour12: false
+- openmeteo:
+    label: Тбилиси
+    latitude: 41.7151
+    longitude: 44.8271
+    timezone: Asia/Tbilisi
+    units: metric
+    cache: 5
+- glances:
+    url: http://192.168.1.52:61208
+    version: 4
+    cpu: true
+    mem: true
+    cputemp: true
+    uptime: true
+- search:
+    provider: google
+    target: _blank
