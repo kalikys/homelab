@@ -186,6 +186,12 @@
           type: uptimekuma
           url: http://192.168.1.10:3001
           slug: home
+    - Pulse:
+        icon: mdi-pulse
+        href: http://192.168.1.10:7655
+        description: Proxmox и ВМ лабы Kubernetes
+        server: local
+        container: pulse
     - Контейнер apps:
         icon: mdi-docker
         description: Docker, 192.168.1.10

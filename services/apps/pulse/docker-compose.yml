@@ -1,0 +1,12 @@
+services:
+  pulse:
+    image: rcourtman/pulse:v6.4.1
+    container_name: pulse
+    restart: unless-stopped
+    ports:
+      - "7655:7655"
+    environment:
+      TZ: Asia/Tbilisi
+      PULSE_DEPLOYMENT_METHOD: docker_compose
+    volumes:
+      - ./data:/data
