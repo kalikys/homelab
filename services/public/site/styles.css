@@ -239,6 +239,7 @@ a:focus-visible, button:focus-visible {
 .lab__facts li { margin: 8px 0; }
 .lab__facts li::marker { color: var(--accent-2); }
 
+.lab > * { min-width: 0; }
 .lab__live { display: flex; flex-direction: column; gap: 14px; }
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .metric--live { padding: 14px 16px; }
