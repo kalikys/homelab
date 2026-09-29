@@ -167,6 +167,32 @@ a:focus-visible, button:focus-visible {
 .metric__unit { font-size: 16px; color: var(--muted); }
 .metric__label { font-size: 14px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
 
+/* Case studies */
+.cases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.case {
+  display: flex; flex-direction: column;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.case__context { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.case__title { margin: 10px 0 0; font-size: 18px; font-weight: 600; line-height: 1.35; }
+.case__problem { margin: 10px 0 0; color: var(--text); opacity: 0.85; font-size: 15px; }
+.case__points { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.case__points li { margin: 6px 0; }
+.case__points li::marker { color: var(--faint); }
+.case__result {
+  margin: auto 0 0;
+  padding-top: 16px;
+  font-size: 14px;
+  color: var(--accent-2);
+}
+.case__value { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--text); margin-right: 4px; }
+.case .tags { margin-top: 14px; }
+.case__result + .tags { padding-top: 14px; border-top: 1px solid var(--border); }
+.case__points + .case__result { margin-top: 14px; }
+
 /* Timeline */
 .timeline { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--border); }
 .job { position: relative; padding: 0 0 36px 28px; }
@@ -305,12 +331,13 @@ a:focus-visible, button:focus-visible {
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .stack { grid-template-columns: repeat(2, 1fr); }
   .lab { grid-template-columns: 1fr; }
+  .cases { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .nav { display: none; }
   .lang { margin-left: auto; }
   .hero { padding-top: 64px; padding-bottom: 48px; }
-  .metrics, .stack, .edu { grid-template-columns: 1fr; }
+  .metrics, .stack, .edu, .cases { grid-template-columns: 1fr; }
   .metric__value { font-size: 24px; }
 }
 @media (prefers-reduced-motion: reduce) {

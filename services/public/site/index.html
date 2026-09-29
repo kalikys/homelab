@@ -8,12 +8,34 @@
   <meta property="og:title" content="Kalislav Smirnov, DevOps Engineer">
   <meta property="og:description" content="DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform. Tbilisi, ready for relocation.">
   <meta property="og:type" content="profile">
+  <meta property="og:url" content="https://cv.kalik8s.ru/">
+  <link rel="canonical" href="https://cv.kalik8s.ru/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Kalislav Smirnov",
+    "jobTitle": "DevOps Engineer",
+    "description": "DevOps engineer with 4.5 years of experience: Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines. Banks and government, including air-gapped environments.",
+    "url": "https://cv.kalik8s.ru/",
+    "email": "mailto:kalikys@outlook.com",
+    "address": { "@type": "PostalAddress", "addressLocality": "Tbilisi", "addressCountry": "GE" },
+    "alumniOf": { "@type": "CollegeOrUniversity", "name": "Bauman Moscow State Technical University" },
+    "knowsLanguage": ["en", "ru"],
+    "knowsAbout": ["DevOps", "Kubernetes", "Helm", "Docker", "GitLab CI/CD", "Ansible", "Terraform", "DevSecOps", "Prometheus", "Grafana", "Linux", "Python"],
+    "sameAs": [
+      "https://github.com/kalikys",
+      "https://www.linkedin.com/in/devops-kalislav-smirnov/",
+      "https://t.me/kalikys"
+    ]
+  }
+  </script>
   <meta name="theme-color" content="#0a0d14">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609291610">
+  <link rel="stylesheet" href="/styles.css?v=202609291700">
 </head>
 <body>
   <header class="topbar">
@@ -22,7 +44,7 @@
         <span class="brand__mark">ks</span><span class="brand__cursor" aria-hidden="true"></span>
       </a>
       <nav class="nav" aria-label="Sections">
-        <a href="#impact" data-i18n="nav.impact">Impact</a>
+        <a href="#cases" data-i18n="nav.cases">Cases</a>
         <a href="#experience" data-i18n="nav.experience">Experience</a>
         <a href="#skills" data-i18n="nav.skills">Skills</a>
         <a href="#projects" data-i18n="nav.projects">Projects</a>
@@ -43,11 +65,12 @@
       <p class="hero__role" data-i18n="hero.role">DevOps Engineer</p>
       <p class="hero__lead" data-i18n="hero.lead">DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines.</p>
       <div class="hero__meta">
-        <span class="chip chip--ok"><span class="dot dot--ok" aria-hidden="true"></span><span data-i18n="hero.relocation">Ready for Relocation :)</span></span>
+        <span class="chip chip--ok"><span class="dot dot--ok" aria-hidden="true"></span><span data-i18n="hero.open">Open to offers now</span></span>
+        <span class="chip" data-i18n="hero.relocation">Ready for Relocation :)</span>
         <span class="chip" data-i18n="hero.location">Georgia, Tbilisi</span>
       </div>
       <div class="actions">
-        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="hero.email">Email me</a>
+        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="hero.email">Discuss a role</a>
         <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
         <a class="btn" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
         <a class="btn btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Download CV (PDF)</a>
@@ -76,8 +99,61 @@
       </div>
     </section>
 
+    <section class="section wrap" id="cases" aria-labelledby="cases-title">
+      <h2 class="section__title" id="cases-title"><span class="section__num">02</span><span data-i18n="cases.title">Case studies</span></h2>
+      <p class="section__lead" data-i18n="cases.lead">Client names are left out on purpose. The numbers are from the projects themselves.</p>
+      <div class="cases">
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c1.context">Federal company · 90+ development teams · team of 3 engineers · 1 year</p>
+          <h3 class="case__title" data-i18n="cases.c1.title">Secure development process across the whole company</h3>
+          <p class="case__problem" data-i18n="cases.c1.problem">Dozens of teams shipped code with no shared security checks, and open source packages reached developers unchecked.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c1.p1">Deployed OSA Firewall and put it into the package supply chain, so open source dependencies are checked before developers get them.</li>
+            <li data-i18n="cases.c1.p2">Deployed an ASOC platform that collects findings from every scanner in one place.</li>
+            <li data-i18n="cases.c1.p3">Added Gitleaks, Trivy, SCA and OSA checks to the shared GitLab CI templates, so teams got them without writing pipelines by hand.</li>
+            <li data-i18n="cases.c1.p4">Trained DevOps engineers and developers to work with the findings, and wrote the process documentation the company needed to approve it.</li>
+          </ul>
+          <p class="case__result"><span class="case__value">100%</span> <span data-i18n="cases.c1.result">of pipelines run security checks</span></p>
+          <p class="tags"><span>GitLab CI</span><span>OSA Firewall</span><span>ASOC</span><span>Gitleaks</span><span>Trivy</span><span>SCA</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c2.context">Major bank · air-gapped network</p>
+          <h3 class="case__title" data-i18n="cases.c2.title">Signed package delivery into a closed network</h3>
+          <p class="case__problem" data-i18n="cases.c2.problem">The bank's Nexus repository has no internet access, and every package that enters it has to come from a trusted source.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c2.p1">Built a delivery service in Python that runs on Kubernetes.</li>
+            <li data-i18n="cases.c2.p2">Every package is signed with GPG, and the signature is checked before it lands in Nexus.</li>
+          </ul>
+          <p class="case__result" data-i18n="cases.c2.result">Developers in the closed network get the packages they need, and each one can be traced to a signature.</p>
+          <p class="tags"><span>Python</span><span>Kubernetes</span><span>GPG</span><span>Nexus</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c3.context">Investment bank · edge devices</p>
+          <h3 class="case__title" data-i18n="cases.c3.title">Mini-PC setup automated end to end</h3>
+          <p class="case__problem" data-i18n="cases.c3.problem">Each edge device (a mini-PC) was set up by hand, which took a full working day.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c3.p1">Automated the entire infrastructure deployment with Ansible and custom scripts.</li>
+          </ul>
+          <p class="case__result"><span class="case__value">10h → 20min</span> <span data-i18n="cases.c3.result">to set up one device</span></p>
+          <p class="tags"><span>Ansible</span><span>Bash</span><span>Linux</span></p>
+        </article>
+        <article class="case">
+          <p class="case__context" data-i18n="cases.c4.context">Investment bank · core application</p>
+          <h3 class="case__title" data-i18n="cases.c4.title">From a monolith to 10 services on Kubernetes</h3>
+          <p class="case__problem" data-i18n="cases.c4.problem">The core application was a single monolith, and there was no monitoring for a service based setup.</p>
+          <ul class="case__points">
+            <li data-i18n="cases.c4.p1">Designed and ran the first migration of the monolith to 10 containerized microservices on Kubernetes.</li>
+            <li data-i18n="cases.c4.p2">Wrote Helm charts for all 10 services.</li>
+            <li data-i18n="cases.c4.p3">Built monitoring and alerting from scratch with Prometheus, Grafana and ELK.</li>
+          </ul>
+          <p class="case__result" data-i18n="cases.c4.result">Any service deploys or rolls back with one command, and the team sees problems in real time.</p>
+          <p class="tags"><span>Kubernetes</span><span>Helm</span><span>Prometheus</span><span>Grafana</span><span>ELK</span></p>
+        </article>
+      </div>
+    </section>
+
     <section class="section wrap" id="experience" aria-labelledby="exp-title">
-      <h2 class="section__title" id="exp-title"><span class="section__num">02</span><span data-i18n="exp.title">Experience</span></h2>
+      <h2 class="section__title" id="exp-title"><span class="section__num">03</span><span data-i18n="exp.title">Experience</span></h2>
       <ol class="timeline">
         <li class="job">
           <div class="job__head">
@@ -129,7 +205,7 @@
     </section>
 
     <section class="section wrap" id="skills" aria-labelledby="skills-title">
-      <h2 class="section__title" id="skills-title"><span class="section__num">03</span><span data-i18n="skills.title">Skills</span></h2>
+      <h2 class="section__title" id="skills-title"><span class="section__num">04</span><span data-i18n="skills.title">Skills</span></h2>
       <div class="stack">
         <div class="stack__group"><h3 data-i18n="skills.platform">Platform</h3><p class="tags"><span>kubernetes</span><span>helm</span><span>docker</span><span>linux</span><span>microservices</span><span>disaster recovery</span></p></div>
         <div class="stack__group"><h3 data-i18n="skills.iac">Automation &amp; IaC</h3><p class="tags"><span>ansible</span><span>terraform</span><span>python</span><span>bash</span><span>oop</span></p></div>
@@ -141,14 +217,14 @@
     </section>
 
     <section class="section wrap" id="projects" aria-labelledby="projects-title">
-      <h2 class="section__title" id="projects-title"><span class="section__num">04</span><span data-i18n="projects.title">Projects</span></h2>
+      <h2 class="section__title" id="projects-title"><span class="section__num">05</span><span data-i18n="projects.title">Projects</span></h2>
       <p class="section__lead" data-i18n="projects.lead">Public repositories on GitHub, loaded live.</p>
       <div class="projects" id="projects-list" aria-live="polite"></div>
       <a class="section__link" href="https://github.com/kalikys" target="_blank" rel="noopener" data-i18n="projects.all">All repositories on GitHub</a>
     </section>
 
     <section class="section wrap" id="homelab" aria-labelledby="lab-title">
-      <h2 class="section__title" id="lab-title"><span class="section__num">05</span><span data-i18n="lab.title">Homelab</span></h2>
+      <h2 class="section__title" id="lab-title"><span class="section__num">06</span><span data-i18n="lab.title">Homelab</span></h2>
       <p class="section__lead" data-i18n="lab.lead">This site runs on a mini-PC at my home.</p>
       <div class="arch" id="arch" aria-labelledby="arch-title">
         <div class="arch__head">
@@ -188,7 +264,7 @@
     </section>
 
     <section class="section wrap" id="sandbox" aria-labelledby="sandbox-title">
-      <h2 class="section__title" id="sandbox-title"><span class="section__num">06</span><span data-i18n="sandbox.title">Sandbox</span></h2>
+      <h2 class="section__title" id="sandbox-title"><span class="section__num">07</span><span data-i18n="sandbox.title">Sandbox</span></h2>
       <div class="sandbox">
         <div class="sandbox__about">
           <p class="lab__lead" data-i18n="sandbox.lead">A real shell in a throwaway VM on my Proxmox host.</p>
@@ -210,7 +286,7 @@
     </section>
 
     <section class="section wrap section--last" id="learning" aria-labelledby="edu-title">
-      <h2 class="section__title" id="edu-title"><span class="section__num">07</span><span data-i18n="edu.title">Learning &amp; education</span></h2>
+      <h2 class="section__title" id="edu-title"><span class="section__num">08</span><span data-i18n="edu.title">Learning &amp; education</span></h2>
       <div class="learning">
         <div class="learning__head">
           <p class="edu__main" data-i18n="learn.goal">Kubernetes certifications: CKA, then CKAD</p>
@@ -238,6 +314,6 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=202609291610" defer></script>
+  <script src="/app.js?v=202609291700" defer></script>
 </body>
 </html>
