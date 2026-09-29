@@ -46,6 +46,16 @@
       "url": "https://kalik8s.com/",
       "image": "https://kalik8s.com/og.jpg",
       "email": "mailto:kalikys@outlook.com",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "recruiting",
+        "url": "https://cal.com/kalikys/intro",
+        "email": "kalikys@outlook.com",
+        "availableLanguage": [
+          "en",
+          "ru"
+        ]
+      },
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "Tbilisi",
@@ -161,7 +171,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609292000">
+  <link rel="stylesheet" href="/styles.css?v=202609292100">
 </head>
 <body>
   <header class="topbar">
@@ -196,8 +206,8 @@
         <span class="chip" data-i18n="hero.location">Грузия, Тбилиси</span>
       </div>
       <div class="actions">
-        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="hero.email">Обсудить вакансию</a>
-        <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+        <a class="btn btn--primary" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=hero" target="_blank" rel="noopener" data-i18n="hero.call">Записаться на звонок (20 мин)</a>
+        <a class="btn" href="#recruiters" data-i18n="hero.recruiters">Для рекрутеров</a>
         <a class="btn" id="linkedin-link" href="#" target="_blank" rel="noopener" hidden>LinkedIn</a>
         <a class="btn btn--ghost" href="/Kalislav-Smirnov-CV.pdf" download data-i18n="hero.cv">Скачать резюме (PDF)</a>
       </div>
@@ -462,7 +472,8 @@
         </div>
       </div>
       <div class="actions">
-        <a class="btn btn--primary" href="mailto:kalikys@outlook.com" data-i18n="faq.email">Написать на kalikys@outlook.com</a>
+        <a class="btn btn--primary" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=recruiters" target="_blank" rel="noopener" data-i18n="faq.call">Записаться на звонок (20 мин)</a>
+        <a class="btn" href="mailto:kalikys@outlook.com" data-i18n="faq.email">Написать на kalikys@outlook.com</a>
         <a class="btn" href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram @kalikys</a>
       </div>
     </section>
@@ -475,7 +486,7 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=202609292000" defer></script>
+  <script src="/app.js?v=202609292100" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

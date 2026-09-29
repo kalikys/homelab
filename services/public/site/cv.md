@@ -13,6 +13,7 @@ DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitL
 - Employment: full-time as an employee, B2B or contract.
 - Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines), especially in banking, fintech and government projects.
 - Languages: English (B2), Russian.
+- Book a 20-minute intro call: https://cal.com/kalikys/intro
 - Contact: kalikys@outlook.com · Telegram @kalikys · LinkedIn https://www.linkedin.com/in/devops-kalislav-smirnov/ · GitHub https://github.com/kalikys
 
 ## Impact

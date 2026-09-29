@@ -2,6 +2,8 @@
 
 > DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines. Based in Tbilisi, Georgia. Open to offers now: full-time as an employee, B2B or contract; relocation to the EU, the USA or Kazakhstan (needs visa sponsorship), or remote work for a company in any country.
 
+Book a 20-minute intro call: https://cal.com/kalikys/intro
+
 Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in/devops-kalislav-smirnov/ · https://github.com/kalikys
 
 ## Pages
