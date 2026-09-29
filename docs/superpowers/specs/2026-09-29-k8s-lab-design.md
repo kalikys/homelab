@@ -10,7 +10,7 @@ A home lab for CKA, CKAD and CKS preparation, plus two views of it:
 - internal: per-VM monitoring for me (LAN / Tailscale);
 - public: a showcase page `kalik8s.com/lab/` with preparation progress, lab state and a read-only live terminal stream when I choose to go on air.
 
-Built from ready-made pieces wherever possible (asciinema, the Prometheus + Grafana stack in LXC 105, GitHub); custom code is limited to Terraform, one static page and small nginx/cron additions following existing patterns.
+Built from ready-made pieces wherever possible (asciinema, Pulse, GitHub); custom code is limited to Terraform, one static page and small nginx/cron additions following existing patterns.
 
 ## Non-goals
 
@@ -31,7 +31,7 @@ Managed by Terraform (`bpg/proxmox`) as `local.lab_vms`, separate from `local.co
 
 - `vmbr0` (LAN), gateway 192.168.1.1, DNS 192.168.1.2.
 - Ubuntu 24.04 cloud image, checksum verified; disks on `local-zfs`.
-- cloud-init: user `kalikys` with my SSH key, passwordless sudo; `qemu-guest-agent`; `containerd` (systemd cgroup driver); `kubeadm`, `kubelet`, `kubectl` from `pkgs.k8s.io` pinned to the current exam version, held; swap off; `br_netfilter`/`overlay` modules and sysctls; `asciinema` 3.x; `prometheus-node-exporter`.
+- cloud-init: user `kalikys` with my SSH key, passwordless sudo; `qemu-guest-agent`; `containerd` (systemd cgroup driver); `kubeadm`, `kubelet`, `kubectl` from `pkgs.k8s.io` pinned to the current exam version, held; swap off; `br_netfilter`/`overlay` modules and sysctls; `asciinema` 3.x.
 - `kubeadm init` is **not** run: bootstrapping the cluster is part of the practice.
 - Hostnames inside the guests are the VM names (`k8s-cp`, `k8s-w1`, `k8s-w2`; Proxmox cloud-init sets them). The public page shows only the short labels `cp`, `w1`, `w2`.
 - `onboot = false`: the lab runs only when needed.
@@ -51,15 +51,14 @@ Managed by Terraform (`bpg/proxmox`) as `local.lab_vms`, separate from `local.co
 - Responsibility rule while streaming: no secrets, tokens, `kubeconfig` contents on screen; stop the stream before working with them.
 - Recordings (optional, when I want them) are uploaded to the same asciinema.org account.
 
-## 3. Internal monitoring (existing Prometheus + Grafana in LXC 105)
+## 3. Internal monitoring (Pulse)
 
-Revised 2026-09-29: Pulse dropped. A separate piece of work is adding LXC 105 `monitoring` (Prometheus, Grafana, exporters, 192.168.1.12); the lab VMs plug into it instead of a second monitoring tool.
-
-- `prometheus-node-exporter` installed on each lab VM by cloud-init (Ubuntu package, port 9100), so it is already in the `base` snapshot.
-- Prometheus scrape job `k8s-lab` with static targets `192.168.1.20:9100`, `.21:9100`, `.22:9100`, labels `node=cp|w1|w2`. Down targets while the lab is off are expected.
-- Grafana: the standard "Node Exporter Full" dashboard (grafana.com ID 1860) filtered by `job="k8s-lab"`.
-- This part is done after LXC 105 is running; it does not block the rest.
-- Lab VM Terraform lives in its own file `terraform/lab.tf` to stay out of the way of the LXC 105 work in `proxmox.tf`.
+- `rcourtman/pulse` as a Docker container in LXC 103 `apps` (compose in `services/apps/pulse/`), next to Homepage and Uptime Kuma. The Pulse LXC installer is not used (it would bypass Terraform).
+- Proxmox access: user `pulse@pve`, API token `monitor`, role `PVEAuditor` on `/`. The token lives only in Pulse's own data volume on LXC 103, never in git.
+- NPM: `pulse.home.kalik8s.ru` → LXC 103 Pulse port; covered by the existing `*.home.kalik8s.ru` DNS and wildcard certificate.
+- Homepage: a Pulse tile.
+- Pulse shows VMs 210–212 (CPU, RAM, disk, network, history) using the guest agent.
+- Lab VM Terraform lives in its own file `terraform/lab.tf`.
 
 ## 4. Progress repo `kalikys/k8s-certs` (public)
 
@@ -111,12 +110,12 @@ CSP: the asciinema player JS/CSS is vendored into `site/vendor/` (no third-party
 
 - `terraform plan` shows only the three new VMs (and no LXC changes); apply; VMs reachable by SSH; cloud-init finished; `kubeadm version` matches the pinned version; `base` snapshot exists.
 - `lab up/down/reset/status` exercised once each.
-- Prometheus target `k8s-lab` shows the three VMs up while the lab runs (once LXC 105 exists).
+- Pulse lists VMs 210–212 with guest-agent data.
 - `curl` each new endpoint via LAN and via `https://kalik8s.com`; `stats.json` contains no IPs or internal names.
 - `/lab/` and `/ru/lab/` checked in the browser, in both "live" and "not on air" states; CSP errors absent in the console.
 - CI (`ru` build check) passes.
 
 ## Docs and diagram
 
-- Obsidian: new note `VM 210-212 K8s lab`; update `Домашняя инфраструктура`, `Proxmox` (guests, tokens, `lab` script), `Сеть и адресация` (.20–.22), `LXC 104 Public` (`/lab/`, new endpoints, CSP).
+- Obsidian: new notes `VM 210-212 K8s lab` and `Pulse`; update `Домашняя инфраструктура`, `Proxmox` (guests, tokens, `lab` script), `Сеть и адресация` (.20–.22), `LXC 103 Apps`, `Homepage`, `LXC 104 Public` (`/lab/`, new endpoints, CSP).
 - Site diagram: add the VMs to Terraform outputs `site_inventory`, run `scripts/export-site-data.py`, deploy `homelab.json`.
