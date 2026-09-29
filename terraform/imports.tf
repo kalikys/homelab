@@ -17,15 +17,15 @@ import {
 
 import {
   to = cloudflare_dns_record.tunnel["cv"]
-  id = "${local.cloudflare_zone_id}/c88aade9123dca169c779ed48a409756"
+  id = "${local.legacy_zone_id}/c88aade9123dca169c779ed48a409756"
 }
 
 import {
   to = cloudflare_dns_record.tunnel["status"]
-  id = "${local.cloudflare_zone_id}/821fd5b07dc962619e757a1f0b394eeb"
+  id = "${local.legacy_zone_id}/821fd5b07dc962619e757a1f0b394eeb"
 }
 
 import {
   to = cloudflare_dns_record.tunnel["shell"]
-  id = "${local.cloudflare_zone_id}/51d27437ec9b0020438747f7c938919e"
+  id = "${local.legacy_zone_id}/51d27437ec9b0020438747f7c938919e"
 }

@@ -13,7 +13,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PUBLIC = ROOT / "services/public"
-SITE = "https://cv.kalik8s.ru"
+SITE = "https://kalik8s.com"
 
 page = (PUBLIC / "site/index.html").read_text()
 ru = json.loads((PUBLIC / "i18n/ru.json").read_text())

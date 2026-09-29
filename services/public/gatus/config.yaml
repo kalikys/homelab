@@ -6,13 +6,13 @@ ui:
   title: "Homelab status · Kalislav Smirnov"
   description: "Live status of my homelab"
   header: "Homelab status"
-  link: "https://cv.kalik8s.ru"
-  logo: "https://cv.kalik8s.ru/favicon.svg"
+  link: "https://kalik8s.com"
+  logo: "https://kalik8s.com/favicon.svg"
   dark-mode: true
   default-sort-by: group
   buttons:
     - name: "CV"
-      link: "https://cv.kalik8s.ru"
+      link: "https://kalik8s.com"
 
 endpoints:
   # --- Network ---
@@ -83,7 +83,7 @@ endpoints:
 
   - name: Public site (Cloudflare Tunnel)
     group: Edge
-    url: "https://cv.kalik8s.ru"
+    url: "https://kalik8s.com"
     interval: 5m
     conditions:
       - "[STATUS] == 200"

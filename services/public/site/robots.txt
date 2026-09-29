@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cv.kalik8s.ru/sitemap.xml
-Sitemap: https://cv.kalik8s.ru/sitemap.txt
+Sitemap: https://kalik8s.com/sitemap.xml
+Sitemap: https://kalik8s.com/sitemap.txt

@@ -4,8 +4,8 @@ Infrastructure code and service configs for my home lab: one mini-PC running Pro
 
 Live pages:
 
-- CV: <https://cv.kalik8s.ru>
-- Status (Gatus): <https://status.kalik8s.ru>
+- CV: <https://kalik8s.com>
+- Status (Gatus): <https://status.kalik8s.com>
 
 ## Hardware
 
@@ -50,7 +50,7 @@ flowchart LR
 
 ## Public sandbox
 
-`shell.kalik8s.ru` opens a real shell in a throwaway Debian VM. Isolation, from the outside in:
+`shell.kalik8s.com` opens a real shell in a throwaway Debian VM. Isolation, from the outside in:
 
 - The VM sits alone on `vmbr1`, a bridge with no physical port and no host address. It has no gateway and no DNS.
 - The only other member of `vmbr1` is the `public` container (second NIC, `10.66.0.2`), where cloudflared forwards visitors to the terminal.

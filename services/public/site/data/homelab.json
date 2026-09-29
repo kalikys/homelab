@@ -86,15 +86,15 @@
   "public_routes": [
     {
       "guest": "public",
-      "hostname": "cv.kalik8s.ru"
+      "hostname": "kalik8s.com"
     },
     {
       "guest": "public",
-      "hostname": "status.kalik8s.ru"
+      "hostname": "status.kalik8s.com"
     },
     {
       "guest": "sandbox",
-      "hostname": "shell.kalik8s.ru"
+      "hostname": "shell.kalik8s.com"
     }
   ]
 }

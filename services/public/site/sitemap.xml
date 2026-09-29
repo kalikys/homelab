@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://cv.kalik8s.ru/</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://cv.kalik8s.ru/"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://cv.kalik8s.ru/ru/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://cv.kalik8s.ru/"/>
+    <loc>https://kalik8s.com/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kalik8s.com/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/"/>
   </url>
   <url>
-    <loc>https://cv.kalik8s.ru/ru/</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://cv.kalik8s.ru/"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://cv.kalik8s.ru/ru/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://cv.kalik8s.ru/"/>
+    <loc>https://kalik8s.com/ru/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kalik8s.com/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/"/>
   </url>
 </urlset>

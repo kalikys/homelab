@@ -30,5 +30,5 @@ variable "cloudflare_account_id" {
 variable "cloudflare_zone" {
   description = "Public DNS zone."
   type        = string
-  default     = "kalik8s.ru"
+  default     = "kalik8s.com"
 }

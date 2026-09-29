@@ -1,6 +1,6 @@
 # Kalislav Smirnov, DevOps Engineer
 
-Updated: 2026-09-29 · Website: https://cv.kalik8s.ru/ · Russian version: https://cv.kalik8s.ru/ru/
+Updated: 2026-09-29 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/
 
 DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. I live in Tbilisi, Georgia, and I am open to relocation or remote work.
 
@@ -104,4 +104,4 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 
 ## Home lab
 
-This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.ru).
+This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.com).

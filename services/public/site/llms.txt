@@ -6,9 +6,9 @@ Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in
 
 ## Pages
 
-- [CV in Markdown](https://cv.kalik8s.ru/cv.md): experience, case studies, skills, education and hiring details in one file
-- [CV website (English)](https://cv.kalik8s.ru/): the same content with a live homelab status and a public sandbox shell
-- [CV website (Russian)](https://cv.kalik8s.ru/ru/)
+- [CV in Markdown](https://kalik8s.com/cv.md): experience, case studies, skills, education and hiring details in one file
+- [CV website (English)](https://kalik8s.com/): the same content with a live homelab status and a public sandbox shell
+- [CV website (Russian)](https://kalik8s.com/ru/)
 - [homelab repository](https://github.com/kalikys/homelab): Terraform, service configs and CI for the Proxmox home lab that hosts the site
 
 ## Optional

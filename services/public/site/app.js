@@ -411,7 +411,7 @@
   if (sandboxBtn && sandboxScreen) {
     sandboxBtn.addEventListener("click", () => {
       const frame = document.createElement("iframe");
-      frame.src = "https://shell.kalik8s.ru/";
+      frame.src = "https://shell.kalik8s.com/";
       frame.title = "Sandbox terminal";
       frame.className = "sandbox__frame";
       frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
