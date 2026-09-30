@@ -1,0 +1,21 @@
+# Claude Code Remote Control server on the Proxmox host (user kalikys):
+# sessions are started from the Claude mobile app or claude.ai/code and run in ~/prj.
+# Install: ~/.config/systemd/user/claude-rc.service; `sudo loginctl enable-linger kalikys`;
+#          `systemctl --user enable --now claude-rc`. Watch it: `tmux attach -t rc` (detach: Ctrl-b d).
+# One-time before the first start: run the command by hand and answer the trust and "Enable Remote Control?" prompts.
+# remain-on-exit keeps the window open if claude exits, so the error stays visible in `tmux attach -t rc`.
+[Unit]
+Description=Claude Code Remote Control server
+After=network-online.target
+
+[Service]
+Type=forking
+WorkingDirectory=%h/prj
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=TERM=xterm-256color
+ExecStart=/usr/bin/tmux new-session -d -s rc -x 200 -y 50 -c %h/prj \; set-option -t rc remain-on-exit on \; respawn-pane -k -t rc "%h/.local/bin/claude remote-control --name homeserver --permission-mode auto"
+ExecStop=/usr/bin/tmux kill-session -t rc
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target
