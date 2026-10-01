@@ -1,0 +1,111 @@
+{
+ "name": "98 · Error handler",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -260
+   ],
+   "parameters": {
+    "content": "## 98 · Обработчик ошибок\nЛюбой упавший workflow фермы: алерт в Telegram **и** запись в журнал — параллельно, чтобы алерт ушёл даже при упавшей базе.",
+    "width": 420,
+    "height": 160,
+    "color": 5
+   }
+  },
+  {
+   "id": "1d291970-27ef-539e-bbb6-f0547003f811",
+   "name": "When a farm workflow fails",
+   "type": "n8n-nodes-base.errorTrigger",
+   "typeVersion": 1,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "ef6a3547-159e-5d32-addc-ba6cf29c9277",
+   "name": "Alert owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    260,
+    -100
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ ((e) => '🔴 <b>Ферма: ошибка</b>\\nWorkflow: ' + e($json.workflow.name) + '\\nУзел: ' + e($json.execution.lastNodeExecuted) + '\\n' + e(($json.execution.error || {}).message))(v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 900)) }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  },
+  {
+   "id": "33bc51c8-e6fc-585a-8b5c-97855f1c8153",
+   "name": "Log the error",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    260,
+    100
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "INSERT INTO events (kind, actor, message, data) SELECT 'workflow_error', 'n8n', $1, $2::jsonb",
+    "options": {
+     "queryReplacement": "={{ ['Workflow failed: ' + $json.workflow.name, JSON.stringify({execution: $json.execution.id, node: $json.execution.lastNodeExecuted, error: ($json.execution.error || {}).message})] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "When a farm workflow fails": {
+   "main": [
+    [
+     {
+      "node": "Alert owner",
+      "type": "main",
+      "index": 0
+     },
+     {
+      "node": "Log the error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300
+ }
+}

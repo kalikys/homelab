@@ -1,0 +1,339 @@
+{
+ "name": "95 · Owner gates",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -380
+   ],
+   "parameters": {
+    "content": "## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит на следующий этап. Повторный клик ничего не делает.\nСрок ссылки 72 ч. Таблица `gate_tokens`.",
+    "width": 480,
+    "height": 270,
+    "color": 5
+   }
+  },
+  {
+   "id": "c48d03ef-5f31-5bdd-b45a-a8a024aca647",
+   "name": "Gate link",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "httpMethod": "GET",
+    "path": "farm-gate",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "webhookId": "7762a6da-0667-5d43-842c-a4af72c9f782"
+  },
+  {
+   "id": "9ba80858-3c89-5684-8d2d-2b20e0d33304",
+   "name": "Look up gate",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT t.token, t.exp_id, t.gate, t.stage, t.choices, t.expires_at, t.used_at, t.choice,\n       e.status, e.stage AS exp_stage, e.briefs,\n       (t.used_at IS NULL AND t.expires_at > now() AND e.status = 'waiting_owner' AND e.stage = t.stage AND $2 = ANY (t.choices)) AS valid\nFROM gate_tokens t JOIN experiments e ON e.id = t.exp_id WHERE t.token = $1",
+    "options": {
+     "queryReplacement": "={{ [$json.query.g || '', $json.query.c || ''] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "alwaysOutputData": true
+  },
+  {
+   "id": "2a300c5f-3ec6-57bd-ab27-30a0158e876d",
+   "name": "Render confirm page",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst q = $('Gate link').first().json.query || {};\nconst r = $input.first().json || {};\nconst page = (title, body) => `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${esc(title)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>`;\nif (!r.token) return [{ json: { html: page('Ссылка не найдена', '<h1>Ссылка не найдена</h1><p class=\"muted\">Возможно, она устарела или скопирована не полностью.</p>') } }];\nif (!r.valid) {\n  const why = r.used_at ? 'Решение по этой ссылке уже принято' + (r.choice ? ': ' + esc(r.choice) : '') + '.' : (new Date(r.expires_at) < new Date() ? 'Срок ссылки истёк.' : 'Эксперимент сейчас не ждёт этого решения (статус ' + esc(r.status) + ', этап ' + r.exp_stage + ').');\n  return [{ json: { html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${why}</p>`) } }];\n}\nconst b = (r.briefs || []).find(x => x.slug === q.c) || { title: q.c };\nconst body = `<h1>${esc(r.exp_id)} · ${esc(r.gate)}</h1><div class=\"card\"><p class=\"muted\">Выбор брифа</p><p><b>${esc(b.title)}</b></p><p class=\"muted\">канал ${esc(b.channel)} · CPC ~$${esc(b.cpc)} · цена ${esc(b.price)}</p>\n<form method=\"post\" action=\"https://n8n.home.kalik8s.ru/webhook/farm-gate\"><input type=\"hidden\" name=\"g\" value=\"${esc(r.token)}\"><input type=\"hidden\" name=\"c\" value=\"${esc(q.c)}\"><button type=\"submit\">Подтвердить выбор</button></form></div>\n<p class=\"muted\">Ссылка одноразовая. После подтверждения эксперимент перейдёт на этап ${r.stage + 1}.</p>`;\nreturn [{ json: { html: page('Подтвердить выбор', body) } }];"
+   }
+  },
+  {
+   "id": "21f70b5c-9099-581e-ac0f-fe8eddf81a3f",
+   "name": "Show page",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [
+    720,
+    0
+   ],
+   "parameters": {
+    "respondWith": "text",
+    "responseBody": "={{ $json.html }}",
+    "options": {
+     "responseHeaders": {
+      "entries": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=utf-8"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "id": "177c65c5-60a2-54a7-96e1-df9724e92690",
+   "name": "Gate confirm",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    300
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "farm-gate",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "webhookId": "aa248e3b-f37e-584b-ac6d-b5129b1f0e8d"
+  },
+  {
+   "id": "709df2d3-7335-5c5c-ac77-e93cdf9776d5",
+   "name": "Apply decision",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    300
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH t AS (\n  UPDATE gate_tokens g SET used_at = now(), choice = $2\n  WHERE g.token = $1 AND g.used_at IS NULL AND g.expires_at > now() AND $2 = ANY (g.choices)\n    AND EXISTS (SELECT 1 FROM experiments e WHERE e.id = g.exp_id AND e.status = 'waiting_owner' AND e.stage = g.stage)\n  RETURNING g.exp_id, g.gate, g.stage),\nu AS (\n  UPDATE experiments e SET stage = least(e.stage + 1, 8), status = 'active',\n         chosen_brief = CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, updated_at = now()\n  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage),\nd AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) SELECT exp_id, gate, 'approve', 'owner', $2 FROM t RETURNING 1),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': выбран ' || $2 FROM t RETURNING 1)\nSELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage",
+    "options": {
+     "queryReplacement": "={{ [$json.body.g || '', $json.body.c || ''] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "alwaysOutputData": true
+  },
+  {
+   "id": "da78da00-73dc-56f7-9433-16271359a76d",
+   "name": "Render result",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    300
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst r = $input.first().json || {};\nconst ok = Number(r.applied) > 0;\nconst title = ok ? 'Принято' : 'Не принято';\nconst body = ok ? `<h1>Принято</h1><p>${esc(r.exp_id)} перешёл на этап ${r.stage}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';\nreturn [{ json: { ok, exp_id: r.exp_id, stage: r.stage, html: `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${title}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>` } }];"
+   }
+  },
+  {
+   "id": "66ef5588-270f-5066-a744-dfdbdb6c4217",
+   "name": "Show result",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [
+    720,
+    300
+   ],
+   "parameters": {
+    "respondWith": "text",
+    "responseBody": "={{ $json.html }}",
+    "options": {
+     "responseHeaders": {
+      "entries": [
+       {
+        "name": "Content-Type",
+        "value": "text/html; charset=utf-8"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "id": "fe9d6da2-fc15-584e-8f98-d0baf0f8da4b",
+   "name": "Accepted?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    960,
+    300
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "8e6febfa-fff6-5298-bb7f-ecf306b68a3e",
+       "leftValue": "={{ $('Render result').first().json.ok }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "9c2eb621-1361-5ab3-91fa-409b245b9d58",
+   "name": "Confirm in Telegram",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1200,
+    300
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "=✅ <b>{{ $('Render result').first().json.exp_id }}</b>: решение принято, этап {{ $('Render result').first().json.stage }}.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Gate link": {
+   "main": [
+    [
+     {
+      "node": "Look up gate",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Look up gate": {
+   "main": [
+    [
+     {
+      "node": "Render confirm page",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Render confirm page": {
+   "main": [
+    [
+     {
+      "node": "Show page",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Gate confirm": {
+   "main": [
+    [
+     {
+      "node": "Apply decision",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Apply decision": {
+   "main": [
+    [
+     {
+      "node": "Render result",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Render result": {
+   "main": [
+    [
+     {
+      "node": "Show result",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Show result": {
+   "main": [
+    [
+     {
+      "node": "Accepted?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Accepted?": {
+   "main": [
+    [
+     {
+      "node": "Confirm in Telegram",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "none",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

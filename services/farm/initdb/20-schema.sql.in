@@ -26,13 +26,27 @@ CREATE TABLE experiments (
   id          text PRIMARY KEY,
   title       text NOT NULL,
   stage       int NOT NULL REFERENCES stages(stage),
-  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','waiting_owner','blocked','go','killed','paused')),
+  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','running','waiting_owner','blocked','go','killed','paused')),
+  chosen_brief text,
   issue_url   text,
   budget_usd  numeric(10,2) NOT NULL DEFAULT 150,
   prereg      jsonb,
   prereg_hash text,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- One-time links for owner gates (G1, G2, ...): a link is valid once, for 72 hours, for the listed choices only.
+CREATE TABLE gate_tokens (
+  token      text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  exp_id     text NOT NULL REFERENCES experiments(id),
+  gate       text NOT NULL,
+  stage      int  NOT NULL,
+  choices    text[] NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL DEFAULT now() + interval '72 hours',
+  used_at    timestamptz,
+  choice     text
 );
 
 CREATE TABLE events (
@@ -102,8 +116,10 @@ ALTER TABLE settings OWNER TO farm;
 ALTER TABLE stages OWNER TO farm;
 ALTER TABLE experiments OWNER TO farm;
 ALTER VIEW v_status OWNER TO farm;
+ALTER TABLE gate_tokens OWNER TO farm;
 GRANT SELECT, INSERT ON events, guardrail_events, decisions, costs TO farm;
 GRANT INSERT, UPDATE ON metrics TO farm;
 GRANT SELECT ON metrics TO farm;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO farm;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO farm_ro;
+REVOKE ALL ON settings, gate_tokens FROM farm_ro;

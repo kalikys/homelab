@@ -1,0 +1,148 @@
+{
+ "name": "92 · Guardrail watchdog",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -340
+   ],
+   "parameters": {
+    "content": "## 92 · Сторож guardrails\nКаждый час:\n- траты ≥ потолка → **сам включает kill switch**\n- этап висит в `running` > 2 ч → `blocked` + алерт\n- решение ждёт тебя > 48 ч → напоминание\n- проваленные проверки за час → алерт\nМолчит, если всё в порядке.",
+    "width": 440,
+    "height": 250,
+    "color": 5
+   }
+  },
+  {
+   "id": "aa54a097-b5c0-5e38-a38d-f9145ab3e321",
+   "name": "Every hour",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "5 * * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "f51034e9-7696-50d6-bb87-4b57b3d77bc4",
+   "name": "Check budgets, stuck runs, stale gates",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH s AS (SELECT max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap FROM settings),\nm AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),\nupd AS (\n  UPDATE settings SET value = 'on'\n  WHERE key = 'kill_switch' AND value = 'off' AND (SELECT spent FROM m) >= (SELECT cap FROM s)\n  RETURNING 1),\nstuck AS (\n  UPDATE experiments SET status = 'blocked', updated_at = now()\n  WHERE status = 'running' AND updated_at < now() - interval '2 hours'\n  RETURNING id, stage),\nev AS (\n  INSERT INTO events (kind, actor, message)\n  SELECT 'kill_switch', 'watchdog', 'Месячный потолок трат достигнут — kill switch включён автоматически' FROM upd\n  UNION ALL\n  SELECT 'stuck_run', 'watchdog', id || ': этап ' || stage || ' висел в running больше 2 часов — переведён в blocked' FROM stuck\n  RETURNING 1)\nSELECT json_build_object(\n  'budget_tripped', EXISTS (SELECT 1 FROM upd),\n  'spent', (SELECT spent FROM m), 'cap', (SELECT cap FROM s),\n  'stuck', (SELECT json_agg(json_build_object('id', id, 'stage', stage)) FROM stuck),\n  'stale', (SELECT json_agg(json_build_object('id', id, 'stage', stage)) FROM experiments WHERE status = 'waiting_owner' AND updated_at < now() - interval '48 hours'),\n  'guard_fail', (SELECT json_agg(json_build_object('exp', exp_id, 'stage', stage, 'detail', detail)) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '1 hour' AND rule <> 'lock_acquired')) AS d",
+    "options": {}
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "dfeebb24-78cd-538f-8367-024c88329c30",
+   "name": "Anything to report?",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst d = $input.first().json.d;\nconst lines = [];\nif (d.budget_tripped) lines.push(`🔴 Потолок трат за месяц достигнут ($${d.spent} из $${d.cap}). Kill switch включён, все этапы остановлены.`);\nfor (const s of d.stuck || []) lines.push(`🧱 ${esc(s.id)}: этап ${s.stage} завис больше 2 часов, переведён в blocked.`);\nfor (const s of d.stale || []) lines.push(`⏳ ${esc(s.id)}: ждёт твоего решения на этапе ${s.stage} больше 48 часов.`);\nfor (const g of d.guard_fail || []) lines.push(`⛔ ${esc(g.exp || 'ферма')} · этап ${g.stage}: ${esc(g.detail)}`);\nif (!lines.length) return [];\nreturn [{ json: { text: '🛡 <b>Ферма · guardrails</b>\\n\\n' + lines.join('\\n') } }];"
+   }
+  },
+  {
+   "id": "ef6a3547-159e-5d32-addc-ba6cf29c9277",
+   "name": "Alert owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    720,
+    0
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Every hour": {
+   "main": [
+    [
+     {
+      "node": "Check budgets, stuck runs, stale gates",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Check budgets, stuck runs, stale gates": {
+   "main": [
+    [
+     {
+      "node": "Anything to report?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Anything to report?": {
+   "main": [
+    [
+     {
+      "node": "Alert owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

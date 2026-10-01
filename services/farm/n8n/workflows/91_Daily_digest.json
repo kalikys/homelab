@@ -1,0 +1,172 @@
+{
+ "name": "91 · Daily digest",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -300
+   ],
+   "parameters": {
+    "content": "## 91 · Дайджест\n09:00 (Тбилиси): этапы, события за сутки, траты (деньги и подписка отдельно), guardrails. Вызывается и из пульта (action=digest).",
+    "width": 440,
+    "height": 200,
+    "color": 5
+   }
+  },
+  {
+   "id": "711c96e5-eca4-5ccf-b75b-ec2c2f5fe3eb",
+   "name": "Every day 09:00",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "0 9 * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "e5e7aaf8-d88b-5776-b80b-7007bcd2401f",
+   "name": "Called by another workflow",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    180
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "819c448c-ef6c-55c6-8e12-1e7950f27603",
+   "name": "Collect status",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    80
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT json_build_object(\n  'status',      (SELECT json_agg(v ORDER BY v.id) FROM v_status v),\n  'events',      (SELECT json_agg(e ORDER BY e.ts) FROM (SELECT ts, exp_id, kind, message FROM events WHERE ts > now() - interval '24 hours') e),\n  'guard_fail',  (SELECT count(*) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '24 hours'),\n  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),\n  'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),\n  'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),\n  'kill',        (SELECT value FROM settings WHERE key = 'kill_switch')) AS d",
+    "options": {}
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "a8104326-5718-5b1b-9b33-e1356ff024ab",
+   "name": "Format message",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    80
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst d = $input.first().json.d;\nconst status = (d.status || []).map(s => `• <b>${esc(s.id)}</b> ${esc(s.title)}\\n   этап ${s.stage} · ${esc(s.stage_name)} · ${esc(s.status)} · $${Number(s.spent_usd).toFixed(2)} из $${Number(s.budget_usd).toFixed(0)}`).join('\\n') || '—';\nconst events = (d.events || []).slice(-10).map(e => `• ${esc(e.exp_id || 'ферма')}: ${esc(e.message)}`).join('\\n') || 'событий нет';\nconst text = `🌱 <b>Ферма · дайджест</b>\\n\\n<b>Стартапы</b>\\n${status}\\n\\n<b>За сутки</b>\\n${events}\\n\\nGuardrails сработали: ${d.guard_fail}\\nТраты за месяц: $${Number(d.month_spend).toFixed(2)} из $${d.month_cap}\\nАгенты (подписка, эквивалент API): $${Number(d.agent_equiv).toFixed(2)}\\nKill switch: ${d.kill === 'on' ? '🔴 ВКЛЮЧЁН' : 'выключен'}`;\nreturn [{ json: { text } }];"
+   }
+  },
+  {
+   "id": "e562525c-3e04-5b58-a1e6-62c901e28da0",
+   "name": "Send digest",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    720,
+    80
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Every day 09:00": {
+   "main": [
+    [
+     {
+      "node": "Collect status",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Called by another workflow": {
+   "main": [
+    [
+     {
+      "node": "Collect status",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Collect status": {
+   "main": [
+    [
+     {
+      "node": "Format message",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Format message": {
+   "main": [
+    [
+     {
+      "node": "Send digest",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

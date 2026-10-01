@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROLES = {"discovery", "preregistration", "landing", "traffic", "builder", "analyst"}
 TOOLS = {
-    "discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+    "discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "preregistration": "Read,Write,Edit,Glob,Grep",
     "landing": "Read,Write,Edit,Glob,Grep,WebFetch",
     "traffic": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
@@ -40,6 +40,9 @@ def run(role, body):
     (work / "runs").mkdir(parents=True, exist_ok=True)
     max_turns = min(int(body.get("max_turns", 60)), 150)
     prompt = body.get("prompt") or f"You are the farm '{role}' agent for {exp}, stage {body.get('stage')}. Follow your skill exactly. Input: {json.dumps(body.get('input', {}), ensure_ascii=False)}"
+    if role == "discovery" and (work / "briefs").exists():
+        # Never let a new run be judged on the previous run's briefs.
+        (work / "briefs").rename(work / "runs" / f"{int(time.time())}-briefs-previous")
     before = {p for p in work.rglob("*") if p.is_file()}
     started = time.time()
     cmd = ["claude", "-p", prompt, "--output-format", "json", "--max-turns", str(max_turns),
@@ -73,6 +76,11 @@ def _page_text(url):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (farm-validator)"})
     with urllib.request.urlopen(req, timeout=25) as r:
         raw = r.read(3_000_000).decode("utf-8", "ignore")
+    try:
+        raw = json.dumps(json.loads(raw), ensure_ascii=False)
+    except ValueError:
+        pass
+    raw = raw.replace("\\n", " ").replace('\\"', '"').replace("\\/", "/")
     raw = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", raw)
     return _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", raw)))
 
@@ -118,7 +126,7 @@ def validate_discovery(exp):
             fails.append("no evidence item signals money")
         checked = []
         for e in ev[:8]:
-            url, quote = e.get("url", ""), _norm(e.get("quote", ""))
+            url, quote = e.get("url", ""), _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", e.get("quote", ""))))
             if not url.startswith(("http://", "https://")) or len(quote) < 15:
                 checked.append({"url": url, "ok": False, "why": "bad url or quote too short"}); continue
             try:

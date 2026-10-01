@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
-"""Creates or updates the startup farm workflows in n8n through the public API.
+"""Creates or updates the startup farm workflows in n8n through the public API (v2, after the n8n audit).
 
-Workflows are matched by name, so re-running updates them in place.
-Reads N8N_URL, N8N_API_KEY, PG_CRED_ID, TG_CRED_ID from /home/kalikys/prj/farm/.env.
-Run: python3 services/farm/n8n/build.py
+- Workflows are matched by name; every update is published (activated) except 00 Controller.
+- Drift guard: deployed versionIds live in deployed.lock.json; if a workflow was edited in the UI since the
+  last build, it is skipped with a warning (re-run with --force to overwrite).
+- Rendered JSON goes to workflows/*.json next to this script, so changes show up in git diff.
+Reads N8N_URL, N8N_API_KEY, PG_CRED_ID, TG_CRED_ID, RUNNER_CRED_ID, OWNER_CHAT_ID from /home/kalikys/prj/farm/.env.
+Run: python3 services/farm/n8n/build.py [--force]
 """
 import json
-import os
+import sys
 import urllib.request
 import uuid
+from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
 ENV_FILE = "/home/kalikys/prj/farm/.env"
 env = dict(line.strip().split("=", 1) for line in open(ENV_FILE) if "=" in line and not line.startswith("#"))
 URL = env["N8N_URL"].rstrip("/") + "/api/v1"
 KEY = env["N8N_API_KEY"]
+CHAT = env["OWNER_CHAT_ID"]
 PG = {"postgres": {"id": env["PG_CRED_ID"], "name": "Farm DB (farm)"}}
 TG = {"telegramApi": {"id": env["TG_CRED_ID"], "name": "Telegram (Hermes bot, send only)"}}
 RUNNER = {"httpHeaderAuth": {"id": env["RUNNER_CRED_ID"], "name": "Agent runner token"}}
-PANEL_URL = "https://n8n.home.kalik8s.ru/webhook/farm"
-PANEL_TOKEN = env["FARM_CONTROL_TOKEN"]
-REAL_MONEY = "source NOT LIKE 'claude_subscription%'"
+BASE = "https://n8n.home.kalik8s.ru/webhook"
+RUNNER_URL = "http://172.30.0.10:8080"
+FORCE = "--force" in sys.argv
+LOCK_FILE = HERE / "deployed.lock.json"
+OUT_DIR = HERE / "workflows"
 
 
 def api(method, path, body=None):
@@ -47,25 +55,27 @@ def node(name, ntype, version, params, pos, creds=None, disabled=False, extra=No
     return n
 
 
-def sticky(name, text, pos, w=360, h=220, color=5):
-    return node(name, "n8n-nodes-base.stickyNote", 1, {"content": text, "width": w, "height": h, "color": color}, pos)
+def sticky(text, pos, w=420, h=240, color=5):
+    return node("About", "n8n-nodes-base.stickyNote", 1, {"content": text, "width": w, "height": h, "color": color}, pos)
 
 
-def sql(name, query, params_expr, pos):
+def sql(name, query, params_expr, pos, extra=None):
     p = {"operation": "executeQuery", "query": query, "options": {}}
     if params_expr:
         p["options"]["queryReplacement"] = params_expr
-    return node(name, "n8n-nodes-base.postgres", 2.5, p, pos, PG)
+    return node(name, "n8n-nodes-base.postgres", 2.5, p, pos, PG, extra=extra)
 
 
 def code(name, js, pos, disabled=False):
     return node(name, "n8n-nodes-base.code", 2, {"jsCode": js}, pos, disabled=disabled)
 
 
-def telegram(name, chat_expr, text_expr, pos):
+def telegram(name, text_expr, pos, chat=None):
+    """Notifications never break a stage: 3 retries, then continue."""
     return node(name, "n8n-nodes-base.telegram", 1.2,
-                {"chatId": chat_expr, "text": text_expr,
-                 "additionalFields": {"parse_mode": "HTML", "appendAttribution": False}}, pos, TG)
+                {"chatId": chat or CHAT, "text": text_expr,
+                 "additionalFields": {"parse_mode": "HTML", "appendAttribution": False, "disable_web_page_preview": True}},
+                pos, TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"})
 
 
 def sub_trigger(pos):
@@ -73,10 +83,10 @@ def sub_trigger(pos):
                 {"inputSource": "passthrough"}, pos)
 
 
-def call(name, wf_id_expr, pos):
+def call(name, wf_id_expr, pos, wait=True, extra=None):
     return node(name, "n8n-nodes-base.executeWorkflow", 1.2,
                 {"source": "database", "workflowId": {"__rl": True, "value": wf_id_expr, "mode": "id"},
-                 "options": {"waitForSubWorkflow": True}}, pos)
+                 "mode": "each", "options": {"waitForSubWorkflow": wait}}, pos, extra=extra)
 
 
 def if_true(name, left_expr, pos):
@@ -94,6 +104,19 @@ def schedule(name, cron, pos):
                 {"rule": {"interval": [{"field": "cronExpression", "expression": cron}]}}, pos)
 
 
+def webhook(name, path, method, pos):
+    return node(name, "n8n-nodes-base.webhook", 2,
+                {"httpMethod": method, "path": path, "responseMode": "responseNode", "options": {}}, pos,
+                extra={"webhookId": str(uuid.uuid5(uuid.NAMESPACE_URL, path + method))})
+
+
+def respond(name, body_expr, pos, html=False):
+    ctype = "text/html; charset=utf-8" if html else "application/json; charset=utf-8"
+    return node(name, "n8n-nodes-base.respondToWebhook", 1.1,
+                {"respondWith": "text", "responseBody": body_expr,
+                 "options": {"responseHeaders": {"entries": [{"name": "Content-Type", "value": ctype}]}}}, pos)
+
+
 def link(conns, a, b, out=0):
     conns.setdefault(a, {"main": []})
     while len(conns[a]["main"]) <= out:
@@ -101,243 +124,290 @@ def link(conns, a, b, out=0):
     conns[a]["main"][out].append({"node": b, "type": "main", "index": 0})
 
 
-SETTINGS = {"executionOrder": "v1", "saveManualExecutions": True,
-            "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all", "timezone": "Asia/Tbilisi"}
+ESC_JS = "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n"
+BASE_SETTINGS = {"executionOrder": "v1", "saveManualExecutions": True, "saveDataSuccessExecution": "all",
+                 "saveDataErrorExecution": "all", "timezone": "Asia/Tbilisi", "executionTimeout": 300}
 
-existing = {w["name"]: w["id"] for w in api("GET", "/workflows?limit=250")["data"]}
+existing = {w["name"]: w for w in api("GET", "/workflows?limit=250")["data"]}
+lock = json.loads(LOCK_FILE.read_text()) if LOCK_FILE.exists() else {}
+OUT_DIR.mkdir(exist_ok=True)
+skipped = []
 
 
-def upsert(name, nodes, conns, error_wf=None):
-    settings = dict(SETTINGS)
+def upsert(name, nodes, conns, error_wf=None, publish=True, **settings_over):
+    settings = dict(BASE_SETTINGS, **settings_over)
     if error_wf:
         settings["errorWorkflow"] = error_wf
     body = {"name": name, "nodes": nodes, "connections": conns, "settings": settings}
+    (OUT_DIR / (name.replace(" · ", "_").replace(" ", "_") + ".json")).write_text(json.dumps(body, ensure_ascii=False, indent=1))
     if name in existing:
-        api("PUT", f"/workflows/{existing[name]}", body)
-        wid = existing[name]
+        wid = existing[name]["id"]
+        current = api("GET", f"/workflows/{wid}")
+        if lock.get(wid) and current.get("versionId") != lock[wid] and not FORCE:
+            print(f"SKIP {wid}  {name}: edited in the UI since the last build (use --force to overwrite)")
+            skipped.append(name)
+            return wid
+        api("PUT", f"/workflows/{wid}", body)
     else:
         wid = api("POST", "/workflows", body)["id"]
-        existing[name] = wid
-    print(f"{wid}  {name}")
+        existing[name] = {"id": wid}
+    if publish:
+        api("POST", f"/workflows/{wid}/activate")
+    else:
+        try:
+            api("POST", f"/workflows/{wid}/deactivate")
+        except Exception:
+            pass
+    w = api("GET", f"/workflows/{wid}")
+    lock[wid] = w.get("versionId")
+    state = "published" if w.get("active") else "draft"
+    if publish and w.get("activeVersionId") and w.get("activeVersionId") != w.get("versionId"):
+        state = "PUBLISH MISMATCH"
+    print(f"{wid}  {state:9}  {name}")
     return wid
 
 
-CHAT = "(SELECT value FROM settings WHERE key = 'owner_chat_id')"
-
-# ---------- 98 Error handler ----------
+# ---------- 98 Error handler: Telegram and the journal in parallel ----------
 c = {}
+ERR_TEXT = ("={{ ((e) => '🔴 <b>Ферма: ошибка</b>\\nWorkflow: ' + e($json.workflow.name) + '\\nУзел: ' + e($json.execution.lastNodeExecuted)"
+            " + '\\n' + e(($json.execution.error || {}).message))(v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 900)) }}")
 n = [
-    sticky("About", "## 98 · Обработчик ошибок\nЛюбой упавший workflow фермы попадает сюда: событие в журнал + алерт в Telegram.", [-80, -260], 380, 160),
+    sticky("## 98 · Обработчик ошибок\nЛюбой упавший workflow фермы: алерт в Telegram **и** запись в журнал — параллельно, чтобы алерт ушёл даже при упавшей базе.", [-80, -260], 420, 160),
     node("When a farm workflow fails", "n8n-nodes-base.errorTrigger", 1, {}, [0, 0]),
-    sql("Log the error", "INSERT INTO events (kind, actor, message, data) SELECT 'workflow_error', 'n8n', $1, $2::jsonb RETURNING " + CHAT + " AS chat_id",
-        "={{ ['Workflow failed: ' + $json.workflow.name, JSON.stringify({execution: $json.execution.id, node: $json.execution.lastNodeExecuted, error: ($json.execution.error || {}).message})] }}", [240, 0]),
-    telegram("Alert owner", "={{ $json.chat_id }}",
-             "=🔴 <b>Ферма: ошибка</b>\nWorkflow: {{ $('When a farm workflow fails').item.json.workflow.name }}\nУзел: {{ $('When a farm workflow fails').item.json.execution.lastNodeExecuted }}\n{{ ($('When a farm workflow fails').item.json.execution.error || {}).message }}", [480, 0]),
+    telegram("Alert owner", ERR_TEXT, [260, -100]),
+    sql("Log the error", "INSERT INTO events (kind, actor, message, data) SELECT 'workflow_error', 'n8n', $1, $2::jsonb",
+        "={{ ['Workflow failed: ' + $json.workflow.name, JSON.stringify({execution: $json.execution.id, node: $json.execution.lastNodeExecuted, error: ($json.execution.error || {}).message})] }}",
+        [260, 100], extra={"onError": "continueRegularOutput"}),
 ]
+link(c, "When a farm workflow fails", "Alert owner")
 link(c, "When a farm workflow fails", "Log the error")
-link(c, "Log the error", "Alert owner")
 ERR = upsert("98 · Error handler", n, c)
 
 # ---------- 97 Log event ----------
 c = {}
 n = [
-    sticky("About", "## 97 · Журнал событий\nВызывается каждым этапом. Пишет событие в таблицу events (только INSERT) и, если notify = true, шлёт сообщение в Telegram.\nВход: exp_id, stage, kind, actor, message, notify.", [-80, -280], 420, 190),
+    sticky("## 97 · Журнал событий\nВызывается этапами. Пишет событие в `events` (только INSERT); при notify = true шлёт сообщение (текст экранируется).\nВход: exp_id, stage, kind, actor, message, notify.", [-80, -280], 440, 190),
     sub_trigger([0, 0]),
     sql("Insert event",
-        "INSERT INTO events (exp_id, stage, kind, actor, message) SELECT j->>'exp_id', (j->>'stage')::int, j->>'kind', coalesce(j->>'actor','n8n'), j->>'message' FROM (SELECT $1::jsonb AS j) t RETURNING id, exp_id, stage, kind, message, " + CHAT + " AS chat_id",
+        "INSERT INTO events (exp_id, stage, kind, actor, message) SELECT j->>'exp_id', (j->>'stage')::int, j->>'kind', coalesce(j->>'actor','n8n'), j->>'message' FROM (SELECT $1::jsonb AS j) t RETURNING id, exp_id, stage, kind, message",
         "={{ [JSON.stringify($json)] }}", [240, 0]),
     if_true("Notify owner?", "={{ $('Called by another workflow').item.json.notify === true }}", [480, 0]),
-    telegram("Send to Telegram", "={{ $json.chat_id }}",
-             "={{ $json.exp_id ? '<b>' + $json.exp_id + '</b> · этап ' + $json.stage + '\\n' : '' }}{{ $json.message }}", [720, -80]),
+    telegram("Send to Telegram",
+             "={{ ($json.exp_id ? '<b>' + $json.exp_id + '</b> · этап ' + $json.stage + '\\n' : '') + String($json.message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}",
+             [720, -80]),
 ]
 link(c, "Called by another workflow", "Insert event")
 link(c, "Insert event", "Notify owner?")
 link(c, "Notify owner?", "Send to Telegram", 0)
 LOG = upsert("97 · Log event", n, c, ERR)
 
-# ---------- 90 Guardrail preflight ----------
+# ---------- 90 Guardrail preflight: checks + atomic lock ----------
 PREFLIGHT_SQL = """WITH s AS (
   SELECT max(value) FILTER (WHERE key = 'kill_switch') AS ks,
          max(value) FILTER (WHERE key = 'wip_limit')::int AS wip,
          max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap
   FROM settings),
 e AS (SELECT * FROM experiments WHERE id = $1),
-a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'waiting_owner')),
+a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner')),
 m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
 x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_subscription%'),
 checks AS (
   SELECT * FROM (VALUES
-    ('kill_switch_off',   (SELECT ks FROM s) = 'off',                                        'Kill switch выключен'),
-    ('wip_limit',         (SELECT n FROM a) <= (SELECT wip FROM s),                          'В работе не больше WIP-лимита стартапов'),
-    ('month_budget',      (SELECT spent FROM m) < (SELECT cap FROM s),                       'Траты фермы за месяц ниже потолка'),
-    ('experiment_budget', (SELECT spent FROM x) < coalesce((SELECT budget_usd FROM e), 0),   'Траты эксперимента ниже его бюджета'),
-    ('experiment_status', coalesce((SELECT status FROM e) NOT IN ('killed', 'paused'), false), 'Эксперимент не закрыт и не на паузе'),
-    ('stage_order',       coalesce((SELECT stage FROM e) = $2::int, false),                  'Эксперимент действительно на этом этапе')
+    ('kill_switch_off',   (SELECT ks FROM s) = 'off',                                      'Kill switch выключен'),
+    ('wip_limit',         (SELECT n FROM a) <= (SELECT wip FROM s),                        'В работе не больше WIP-лимита стартапов'),
+    ('month_budget',      (SELECT spent FROM m) < (SELECT cap FROM s),                     'Траты фермы за месяц ниже потолка'),
+    ('experiment_budget', (SELECT spent FROM x) < coalesce((SELECT budget_usd FROM e), 0), 'Траты эксперимента ниже его бюджета'),
+    ('experiment_active', coalesce((SELECT status FROM e) = 'active', false),              'Эксперимент в статусе active (не ждёт решения, не занят, не закрыт)'),
+    ('stage_order',       coalesce((SELECT stage FROM e) = $2::int, false),                'Эксперимент на том этапе, который запускается')
   ) AS v(rule, passed, detail)),
+lk AS (
+  UPDATE experiments SET status = 'running', updated_at = now()
+  WHERE id = $1 AND status = 'active' AND (SELECT bool_and(passed) FROM checks)
+  RETURNING id),
 ins AS (
   INSERT INTO guardrail_events (exp_id, stage, rule, passed, detail)
   SELECT $1, $2::int, rule, passed, detail FROM checks
+  UNION ALL
+  SELECT $1, $2::int, 'lock_acquired', EXISTS (SELECT 1 FROM lk), 'Этап занят этим запуском (защита от параллельных прогонов)'
   RETURNING rule, passed, detail)
 SELECT $1 AS exp_id, $2::int AS stage, bool_and(passed) AS ok,
        json_agg(json_build_object('rule', rule, 'passed', passed, 'detail', detail)) AS checks
 FROM ins"""
 c = {}
 n = [
-    sticky("About", "## 90 · Guardrail preflight\nЗапускается **перед каждым этапом**. Проверяет кодом, без LLM:\n- kill switch выключен\n- WIP-лимит\n- месячный потолок трат\n- бюджет эксперимента\n- эксперимент не закрыт\n- этап совпадает\nКаждая проверка пишется в guardrail_events (только INSERT).", [-80, -360], 420, 290),
+    sticky("## 90 · Guardrail preflight\nПеред каждым этапом, кодом, без LLM: kill switch · WIP-лимит · месячный потолок · бюджет эксперимента · статус active · этап совпадает с ожидаемым.\nЕсли всё прошло — **атомарно** ставит статус `running` (второй параллельный запуск не пройдёт). Каждая проверка пишется в `guardrail_events`.\nВход: exp_id, stage (ожидаемый этап от вызывающего workflow).", [-80, -360], 460, 290),
     sub_trigger([0, 0]),
-    sql("Run checks", PREFLIGHT_SQL, "={{ [$json.exp_id, $json.stage] }}", [240, 0]),
+    sql("Run checks and lock", PREFLIGHT_SQL, "={{ [$json.exp_id, $json.stage] }}", [240, 0]),
 ]
-link(c, "Called by another workflow", "Run checks")
+link(c, "Called by another workflow", "Run checks and lock")
 PRE = upsert("90 · Guardrail preflight", n, c, ERR)
 
+RELEASE_SQL = "UPDATE experiments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id, status"
 
+
+def blocked_branch(n, c, num, title, pos_y=160):
+    n.append(code("Blocked report",
+                  f"const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\n"
+                  f"return [{{ json: {{ exp_id: r.exp_id, stage: {num}, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап {num:02d} · {title} остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true }} }}];",
+                  [720, pos_y]))
+    link(c, "All checks passed?", "Blocked report", 1)
+    n.append(call("Log blocked", LOG, [960, pos_y]))
+    link(c, "Blocked report", "Log blocked")
+
+
+def stage_head(n, c, num, about):
+    n += [
+        sticky(about, [-80, -420], 540, 320),
+        sub_trigger([-240, 0]),
+        code("Expect this stage", f"return $input.all().map(i => ({{ json: {{ exp_id: i.json.exp_id, stage: {num} }} }}));", [0, 0]),
+        call("Guardrail preflight", PRE, [240, 0]),
+        if_true("All checks passed?", "={{ $json.ok }}", [480, 0]),
+    ]
+    link(c, "Called by another workflow", "Expect this stage")
+    link(c, "Expect this stage", "Guardrail preflight")
+    link(c, "Guardrail preflight", "All checks passed?")
+
+
+# ---------- 01 Discovery ----------
 DISCOVERY_SUMMARY_JS = r"""const run = $('Agent: discovery').first().json;
 const val = $input.first().json;
-const exp = $('Called by another workflow').first().json.exp_id;
-const passed = (val.briefs || []).filter(b => b.passed);
-const failed = (val.briefs || []).filter(b => !b.passed);
-const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const link = slug => `PANEL?t=TOKEN&action=decide&exp=${exp}&gate=G1&decision=approve&note=${encodeURIComponent(slug)}`;
-let text;
-if (passed.length) {
-  text = `🧭 <b>${exp}: брифы готовы</b>, прошли проверку ${passed.length} из ${(val.briefs||[]).length}.\nВыбери один (G1):\n\n` +
-    passed.map((b, i) => `${i+1}. <b>${esc(b.title)}</b>\n   канал ${esc(b.channel)} · CPC ~$${b.cpc} · цена ${esc(b.price)}\n   <a href="${link(b.slug)}">Выбрать</a>`).join('\n\n') +
-    (failed.length ? `\n\nОтсеяно проверкой: ${failed.length}` : '');
-} else {
-  text = `⛔ <b>${exp}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\n` + failed.slice(0,3).map(b => `• ${esc(b.title || b.file)}: ${esc((b.failures||[]).join('; '))}`).join('\n');
-}
-return [{ json: { exp_id: exp, passed: passed.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id, text, agent_ok: run.ok, agent_error: run.error || '' } }];""".replace("PANEL", PANEL_URL).replace("TOKEN", PANEL_TOKEN)
+const exp = $('Expect this stage').first().json.exp_id;
+const briefs = val.briefs || [];
+const passed = briefs.filter(b => b.passed);
+return [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,
+  choices: passed.map(b => b.slug),
+  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"""
 
 DISCOVERY_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
       SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),
-u AS (UPDATE experiments SET stage = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
+u AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
                              status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'waiting_owner' ELSE 'blocked' END,
+                             briefs = (SELECT j->'briefs' FROM j),
                              updated_at = now()
-      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING stage, status),
+      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),
+g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)
+      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE (j->>'passed')::int > 0
+      RETURNING token),
 ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
        SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',
-              'Discovery: прошли проверку ' || (j->>'passed') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
-SELECT (SELECT value FROM settings WHERE key = 'owner_chat_id') AS chat_id, (SELECT j->>'text' FROM j) AS text"""
+              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
+SELECT (SELECT token FROM g) AS token"""
 
+DISCOVERY_MESSAGE_JS = ESC_JS + f"""const s = $('Summarise').first().json;
+const token = $input.first().json.token;
+const passed = s.briefs.filter(b => b.passed);
+const failed = s.briefs.filter(b => !b.passed);
+let text;
+if (passed.length && token) {{
+  const link = slug => `{BASE}/farm-gate?g=${{token}}&c=${{encodeURIComponent(slug)}}`;
+  text = `🧭 <b>${{s.exp_id}}: брифы готовы</b>, прошли проверку ${{passed.length}} из ${{s.total}}.\\nВыбери один (G1). Ссылки одноразовые, действуют 72 часа, открываются дома или через Tailscale:\\n\\n` +
+    passed.map((b, i) => `${{i+1}}. <b>${{esc(b.title)}}</b>\\n   канал ${{esc(b.channel)}} · CPC ~$${{b.cpc}} · цена ${{esc(b.price)}}\\n   <a href="${{link(b.slug)}}">Выбрать</a>`).join('\\n\\n') +
+    (failed.length ? `\\n\\nОтсеяно проверкой: ${{failed.length}}` : '');
+}} else {{
+  text = `⛔ <b>${{s.exp_id}}: ни один бриф не прошёл проверку</b> (${{failed.length}}). Этап заблокирован до разбора.\\n` +
+    failed.slice(0, 3).map(b => `• ${{esc(b.title || b.slug)}}: ${{esc((b.failures || []).join('; '))}}`).join('\\n');
+}}
+return [{{ json: {{ text }} }}];"""
 
-def build_discovery(n, c):
-    """Stage 01: agent writes briefs → code validates them in the isolated runner → record → owner chooses (G1)."""
-    n.append(node("Agent: discovery", "n8n-nodes-base.httpRequest", 4.2,
-                  {"method": "POST", "url": "http://172.30.0.10:8080/run/discovery",
-                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-                   "sendBody": True, "specifyBody": "json",
-                   "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 1, \"max_turns\": 120, \"input\": {\"note\": \"Stop when 3 to 5 briefs pass the checklist\"}}",
-                   "options": {"timeout": 3600000}}, [720, -100], RUNNER,
-                  extra={"retryOnFail": False, "onError": "continueRegularOutput"}))
-    link(c, "All checks passed?", "Agent: discovery", 0)
-    n.append(node("Validate briefs (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
-                  {"method": "POST", "url": "=http://172.30.0.10:8080/validate/discovery/{{ $('Called by another workflow').first().json.exp_id }}",
-                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-                   "options": {"timeout": 600000}}, [960, -100], RUNNER))
-    link(c, "Agent: discovery", "Validate briefs (code, no LLM)")
-    n.append(code("Summarise for owner", DISCOVERY_SUMMARY_JS, [1200, -100]))
-    link(c, "Validate briefs (code, no LLM)", "Summarise for owner")
-    n.append(sql("Record cost, stage and event", DISCOVERY_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [1440, -100]))
-    link(c, "Summarise for owner", "Record cost, stage and event")
-    n.append(telegram("Send briefs to owner", "={{ $json.chat_id }}", "={{ $json.text }}", [1680, -100]))
-    link(c, "Record cost, stage and event", "Send briefs to owner")
-    n.append(code("Blocked report", "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 1, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 01 · Discovery остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];", [720, 140]))
-    link(c, "All checks passed?", "Blocked report", 1)
-    n.append(call("Log blocked", LOG, [960, 140]))
-    link(c, "Blocked report", "Log blocked")
+AGENT_FAILED_JS = """const exp = $('Expect this stage').first().json.exp_id;
+const r = $input.first().json || {};
+const why = r.error || r.result || (r.message ?? 'нет ответа от агента');
+return [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ Этап 01 · Discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"""
 
-# ---------- stage workflows 01–08 ----------
+c, n = {}, []
+stage_head(n, c, 1, "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\n**Твой шаг:** G1 — одноразовые ссылки «Выбрать» в Telegram.")
+n.append(node("Agent: discovery", "n8n-nodes-base.httpRequest", 4.2,
+              {"method": "POST", "url": f"{RUNNER_URL}/run/discovery",
+               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+               "sendBody": True, "specifyBody": "json",
+               "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 120, \"input\": {\"note\": \"Stop when 3 to 5 briefs pass the checklist\"}}",
+               "options": {"timeout": 3600000}}, [720, -100], RUNNER, extra={"onError": "continueErrorOutput"}))
+link(c, "All checks passed?", "Agent: discovery", 0)
+n.append(if_true("Agent succeeded?", "={{ $json.ok === true }}", [960, -100]))
+link(c, "Agent: discovery", "Agent succeeded?", 0)
+n.append(node("Validate briefs (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
+              {"method": "POST", "url": f"={RUNNER_URL}/validate/discovery/{{{{ $('Expect this stage').first().json.exp_id }}}}",
+               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+               "options": {"timeout": 600000}}, [1200, -180], RUNNER))
+link(c, "Agent succeeded?", "Validate briefs (code, no LLM)", 0)
+n.append(code("Summarise", DISCOVERY_SUMMARY_JS, [1440, -180]))
+link(c, "Validate briefs (code, no LLM)", "Summarise")
+n.append(sql("Record cost, briefs, stage, gate", DISCOVERY_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [1680, -180]))
+link(c, "Summarise", "Record cost, briefs, stage, gate")
+n.append(code("Compose message", DISCOVERY_MESSAGE_JS, [1920, -180]))
+link(c, "Record cost, briefs, stage, gate", "Compose message")
+n.append(telegram("Send briefs to owner", "={{ $json.text }}", [2160, -180]))
+link(c, "Compose message", "Send briefs to owner")
+n.append(code("Agent failed", AGENT_FAILED_JS, [1200, 20]))
+link(c, "Agent: discovery", "Agent failed", 1)
+link(c, "Agent succeeded?", "Agent failed", 1)
+n.append(sql("Mark blocked", RELEASE_SQL, "={{ [$json.exp_id, 'blocked'] }}", [1440, 20], extra={"alwaysOutputData": True}))
+link(c, "Agent failed", "Mark blocked")
+n.append(code("Pass failure on", "return [{ json: $('Agent failed').first().json }];", [1680, 20]))
+link(c, "Mark blocked", "Pass failure on")
+n.append(call("Log failure", LOG, [1920, 20]))
+link(c, "Pass failure on", "Log failure")
+blocked_branch(n, c, 1, "Discovery", pos_y=220)
+STAGE_WF = {1: upsert("01 · Discovery", n, c, ERR, executionTimeout=4000)}
+
+# ---------- stage skeletons 02–08 ----------
 STAGES = [
-    (1, "Discovery", "discovery",
-     "Агент: ресёрч источников «где текут деньги» → 3–5 брифов.",
-     "Guardrails: схема брифа · ссылки живые · цитата найдена в источнике · лимит $ на сессию.",
-     "Твой шаг: нет (дальше G1)."),
-    (2, "Brief choice", None,
-     "Брифы уходят тебе.",
-     "Guardrails: WIP = 1.",
-     "Твой шаг: G1 — выбрать бриф (ссылка-кнопка из Telegram)."),
-    (3, "Pre-registration", "preregistration",
-     "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
-     "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.",
-     "Твой шаг: одобрить пороги."),
-    (4, "Landing", "landing",
-     "Агент: лендинг → превью на Cloudflare Pages.",
-     "Guardrails: HTTP 200 · форма пишет в waitlist · аналитика стреляет · Terms и Privacy · цена как в брифе.",
-     "Твой шаг: одобрить публикацию."),
-    (5, "Traffic and metrics", "traffic",
-     "Агент: спецификация кампании, ежедневный сбор метрик в таблицу metrics.",
-     "Guardrails: трата ≤ budget_day_usd и ≤ бюджета теста · ранний KILL на 100 визитах.",
-     "Твой шаг: одобрить деньги и запустить кампанию."),
-    (6, "Decision", None,
-     "Решение считается по правилу предрегистрации.",
-     "Guardrails: GO / KILL / продление только по правилу; переопределение пишется в decisions.",
-     "Твой шаг: G2 — подтвердить."),
-    (7, "Build MVP", "builder",
-     "Агент: MVP в песочнице (только после GO).",
-     "Guardrails: auth и оплату менять нельзя · тесты · сканеры зависимостей и секретов.",
-     "Твой шаг: одобрить запуск оплаты."),
-    (8, "Active users", "analyst",
-     "Агент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.",
-     "Guardrails: алерт при падении сайта или метрик.",
-     "Твой шаг: G3 на 30-й день — продолжать, автопилот или закрыть."),
+    (2, "Brief choice", None, "Брифы уходят тебе.", "Guardrails: WIP = 1.", "Твой шаг: G1 — выбрать бриф (одноразовая ссылка)."),
+    (3, "Pre-registration", "preregistration", "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
+     "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.", "Твой шаг: одобрить пороги."),
+    (4, "Landing", "landing", "Агент: лендинг → превью на Cloudflare Pages.",
+     "Guardrails: HTTP 200 · форма пишет в waitlist · аналитика · Terms и Privacy · цена как в брифе.", "Твой шаг: одобрить публикацию."),
+    (5, "Traffic and metrics", "traffic", "Агент: спецификация кампании, ежедневный сбор метрик в `metrics`.",
+     "Guardrails: трата ≤ budget_day_usd и ≤ бюджета теста · ранний KILL на 100 визитах.", "Твой шаг: одобрить деньги и запустить кампанию."),
+    (6, "Decision", None, "Решение по правилу предрегистрации.",
+     "Guardrails: GO / KILL / продление только по правилу; переопределение пишется в decisions.", "Твой шаг: G2 — подтвердить."),
+    (7, "Build MVP", "builder", "Агент: MVP в песочнице (только после GO).",
+     "Guardrails: auth и оплату менять нельзя · тесты · сканеры зависимостей и секретов.", "Твой шаг: одобрить запуск оплаты."),
+    (8, "Active users", "analyst", "Агент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.",
+     "Guardrails: алерт при падении сайта или метрик.", "Твой шаг: G3 на 30-й день."),
 ]
-STAGE_WF = {}
 for num, title, role, agent_txt, guard_txt, owner_txt in STAGES:
-    c = {}
-    agent_note = "Агент ещё не подключён: узел выключен, этап проходит как каркас." if role else "Этап без агента."
-    n = [
-        sticky("About", f"## {num:02d} · {title}\n{agent_txt}\n\n{guard_txt}\n\n{owner_txt}\n\n_{agent_note}_", [-80, -400], 520, 300),
-        sub_trigger([0, 0]),
-        call("Guardrail preflight", PRE, [240, 0]),
-        if_true("All checks passed?", "={{ $json.ok }}", [480, 0]),
-    ]
-    link(c, "Called by another workflow", "Guardrail preflight")
-    link(c, "Guardrail preflight", "All checks passed?")
-    prev = "All checks passed?"
-    x = 720
-    if role == "discovery":
-        build_discovery(n, c)
-        STAGE_WF[num] = upsert(f"{num:02d} · {title}", n, c, ERR)
-        continue
+    c, n = {}, []
+    note = "Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку." if role else "Этап без агента."
+    stage_head(n, c, num, f"## {num:02d} · {title}\n{agent_txt}\n\n{guard_txt}\n\n{owner_txt}\n\n_{note}_")
+    prev, x = "All checks passed?", 720
     if role:
         n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
-                      {"method": "POST", "url": f"http://agent-runner:8080/run/{role}",
+                      {"method": "POST", "url": f"{RUNNER_URL}/run/{role}",
+                       "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
                        "sendBody": True, "specifyBody": "json",
-                       "jsonBody": "={{ JSON.stringify({exp_id: $json.exp_id, stage: $json.stage}) }}",
-                       "options": {"timeout": 3600000}}, [x, -100], disabled=True))
+                       "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": " + str(num) + "}",
+                       "options": {"timeout": 3600000}}, [x, -100], RUNNER, disabled=True))
         link(c, prev, f"Agent: {role}", 0)
         prev, x = f"Agent: {role}", x + 240
         n.append(code("Validate output", "// Stage-specific checks run here once the agent is connected.\nreturn $input.all();", [x, -100], disabled=True))
         link(c, prev, "Validate output")
         prev, x = "Validate output", x + 240
-    n.append(code("Report", f"return [{{ json: {{ exp_id: $('Called by another workflow').first().json.exp_id, stage: {num}, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап {num:02d} · {title}: проверки пройдены, каркас отработал' + ({'true' if role else 'false'} ? ' (агент ещё не подключён)' : ''), notify: false }} }}];", [x, -100]))
-    if prev == "All checks passed?":
-        link(c, prev, "Report", 0)
-    else:
-        link(c, prev, "Report")
-    n.append(call("Log event", LOG, [x + 240, -100]))
+    n.append(sql("Release lock", RELEASE_SQL, "={{ [$('Expect this stage').first().json.exp_id, 'active'] }}", [x, -100], extra={"alwaysOutputData": True}))
+    link(c, prev, "Release lock", 0)
+    n.append(code("Report", f"return [{{ json: {{ exp_id: $('Expect this stage').first().json.exp_id, stage: {num}, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап {num:02d} · {title}: проверки пройдены, каркас отработал' + ({'true' if role else 'false'} ? ' (агент ещё не подключён)' : ''), notify: false }} }}];", [x + 240, -100]))
+    link(c, "Release lock", "Report")
+    n.append(call("Log event", LOG, [x + 480, -100]))
     link(c, "Report", "Log event")
-    n.append(code("Blocked report", f"const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{{ json: {{ exp_id: r.exp_id, stage: {num}, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап {num:02d} · {title} остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true }} }}];", [720, 140]))
-    link(c, "All checks passed?", "Blocked report", 1)
-    n.append(call("Log blocked", LOG, [960, 140]))
-    link(c, "Blocked report", "Log blocked")
+    blocked_branch(n, c, num, title)
     STAGE_WF[num] = upsert(f"{num:02d} · {title}", n, c, ERR)
 
-# ---------- 00 Controller ----------
+MAP_JS = f"const map = {json.dumps({str(k): v for k, v in STAGE_WF.items()})};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[String(i.json.stage)] }} }}));"
+
+# ---------- 00 Controller (draft until the next stage has an agent) ----------
 c = {}
-mapping = json.dumps({str(k): v for k, v in STAGE_WF.items()})
 n = [
-    sticky("About", "## 00 · Controller\nКаждые 15 минут берёт активные эксперименты и запускает workflow их текущего этапа.\n\n**Выключен**, пока не подключён agent-runner: иначе каркас крутился бы вхолостую.", [-80, -300], 420, 220),
+    sticky("## 00 · Controller\nКаждые 15 минут берёт эксперименты в статусе `active` и запускает workflow их этапа (по одному запуску на эксперимент, без ожидания). Двойной запуск невозможен: preflight ставит `running` атомарно.\n\n**Черновик** (не опубликован), пока у следующего этапа нет агента.", [-80, -300], 460, 240),
     schedule("Every 15 minutes", "*/15 * * * *", [0, 0]),
     sql("Active experiments", "SELECT id AS exp_id, stage FROM experiments WHERE status = 'active' ORDER BY created_at", None, [240, 0]),
-    code("Pick stage workflow", f"const map = {mapping};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[String(i.json.stage)] }} }}));", [480, 0]),
-    call("Run stage", "={{ $json.workflow_id }}", [720, 0]),
+    code("Pick stage workflow", MAP_JS, [480, 0]),
+    call("Run stage", "={{ $json.workflow_id }}", [720, 0], wait=False),
 ]
 link(c, "Every 15 minutes", "Active experiments")
 link(c, "Active experiments", "Pick stage workflow")
 link(c, "Pick stage workflow", "Run stage")
-CTRL = upsert("00 · Controller", n, c, ERR)
+CTRL = upsert("00 · Controller", n, c, ERR, publish=False)
 
 # ---------- 91 Daily digest ----------
 DIGEST_SQL = """SELECT json_build_object(
@@ -347,22 +417,20 @@ DIGEST_SQL = """SELECT json_build_object(
   'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
   'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),
   'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),
-  'kill',        (SELECT value FROM settings WHERE key = 'kill_switch'),
-  'chat_id',     (SELECT value FROM settings WHERE key = 'owner_chat_id')) AS d"""
-DIGEST_JS = r"""const d = $input.first().json.d;
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  'kill',        (SELECT value FROM settings WHERE key = 'kill_switch')) AS d"""
+DIGEST_JS = ESC_JS + r"""const d = $input.first().json.d;
 const status = (d.status || []).map(s => `• <b>${esc(s.id)}</b> ${esc(s.title)}\n   этап ${s.stage} · ${esc(s.stage_name)} · ${esc(s.status)} · $${Number(s.spent_usd).toFixed(2)} из $${Number(s.budget_usd).toFixed(0)}`).join('\n') || '—';
 const events = (d.events || []).slice(-10).map(e => `• ${esc(e.exp_id || 'ферма')}: ${esc(e.message)}`).join('\n') || 'событий нет';
 const text = `🌱 <b>Ферма · дайджест</b>\n\n<b>Стартапы</b>\n${status}\n\n<b>За сутки</b>\n${events}\n\nGuardrails сработали: ${d.guard_fail}\nТраты за месяц: $${Number(d.month_spend).toFixed(2)} из $${d.month_cap}\nАгенты (подписка, эквивалент API): $${Number(d.agent_equiv).toFixed(2)}\nKill switch: ${d.kill === 'on' ? '🔴 ВКЛЮЧЁН' : 'выключен'}`;
-return [{ json: { chat_id: d.chat_id, text } }];"""
+return [{ json: { text } }];"""
 c = {}
 n = [
-    sticky("About", "## 91 · Дайджест\nКаждый день в 09:00 (Тбилиси): где каждый стартап, что произошло за сутки, сколько потрачено, сработали ли guardrails.\nМожно вызвать из 99 · Control panel (action=digest).", [-80, -300], 420, 200),
+    sticky("## 91 · Дайджест\n09:00 (Тбилиси): этапы, события за сутки, траты (деньги и подписка отдельно), guardrails. Вызывается и из пульта (action=digest).", [-80, -300], 440, 200),
     schedule("Every day 09:00", "0 9 * * *", [0, 0]),
     sub_trigger([0, 180]),
     sql("Collect status", DIGEST_SQL, None, [240, 80]),
     code("Format message", DIGEST_JS, [480, 80]),
-    telegram("Send digest", "={{ $json.chat_id }}", "={{ $json.text }}", [720, 80]),
+    telegram("Send digest", "={{ $json.text }}", [720, 80]),
 ]
 link(c, "Every day 09:00", "Collect status")
 link(c, "Called by another workflow", "Collect status")
@@ -371,44 +439,137 @@ link(c, "Format message", "Send digest")
 DIG = upsert("91 · Daily digest", n, c, ERR)
 
 # ---------- 92 Guardrail watchdog ----------
-WATCH_SQL = """WITH s AS (
-  SELECT max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap FROM settings),
+WATCH_SQL = """WITH s AS (SELECT max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap FROM settings),
 m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
 upd AS (
   UPDATE settings SET value = 'on'
   WHERE key = 'kill_switch' AND value = 'off' AND (SELECT spent FROM m) >= (SELECT cap FROM s)
   RETURNING 1),
+stuck AS (
+  UPDATE experiments SET status = 'blocked', updated_at = now()
+  WHERE status = 'running' AND updated_at < now() - interval '2 hours'
+  RETURNING id, stage),
 ev AS (
   INSERT INTO events (kind, actor, message)
   SELECT 'kill_switch', 'watchdog', 'Месячный потолок трат достигнут — kill switch включён автоматически' FROM upd
+  UNION ALL
+  SELECT 'stuck_run', 'watchdog', id || ': этап ' || stage || ' висел в running больше 2 часов — переведён в blocked' FROM stuck
   RETURNING 1)
 SELECT json_build_object(
   'budget_tripped', EXISTS (SELECT 1 FROM upd),
   'spent', (SELECT spent FROM m), 'cap', (SELECT cap FROM s),
-  'stale', (SELECT json_agg(json_build_object('id', id, 'stage', stage, 'since', updated_at)) FROM experiments WHERE status = 'waiting_owner' AND updated_at < now() - interval '48 hours'),
-  'guard_fail', (SELECT json_agg(json_build_object('exp', exp_id, 'stage', stage, 'rule', rule, 'detail', detail)) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '1 hour'),
-  'chat_id', (SELECT value FROM settings WHERE key = 'owner_chat_id')) AS d"""
-WATCH_JS = r"""const d = $input.first().json.d;
+  'stuck', (SELECT json_agg(json_build_object('id', id, 'stage', stage)) FROM stuck),
+  'stale', (SELECT json_agg(json_build_object('id', id, 'stage', stage)) FROM experiments WHERE status = 'waiting_owner' AND updated_at < now() - interval '48 hours'),
+  'guard_fail', (SELECT json_agg(json_build_object('exp', exp_id, 'stage', stage, 'detail', detail)) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '1 hour' AND rule <> 'lock_acquired')) AS d"""
+WATCH_JS = ESC_JS + r"""const d = $input.first().json.d;
 const lines = [];
 if (d.budget_tripped) lines.push(`🔴 Потолок трат за месяц достигнут ($${d.spent} из $${d.cap}). Kill switch включён, все этапы остановлены.`);
-for (const s of d.stale || []) lines.push(`⏳ ${s.id}: ждёт твоего решения на этапе ${s.stage} больше 48 часов.`);
-for (const g of d.guard_fail || []) lines.push(`⛔ ${g.exp || 'ферма'} · этап ${g.stage}: ${g.detail}`);
+for (const s of d.stuck || []) lines.push(`🧱 ${esc(s.id)}: этап ${s.stage} завис больше 2 часов, переведён в blocked.`);
+for (const s of d.stale || []) lines.push(`⏳ ${esc(s.id)}: ждёт твоего решения на этапе ${s.stage} больше 48 часов.`);
+for (const g of d.guard_fail || []) lines.push(`⛔ ${esc(g.exp || 'ферма')} · этап ${g.stage}: ${esc(g.detail)}`);
 if (!lines.length) return [];
-return [{ json: { chat_id: d.chat_id, text: '🛡 <b>Ферма · guardrails</b>\n\n' + lines.join('\n') } }];"""
+return [{ json: { text: '🛡 <b>Ферма · guardrails</b>\n\n' + lines.join('\n') } }];"""
 c = {}
 n = [
-    sticky("About", "## 92 · Сторож guardrails\nКаждый час:\n- траты за месяц ≥ потолка → **сам включает kill switch**\n- решение ждёт тебя > 48 ч → напоминание\n- проваленные проверки за час → алерт\nМолчит, если всё в порядке.", [-80, -320], 420, 230),
+    sticky("## 92 · Сторож guardrails\nКаждый час:\n- траты ≥ потолка → **сам включает kill switch**\n- этап висит в `running` > 2 ч → `blocked` + алерт\n- решение ждёт тебя > 48 ч → напоминание\n- проваленные проверки за час → алерт\nМолчит, если всё в порядке.", [-80, -340], 440, 250),
     schedule("Every hour", "5 * * * *", [0, 0]),
-    sql("Check budgets and stale gates", WATCH_SQL, None, [240, 0]),
+    sql("Check budgets, stuck runs, stale gates", WATCH_SQL, None, [240, 0]),
     code("Anything to report?", WATCH_JS, [480, 0]),
-    telegram("Alert owner", "={{ $json.chat_id }}", "={{ $json.text }}", [720, 0]),
+    telegram("Alert owner", "={{ $json.text }}", [720, 0]),
 ]
-link(c, "Every hour", "Check budgets and stale gates")
-link(c, "Check budgets and stale gates", "Anything to report?")
+link(c, "Every hour", "Check budgets, stuck runs, stale gates")
+link(c, "Check budgets, stuck runs, stale gates", "Anything to report?")
 link(c, "Anything to report?", "Alert owner")
 WATCH = upsert("92 · Guardrail watchdog", n, c, ERR)
 
-# ---------- 99 Control panel ----------
+# ---------- 95 Owner gates: one-time links, confirm page (GET) → apply (POST) ----------
+GATE_LOOKUP_SQL = """SELECT t.token, t.exp_id, t.gate, t.stage, t.choices, t.expires_at, t.used_at, t.choice,
+       e.status, e.stage AS exp_stage, e.briefs,
+       (t.used_at IS NULL AND t.expires_at > now() AND e.status = 'waiting_owner' AND e.stage = t.stage AND $2 = ANY (t.choices)) AS valid
+FROM gate_tokens t JOIN experiments e ON e.id = t.exp_id WHERE t.token = $1"""
+PAGE_CSS = "body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}"
+GATE_PAGE_JS = ESC_JS + f"""const q = $('Gate link').first().json.query || {{}};
+const r = $input.first().json || {{}};
+const page = (title, body) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${{esc(title)}}</title><style>{PAGE_CSS}</style></head><body>${{body}}</body></html>`;
+if (!r.token) return [{{ json: {{ html: page('Ссылка не найдена', '<h1>Ссылка не найдена</h1><p class="muted">Возможно, она устарела или скопирована не полностью.</p>') }} }}];
+if (!r.valid) {{
+  const why = r.used_at ? 'Решение по этой ссылке уже принято' + (r.choice ? ': ' + esc(r.choice) : '') + '.' : (new Date(r.expires_at) < new Date() ? 'Срок ссылки истёк.' : 'Эксперимент сейчас не ждёт этого решения (статус ' + esc(r.status) + ', этап ' + r.exp_stage + ').');
+  return [{{ json: {{ html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${{why}}</p>`) }} }}];
+}}
+const b = (r.briefs || []).find(x => x.slug === q.c) || {{ title: q.c }};
+const body = `<h1>${{esc(r.exp_id)}} · ${{esc(r.gate)}}</h1><div class="card"><p class="muted">Выбор брифа</p><p><b>${{esc(b.title)}}</b></p><p class="muted">канал ${{esc(b.channel)}} · CPC ~$${{esc(b.cpc)}} · цена ${{esc(b.price)}}</p>
+<form method="post" action="{BASE}/farm-gate"><input type="hidden" name="g" value="${{esc(r.token)}}"><input type="hidden" name="c" value="${{esc(q.c)}}"><button type="submit">Подтвердить выбор</button></form></div>
+<p class="muted">Ссылка одноразовая. После подтверждения эксперимент перейдёт на этап ${{r.stage + 1}}.</p>`;
+return [{{ json: {{ html: page('Подтвердить выбор', body) }} }}];"""
+GATE_APPLY_SQL = """WITH t AS (
+  UPDATE gate_tokens g SET used_at = now(), choice = $2
+  WHERE g.token = $1 AND g.used_at IS NULL AND g.expires_at > now() AND $2 = ANY (g.choices)
+    AND EXISTS (SELECT 1 FROM experiments e WHERE e.id = g.exp_id AND e.status = 'waiting_owner' AND e.stage = g.stage)
+  RETURNING g.exp_id, g.gate, g.stage),
+u AS (
+  UPDATE experiments e SET stage = least(e.stage + 1, 8), status = 'active',
+         chosen_brief = CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, updated_at = now()
+  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage),
+d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) SELECT exp_id, gate, 'approve', 'owner', $2 FROM t RETURNING 1),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': выбран ' || $2 FROM t RETURNING 1)
+SELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage"""
+GATE_RESULT_JS = ESC_JS + f"""const r = $input.first().json || {{}};
+const ok = Number(r.applied) > 0;
+const title = ok ? 'Принято' : 'Не принято';
+const body = ok ? `<h1>Принято</h1><p>${{esc(r.exp_id)}} перешёл на этап ${{r.stage}}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';
+return [{{ json: {{ ok, exp_id: r.exp_id, stage: r.stage, html: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${{title}}</title><style>{PAGE_CSS}</style></head><body>${{body}}</body></html>` }} }}];"""
+c = {}
+n = [
+    sticky("## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит на следующий этап. Повторный клик ничего не делает.\nСрок ссылки 72 ч. Таблица `gate_tokens`.", [-80, -380], 480, 270),
+    webhook("Gate link", "farm-gate", "GET", [0, 0]),
+    sql("Look up gate", GATE_LOOKUP_SQL, "={{ [$json.query.g || '', $json.query.c || ''] }}", [240, 0], extra={"alwaysOutputData": True}),
+    code("Render confirm page", GATE_PAGE_JS, [480, 0]),
+    respond("Show page", "={{ $json.html }}", [720, 0], html=True),
+    webhook("Gate confirm", "farm-gate", "POST", [0, 300]),
+    sql("Apply decision", GATE_APPLY_SQL, "={{ [$json.body.g || '', $json.body.c || ''] }}", [240, 300], extra={"alwaysOutputData": True}),
+    code("Render result", GATE_RESULT_JS, [480, 300]),
+    respond("Show result", "={{ $json.html }}", [720, 300], html=True),
+    if_true("Accepted?", "={{ $('Render result').first().json.ok }}", [960, 300]),
+    telegram("Confirm in Telegram", "=✅ <b>{{ $('Render result').first().json.exp_id }}</b>: решение принято, этап {{ $('Render result').first().json.stage }}.", [1200, 300]),
+]
+link(c, "Gate link", "Look up gate")
+link(c, "Look up gate", "Render confirm page")
+link(c, "Render confirm page", "Show page")
+link(c, "Gate confirm", "Apply decision")
+link(c, "Apply decision", "Render result")
+link(c, "Render result", "Show result")
+link(c, "Show result", "Accepted?")
+link(c, "Accepted?", "Confirm in Telegram", 0)
+GATES = upsert("95 · Owner gates", n, c, ERR, saveDataSuccessExecution="none")
+
+# ---------- 96 Read-only status API (Hermes) ----------
+RO_SQL = """SELECT CASE WHEN $1 <> '' AND $1 = (SELECT value FROM settings WHERE key = 'ro_token') THEN json_build_object(
+  'ok', true,
+  'experiments', (SELECT json_agg(json_build_object('id', e.id, 'title', e.title, 'stage', e.stage, 'stage_name', s.name, 'status', e.status,
+                   'chosen_brief', e.chosen_brief, 'briefs', e.briefs, 'budget_usd', e.budget_usd,
+                   'spent_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_subscription%'),
+                   'agent_equiv_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source LIKE 'claude_subscription%'),
+                   'issue_url', e.issue_url, 'updated_at', e.updated_at) ORDER BY e.id)
+                  FROM experiments e JOIN stages s USING (stage)),
+  'stages', (SELECT json_agg(json_build_object('stage', stage, 'name', name, 'gate', gate) ORDER BY stage) FROM stages),
+  'recent_events', (SELECT json_agg(v ORDER BY v.ts DESC) FROM (SELECT ts, exp_id, stage, kind, message FROM events ORDER BY id DESC LIMIT 30) v),
+  'guardrail_failures_24h', (SELECT json_agg(v) FROM (SELECT ts, exp_id, stage, detail FROM guardrail_events WHERE NOT passed AND rule <> 'lock_acquired' AND ts > now() - interval '24 hours' ORDER BY id DESC LIMIT 20) v),
+  'kill_switch', (SELECT value FROM settings WHERE key = 'kill_switch'),
+  'month_spend_usd', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+  'month_cap_usd', (SELECT value FROM settings WHERE key = 'budget_month_usd'))
+ELSE json_build_object('ok', false, 'error', 'bad token') END AS d"""
+c = {}
+n = [
+    sticky("## 96 · Статус только для чтения\n`GET /webhook/farm-status` с заголовком `X-Farm-Token` (токен `ro_token`). Отдаёт стартапы, брифы, последние события, провалы guardrails, траты. **Ничего не меняет.** Им пользуется Hermes.", [-80, -300], 460, 200),
+    webhook("Status request", "farm-status", "GET", [0, 0]),
+    sql("Read status", RO_SQL, "={{ [$json.headers['x-farm-token'] || ''] }}", [240, 0]),
+    respond("Return JSON", "={{ JSON.stringify($json.d) }}", [480, 0]),
+]
+link(c, "Status request", "Read status")
+link(c, "Read status", "Return JSON")
+RO = upsert("96 · Read-only status", n, c, ERR, saveDataSuccessExecution="none")
+
+# ---------- 99 Control panel (owner admin; responds immediately) ----------
 PLAN_JS = r"""const q = $('Control link').first().json.query || {};
 const token = $input.first().json.value;
 if (!q.t || q.t !== token) return [{ json: { ok: false, reply: 'Неверный токен' } }];
@@ -419,11 +580,10 @@ if (a === 'kill_on' || a === 'kill_off') {
   return [{ json: { ok: true, action: a, sql: "WITH u AS (UPDATE settings SET value = $1 WHERE key = 'kill_switch' RETURNING value), ev AS (INSERT INTO events (kind, actor, message) SELECT 'kill_switch', 'owner', 'Kill switch: ' || value FROM u RETURNING 1) SELECT value FROM u", params: [v] } }];
 }
 if (a === 'decide') {
-  const allowed = ['approve', 'reject', 'go', 'kill', 'extend', 'pause', 'resume'];
-  if (!q.exp || !q.gate || !allowed.includes(q.decision)) return [{ json: { ok: false, reply: 'decide требует exp, gate и decision из: ' + allowed.join(', ') } }];
-  return [{ json: { ok: true, action: a, sql: "WITH d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) VALUES ($1, $2, $3, 'owner', $4) RETURNING exp_id, gate, decision), ev AS (INSERT INTO events (exp_id, kind, actor, message) SELECT exp_id, 'owner_decision', 'owner', gate || ': ' || decision FROM d RETURNING 1), u AS (UPDATE experiments SET status = CASE $3 WHEN 'kill' THEN 'killed' WHEN 'pause' THEN 'paused' WHEN 'reject' THEN 'waiting_owner' ELSE 'active' END, stage = CASE WHEN $3 IN ('approve', 'go') THEN least(stage + 1, 8) ELSE stage END, updated_at = now() WHERE id = $1 RETURNING id, stage, status) SELECT * FROM u", params: [q.exp, q.gate, q.decision, q.note || ''] } }];
+  const allowed = ['kill', 'pause', 'resume'];
+  if (!q.exp || !allowed.includes(q.decision)) return [{ json: { ok: false, reply: 'decide в пульте: только ' + allowed.join(', ') + '. Одобрения гейтов идут одноразовыми ссылками из Telegram.' } }];
+  return [{ json: { ok: true, action: a, sql: "WITH u AS (UPDATE experiments SET status = CASE $2 WHEN 'kill' THEN 'killed' WHEN 'pause' THEN 'paused' ELSE 'active' END, updated_at = now() WHERE id = $1 AND ($2 <> 'resume' OR status IN ('paused', 'blocked')) RETURNING id, stage, status), d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) SELECT id, 'panel', $2, 'owner', $3 FROM u RETURNING 1), ev AS (INSERT INTO events (exp_id, kind, actor, message) SELECT id, 'owner_decision', 'owner', 'Пульт: ' || $2 FROM u RETURNING 1) SELECT * FROM u", params: [q.exp, q.decision, q.note || ''] } }];
 }
-if (a === 'digest') return [{ json: { ok: true, action: a } }];
 if (a === 'cost') {
   const usd = Number(q.usd);
   if (!q.exp || !(usd >= 0) || !q.source) return [{ json: { ok: false, reply: 'cost требует exp, usd (число) и source' } }];
@@ -432,45 +592,52 @@ if (a === 'cost') {
 if (a === 'advance') {
   const to = parseInt(q.to, 10);
   if (!q.exp || !(to >= 1 && to <= 8)) return [{ json: { ok: false, reply: 'advance требует exp и to (1–8)' } }];
-  return [{ json: { ok: true, action: a, sql: "WITH old AS (SELECT stage FROM experiments WHERE id = $1), u AS (UPDATE experiments SET stage = $2::int, status = 'active', updated_at = now() WHERE id = $1 RETURNING id, stage), ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, stage, 'stage_changed', 'owner', 'Этап ' || (SELECT stage FROM old) || ' → ' || stage FROM u RETURNING 1) SELECT * FROM u", params: [q.exp, String(to)] } }];
+  return [{ json: { ok: true, action: a, sql: "WITH old AS (SELECT stage FROM experiments WHERE id = $1), u AS (UPDATE experiments SET stage = $2::int, status = 'active', updated_at = now() WHERE id = $1 AND status <> 'running' RETURNING id, stage), ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, stage, 'stage_changed', 'owner', 'Этап ' || (SELECT stage FROM old) || ' → ' || stage FROM u RETURNING 1) SELECT * FROM u", params: [q.exp, String(to)] } }];
 }
 if (a === 'run') {
   if (!q.exp) return [{ json: { ok: false, reply: 'run требует exp' } }];
   return [{ json: { ok: true, action: a, sql: "SELECT id AS exp_id, stage FROM experiments WHERE id = $1", params: [q.exp] } }];
 }
-return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide, digest, run, cost, advance' } }];"""
+if (a === 'digest') return [{ json: { ok: true, action: a } }];
+return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide (kill/pause/resume), digest, run, cost, advance' } }];"""
 c = {}
 n = [
-    sticky("About", "## 99 · Пульт\nОдна ссылка, доступна только из домашней сети и Tailscale:\n`https://n8n.home.kalik8s.ru/webhook/farm?t=<токен>&action=…`\n\n- `status` — где каждый стартап\n- `kill_on` / `kill_off` — всё на паузу / снять паузу\n- `decide&exp=EXP-001&gate=G1&decision=approve` — решение на гейте\n- `digest` — дайджест сейчас\n- `run&exp=EXP-001` — прогнать текущий этап эксперимента\n- `cost&exp=EXP-001&usd=12.5&source=domain` — записать трату\n- `advance&exp=EXP-001&to=2` — перевести этап вручную\nТокен — в `/home/kalikys/prj/farm/.env` (FARM_CONTROL_TOKEN).", [-80, -380], 520, 300),
-    node("Control link", "n8n-nodes-base.webhook", 2,
-         {"httpMethod": "GET", "path": "farm", "responseMode": "lastNode", "options": {}}, [0, 0],
-         extra={"webhookId": "b7f0c2a4-farm-control"}),
+    sticky("## 99 · Пульт (администрирование)\n`https://n8n.home.kalik8s.ru/webhook/farm?t=<токен>&action=…`\n- `status` · `kill_on` / `kill_off` · `digest`\n- `run&exp=EXP-001` — запустить этап, ответ сразу («запущено»)\n- `decide&exp=…&decision=kill|pause|resume`\n- `cost&exp=…&usd=…&source=…` · `advance&exp=…&to=N`\n**Гейты (выбор брифа и т. п.) — только одноразовыми ссылками (95).** Успешные запуски пульта не сохраняются (токен в URL).", [-80, -400], 560, 300),
+    webhook("Control link", "farm", "GET", [0, 0]),
     sql("Read token", "SELECT value FROM settings WHERE key = 'control_token'", None, [240, 0]),
     code("Check token and plan", PLAN_JS, [480, 0]),
     if_true("Token ok?", "={{ $json.ok }}", [720, 0]),
+    code("Reject", "return [{ json: { ok: false, reply: $input.first().json.reply } }];", [960, 200]),
+    respond("Respond rejected", "={{ JSON.stringify($json) }}", [1200, 200]),
     if_true("Digest?", "={{ $json.action === 'digest' }}", [960, -80]),
-    call("Run digest", DIG, [1200, -200]),
-    sql("Apply action", "={{ $json.sql }}", "={{ $json.params }}", [1200, 40]),
+    call("Run digest", DIG, [1200, -220]),
+    sql("Apply action", "={{ $json.sql }}", "={{ $json.params }}", [1200, 40], extra={"alwaysOutputData": True}),
     if_true("Run a stage?", "={{ $('Check token and plan').first().json.action === 'run' }}", [1440, 40]),
-    code("Pick stage workflow", f"const map = {json.dumps({str(k): v for k, v in STAGE_WF.items()})};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[String(i.json.stage)] }} }}));", [1680, -40]),
-    dict(call("Run stage", "={{ $json.workflow_id }}", [1920, -40]), alwaysOutputData=True),
-    code("Reply", "const a = $('Check token and plan').first().json.action;\nreturn [{ json: { ok: true, action: a, result: $input.all().map(i => i.json) } }];", [2160, 40]),
-    code("Reject", "return [{ json: { ok: false, reply: $input.first().json.reply } }];", [960, 140]),
+    respond("Respond started", "={{ JSON.stringify({ ok: true, action: 'run', started: $input.all().map(i => i.json) }) }}", [1680, -40]),
+    code("Pick stage workflow", MAP_JS, [1920, -40]),
+    call("Run stage", "={{ $json.workflow_id }}", [2160, -40], wait=False),
+    code("Reply", "const a = $('Check token and plan').first().json.action;\nreturn [{ json: { ok: true, action: a, result: $input.all().map(i => i.json) } }];", [1680, 160]),
+    respond("Respond result", "={{ JSON.stringify($json) }}", [1920, 160]),
 ]
 link(c, "Control link", "Read token")
 link(c, "Read token", "Check token and plan")
 link(c, "Check token and plan", "Token ok?")
 link(c, "Token ok?", "Digest?", 0)
 link(c, "Token ok?", "Reject", 1)
+link(c, "Reject", "Respond rejected")
 link(c, "Digest?", "Run digest", 0)
 link(c, "Digest?", "Apply action", 1)
 link(c, "Run digest", "Reply")
 link(c, "Apply action", "Run a stage?")
-link(c, "Run a stage?", "Pick stage workflow", 0)
+link(c, "Run a stage?", "Respond started", 0)
 link(c, "Run a stage?", "Reply", 1)
+link(c, "Respond started", "Pick stage workflow")
 link(c, "Pick stage workflow", "Run stage")
-link(c, "Run stage", "Reply")
-PANEL = upsert("99 · Control panel", n, c, ERR)
+link(c, "Reply", "Respond result")
+PANEL = upsert("99 · Control panel", n, c, ERR, saveDataSuccessExecution="none")
 
-print(json.dumps({"error": ERR, "log": LOG, "preflight": PRE, "stages": STAGE_WF, "controller": CTRL,
-                  "digest": DIG, "watchdog": WATCH, "panel": PANEL}))
+LOCK_FILE.write_text(json.dumps(lock, indent=1, sort_keys=True))
+print(json.dumps({"error": ERR, "log": LOG, "preflight": PRE, "stages": STAGE_WF, "controller": CTRL, "digest": DIG,
+                  "watchdog": WATCH, "gates": GATES, "status_ro": RO, "panel": PANEL}))
+if skipped:
+    print("SKIPPED (edited in UI):", ", ".join(skipped))

@@ -1,0 +1,141 @@
+{
+ "name": "00 · Controller",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -300
+   ],
+   "parameters": {
+    "content": "## 00 · Controller\nКаждые 15 минут берёт эксперименты в статусе `active` и запускает workflow их этапа (по одному запуску на эксперимент, без ожидания). Двойной запуск невозможен: preflight ставит `running` атомарно.\n\n**Черновик** (не опубликован), пока у следующего этапа нет агента.",
+    "width": 460,
+    "height": 240,
+    "color": 5
+   }
+  },
+  {
+   "id": "5c1ed0ef-5bb0-55c5-9616-b5741f0807b8",
+   "name": "Every 15 minutes",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "*/15 * * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "24c1e3ec-11ff-5ee7-9498-efba4260d458",
+   "name": "Active experiments",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT id AS exp_id, stage FROM experiments WHERE status = 'active' ORDER BY created_at",
+    "options": {}
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "18fe69f4-05a7-5547-82ad-a1bebcaf2b9c",
+   "name": "Pick stage workflow",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "jsCode": "const map = {\"1\": \"WxGHGSCpfBMLfJmh\", \"2\": \"wQjtnUcUPODoPdBe\", \"3\": \"3SRcs8QNLS9PnkOT\", \"4\": \"LjEaqT7XZBGv22TL\", \"5\": \"JMjoxsmKLUNDf2z7\", \"6\": \"TG0EROgHyhyybnHN\", \"7\": \"GzEqdP0PI9RQRA5Q\", \"8\": \"HPH3rJsMxE76igGQ\"};\nreturn $input.all().map(i => ({ json: { ...i.json, workflow_id: map[String(i.json.stage)] } }));"
+   }
+  },
+  {
+   "id": "f01a5222-8e2a-5060-96b4-1fd945160bf0",
+   "name": "Run stage",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    720,
+    0
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "={{ $json.workflow_id }}",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Every 15 minutes": {
+   "main": [
+    [
+     {
+      "node": "Active experiments",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Active experiments": {
+   "main": [
+    [
+     {
+      "node": "Pick stage workflow",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Pick stage workflow": {
+   "main": [
+    [
+     {
+      "node": "Run stage",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

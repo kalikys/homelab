@@ -1,0 +1,562 @@
+{
+ "name": "01 · Discovery",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -420
+   ],
+   "parameters": {
+    "content": "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\n**Твой шаг:** G1 — одноразовые ссылки «Выбрать» в Telegram.",
+    "width": 540,
+    "height": 320,
+    "color": 5
+   }
+  },
+  {
+   "id": "e5e7aaf8-d88b-5776-b80b-7007bcd2401f",
+   "name": "Called by another workflow",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -240,
+    0
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "0b63066c-ee44-5c0d-b159-bde66cb85155",
+   "name": "Expect this stage",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 1 } }));"
+   }
+  },
+  {
+   "id": "41d1d2ee-9b01-5863-a9dc-ee09dc935076",
+   "name": "Guardrail preflight",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "3O5a5pa8PtbdgzMz",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "8755ea99-93c3-5446-a731-5c3930f78bea",
+   "name": "All checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "3c88e2eb-32ca-5b2d-9ec5-f84b2bfe5644",
+       "leftValue": "={{ $json.ok }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "bf691aab-bfe2-512e-b3ff-94d28be8464c",
+   "name": "Agent: discovery",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    720,
+    -100
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://172.30.0.10:8080/run/discovery",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 120, \"input\": {\"note\": \"Stop when 3 to 5 briefs pass the checklist\"}}",
+    "options": {
+     "timeout": 3600000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "id": "1e90ac24-7331-5641-b2f1-05a8cd66c150",
+   "name": "Agent succeeded?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    960,
+    -100
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "ac51c7a0-c262-5b00-8ce8-b9caef37117c",
+       "leftValue": "={{ $json.ok === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "1017d2e9-149a-5b66-a8ed-40197f74bb27",
+   "name": "Validate briefs (code, no LLM)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1200,
+    -180
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/validate/discovery/{{ $('Expect this stage').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 600000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   }
+  },
+  {
+   "id": "9dbcbac5-970f-582c-9716-c0f46f976f3a",
+   "name": "Summarise",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1440,
+    -180
+   ],
+   "parameters": {
+    "jsCode": "const run = $('Agent: discovery').first().json;\nconst val = $input.first().json;\nconst exp = $('Expect this stage').first().json.exp_id;\nconst briefs = val.briefs || [];\nconst passed = briefs.filter(b => b.passed);\nreturn [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,\n  choices: passed.map(b => b.slug),\n  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"
+   }
+  },
+  {
+   "id": "103f477a-b15d-54b0-911f-7992067a3ec5",
+   "name": "Record cost, briefs, stage, gate",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1680,
+    -180
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'waiting_owner' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j),\n                             updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE (j->>'passed')::int > 0\n      RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
+    "options": {
+     "queryReplacement": "={{ [JSON.stringify($json)] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "03b1df6a-36f2-51cc-b34e-f7f80d413cfc",
+   "name": "Compose message",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1920,
+    -180
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst token = $input.first().json.token;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length && token) {\n  const link = slug => `https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${token}&c=${encodeURIComponent(slug)}`;\n  text = `🧭 <b>${s.exp_id}: брифы готовы</b>, прошли проверку ${passed.length} из ${s.total}.\\nВыбери один (G1). Ссылки одноразовые, действуют 72 часа, открываются дома или через Tailscale:\\n\\n` +\n    passed.map((b, i) => `${i+1}. <b>${esc(b.title)}</b>\\n   канал ${esc(b.channel)} · CPC ~$${b.cpc} · цена ${esc(b.price)}\\n   <a href=\"${link(b.slug)}\">Выбрать</a>`).join('\\n\\n') +\n    (failed.length ? `\\n\\nОтсеяно проверкой: ${failed.length}` : '');\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\\n');\n}\nreturn [{ json: { text } }];"
+   }
+  },
+  {
+   "id": "ac88da5f-faf9-5115-9aae-3ba97a829e18",
+   "name": "Send briefs to owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    2160,
+    -180
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  },
+  {
+   "id": "0bef4e3d-548b-58f7-ae2f-611ec55a0e29",
+   "name": "Agent failed",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1200,
+    20
+   ],
+   "parameters": {
+    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst why = r.error || r.result || (r.message ?? 'нет ответа от агента');\nreturn [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ Этап 01 · Discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"
+   }
+  },
+  {
+   "id": "581d016e-49ad-55ba-a1d5-6729539b0613",
+   "name": "Mark blocked",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1440,
+    20
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "UPDATE experiments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id, status",
+    "options": {
+     "queryReplacement": "={{ [$json.exp_id, 'blocked'] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "alwaysOutputData": true
+  },
+  {
+   "id": "63d0ec30-ffc6-515a-a9e5-b68511d60694",
+   "name": "Pass failure on",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1680,
+    20
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: $('Agent failed').first().json }];"
+   }
+  },
+  {
+   "id": "a2128518-af29-53d2-9657-700ba0bf0f37",
+   "name": "Log failure",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    1920,
+    20
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "f81621b4-4b05-5404-895b-67e458cfe11a",
+   "name": "Blocked report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    720,
+    220
+   ],
+   "parameters": {
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 1, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 01 · Discovery остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+   }
+  },
+  {
+   "id": "b495045e-40e8-51f8-ba3a-f1f3781b2e34",
+   "name": "Log blocked",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    960,
+    220
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Called by another workflow": {
+   "main": [
+    [
+     {
+      "node": "Expect this stage",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Expect this stage": {
+   "main": [
+    [
+     {
+      "node": "Guardrail preflight",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Guardrail preflight": {
+   "main": [
+    [
+     {
+      "node": "All checks passed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "All checks passed?": {
+   "main": [
+    [
+     {
+      "node": "Agent: discovery",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Blocked report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: discovery": {
+   "main": [
+    [
+     {
+      "node": "Agent succeeded?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Agent failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent succeeded?": {
+   "main": [
+    [
+     {
+      "node": "Validate briefs (code, no LLM)",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Agent failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Validate briefs (code, no LLM)": {
+   "main": [
+    [
+     {
+      "node": "Summarise",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Summarise": {
+   "main": [
+    [
+     {
+      "node": "Record cost, briefs, stage, gate",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Record cost, briefs, stage, gate": {
+   "main": [
+    [
+     {
+      "node": "Compose message",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Compose message": {
+   "main": [
+    [
+     {
+      "node": "Send briefs to owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent failed": {
+   "main": [
+    [
+     {
+      "node": "Mark blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Mark blocked": {
+   "main": [
+    [
+     {
+      "node": "Pass failure on",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Pass failure on": {
+   "main": [
+    [
+     {
+      "node": "Log failure",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Blocked report": {
+   "main": [
+    [
+     {
+      "node": "Log blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 4000,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

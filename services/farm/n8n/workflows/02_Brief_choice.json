@@ -1,0 +1,292 @@
+{
+ "name": "02 · Brief choice",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -420
+   ],
+   "parameters": {
+    "content": "## 02 · Brief choice\nБрифы уходят тебе.\n\nGuardrails: WIP = 1.\n\nТвой шаг: G1 — выбрать бриф (одноразовая ссылка).\n\n_Этап без агента._",
+    "width": 540,
+    "height": 320,
+    "color": 5
+   }
+  },
+  {
+   "id": "e5e7aaf8-d88b-5776-b80b-7007bcd2401f",
+   "name": "Called by another workflow",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -240,
+    0
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "0b63066c-ee44-5c0d-b159-bde66cb85155",
+   "name": "Expect this stage",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 2 } }));"
+   }
+  },
+  {
+   "id": "41d1d2ee-9b01-5863-a9dc-ee09dc935076",
+   "name": "Guardrail preflight",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "3O5a5pa8PtbdgzMz",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "8755ea99-93c3-5446-a731-5c3930f78bea",
+   "name": "All checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "3c88e2eb-32ca-5b2d-9ec5-f84b2bfe5644",
+       "leftValue": "={{ $json.ok }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "e54a3af1-59d0-511c-b139-f33622dad4d5",
+   "name": "Release lock",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    720,
+    -100
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "UPDATE experiments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id, status",
+    "options": {
+     "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id, 'active'] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "alwaysOutputData": true
+  },
+  {
+   "id": "3503f438-e394-5d48-afd2-0acb36ea2fb8",
+   "name": "Report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    960,
+    -100
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 2, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап 02 · Brief choice: проверки пройдены, каркас отработал' + (false ? ' (агент ещё не подключён)' : ''), notify: false } }];"
+   }
+  },
+  {
+   "id": "54aa6eb2-c1ee-53d7-bc40-90e196f01f0a",
+   "name": "Log event",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    1200,
+    -100
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "f81621b4-4b05-5404-895b-67e458cfe11a",
+   "name": "Blocked report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    720,
+    160
+   ],
+   "parameters": {
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 2, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 02 · Brief choice остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+   }
+  },
+  {
+   "id": "b495045e-40e8-51f8-ba3a-f1f3781b2e34",
+   "name": "Log blocked",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    960,
+    160
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Called by another workflow": {
+   "main": [
+    [
+     {
+      "node": "Expect this stage",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Expect this stage": {
+   "main": [
+    [
+     {
+      "node": "Guardrail preflight",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Guardrail preflight": {
+   "main": [
+    [
+     {
+      "node": "All checks passed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "All checks passed?": {
+   "main": [
+    [
+     {
+      "node": "Release lock",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Blocked report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Release lock": {
+   "main": [
+    [
+     {
+      "node": "Report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Report": {
+   "main": [
+    [
+     {
+      "node": "Log event",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Blocked report": {
+   "main": [
+    [
+     {
+      "node": "Log blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

@@ -1,0 +1,164 @@
+{
+ "name": "97 · Log event",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -280
+   ],
+   "parameters": {
+    "content": "## 97 · Журнал событий\nВызывается этапами. Пишет событие в `events` (только INSERT); при notify = true шлёт сообщение (текст экранируется).\nВход: exp_id, stage, kind, actor, message, notify.",
+    "width": 440,
+    "height": 190,
+    "color": 5
+   }
+  },
+  {
+   "id": "e5e7aaf8-d88b-5776-b80b-7007bcd2401f",
+   "name": "Called by another workflow",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "8f47c81d-9aa6-50ab-9c74-b8054dd34bb3",
+   "name": "Insert event",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "INSERT INTO events (exp_id, stage, kind, actor, message) SELECT j->>'exp_id', (j->>'stage')::int, j->>'kind', coalesce(j->>'actor','n8n'), j->>'message' FROM (SELECT $1::jsonb AS j) t RETURNING id, exp_id, stage, kind, message",
+    "options": {
+     "queryReplacement": "={{ [JSON.stringify($json)] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "b53893ff-e491-52d4-bd1e-ff19ed66efcc",
+   "name": "Notify owner?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "5eca119e-4dce-5391-9b8f-90c83fb05283",
+       "leftValue": "={{ $('Called by another workflow').item.json.notify === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "854a6053-4759-5316-b291-342ac76cecea",
+   "name": "Send to Telegram",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    720,
+    -80
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ ($json.exp_id ? '<b>' + $json.exp_id + '</b> · этап ' + $json.stage + '\\n' : '') + String($json.message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Called by another workflow": {
+   "main": [
+    [
+     {
+      "node": "Insert event",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Insert event": {
+   "main": [
+    [
+     {
+      "node": "Notify owner?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Notify owner?": {
+   "main": [
+    [
+     {
+      "node": "Send to Telegram",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}
