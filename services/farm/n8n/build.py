@@ -277,7 +277,7 @@ TRACKS = {
                 "disc_name": "01 · Discovery", "dd_name": "02 · Due diligence and pitch", "dd_legacy": "02 · Brief choice",
                 "disc_input": "Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist",
                 "pick_limit": 5, "dd_title": "инвестиционные меморандумы", "choice": "Выбрать для смоук-теста",
-                "disc_about": "## 01 · Discovery (стартапы)\nАгент получает память фермы (история идей, уроки) и ищет задачи, за которые уже платят → 5–8 брифов. Запрещены «дешёвые клоны лидера».\n\n**Guardrails (код):** поля и чек-лист · ≥ 2 типа источников · ≥ 3 цитаты найдены дословно (эхо собственного запроса не считается) · **экономика**: LTV ≥ $150; платный канал — CPC из цитаты свежего бенчмарка ≤ $1 и LTV/CAC ≥ 1,5; органический — проверенная цифра спроса в канале.\n\nНикто не прошёл → `93` (уроки + новый раунд). Успех → этап 02 сам.",
+                "disc_about": "## 01 · Discovery (стартапы)\nАгент получает память фермы (история идей, 10 самых весомых уроков) и ищет задачи, за которые уже платят → 5–8 брифов. Запрещены «дешёвые клоны лидера».\n\n**Guardrails (код):** поля и чек-лист · ≥ 2 типа источников · ≥ 3 цитаты найдены дословно (эхо собственного запроса не считается) · **экономика**: LTV ≥ $150; платный канал — CPC из цитаты свежего бенчмарка ≤ $1 и LTV/CAC ≥ 1,5; органический — проверенная цифра спроса в канале.\n\nНикто не прошёл → `93` (уроки + новый раунд). Успех → этап 02 сам.",
                 "dd_about": "## 02 · Due diligence and pitch (стартапы)\nАналитики по ≤ 5 брифам: спрос, рынок, конкуренты, юнит-экономика, план теста, red team → `memo.json` → проверка кодом (счёт только по подтверждённым цитатам, потолки допущений) → **панель 3 независимых судей** (не видят оценку автора, обязаны проверить факт по ссылке) → PDF.\n\n**Тебе уходят только лучшие:** медиана судей ≥ `min_show_score`, не «pass», максимум `max_shown`. В PDF — слайд «Что нужно от инвестора».\n\n**Твой шаг:** G1 — выбрать идею по PDF. Без этого ни одного доллара на тест."},
     "game": {"p": "G", "disc_role": "game-discovery", "dd_role": "game-diligence", "dd_validate": "game-diligence", "noun": "концептов",
              "disc_name": "G01 · Game discovery", "dd_name": "G02 · Game due diligence and pitch", "dd_legacy": None,
@@ -288,10 +288,11 @@ TRACKS = {
 }
 STAGE_WF = {}
 
-# Farm memory for agents: lessons and past ideas of the same track, plus whether the API budget still has room.
+# Farm memory for agents: the 10 strongest lessons (more turned discovery into an echo chamber that wrote 0 briefs)
+# and past ideas of the same track, plus whether the API budget still has room.
 MEMORY_SQL = """(SELECT json_build_object(
   'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)
-              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 40) l),
+              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 10) l),
   'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,
                                                           'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)
               FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))
