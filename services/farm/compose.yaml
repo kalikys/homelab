@@ -91,9 +91,10 @@ services:
     restart: unless-stopped
     environment:
       RUNNER_TOKEN: ${RUNNER_TOKEN}
-      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
-      # Cloud agents (prepaid API budget); n8n decides per run with use_api, the runner caps each run.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Real model credentials live only in model-proxy; the runner only learns which ones exist.
+      HAS_SUBSCRIPTION: ${CLAUDE_CODE_OAUTH_TOKEN:+1}
+      HAS_API_KEY: ${ANTHROPIC_API_KEY:+1}
+      MODEL_PROXY: http://172.30.0.5
       MAX_BUDGET_PER_RUN_USD: ${MAX_BUDGET_PER_RUN_USD:-8}
       HTTP_PROXY: http://172.30.0.3:3128
       HTTPS_PROXY: http://172.30.0.3:3128
@@ -122,6 +123,29 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # Owner-approved 2026-10-01: the server starts as root only to run each agent as uid 1000,
+    # so the agent cannot read the server's environment (RUNNER_TOKEN) through /proc.
+    cap_add:
+      - SETUID
+      - SETGID
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+
+  model-proxy:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    environment:
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      NGINX_ENVSUBST_FILTER: "^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY)$$"
+    volumes:
+      - ./model-proxy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default: {}
+      agents:
+        ipv4_address: 172.30.0.5
+    mem_limit: 128m
 
   egress-proxy:
     build: ./egress-proxy

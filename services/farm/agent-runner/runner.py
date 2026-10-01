@@ -39,6 +39,27 @@ TOOLS = {
     "analyst": "Read,Write,Edit,Glob,Grep",
 }
 TOKEN = os.environ["RUNNER_TOKEN"]
+# Agents run as uid 1000 while this server runs as root, so an agent cannot read the server's /proc environ.
+AGENT_UID = AGENT_GID = 1000
+AGENT_HOME = "/home/agent"
+MODEL_PROXY = os.environ.get("MODEL_PROXY", "http://172.30.0.5")
+HAS_SUBSCRIPTION = os.environ.get("HAS_SUBSCRIPTION") == "1"
+HAS_API_KEY = os.environ.get("HAS_API_KEY") == "1"
+PLACEHOLDER_OAUTH = "sk-ant-oat01-farm-model-proxy-placeholder"
+PLACEHOLDER_KEY = "sk-ant-api03-farm-model-proxy-placeholder"
+
+
+def _drop_to_agent():
+    if os.getuid() == 0:
+        os.setgroups([])
+        os.setgid(AGENT_GID)
+        os.setuid(AGENT_UID)
+
+
+def _give_to_agent(path):
+    """Files the server prepared (inputs, memory) must stay writable for the agent."""
+    if os.getuid() == 0:
+        subprocess.run(["chown", "-R", f"{AGENT_UID}:{AGENT_GID}", str(path)], check=False)
 LOCK = threading.Lock()
 EXP_RE = re.compile(r"^(EXP|GAME)-\d{3}$")
 
@@ -100,23 +121,25 @@ def run(role, body):
     started = time.time()
     cmd = ["claude", "-p", prompt, "--output-format", "json", "--max-turns", str(max_turns),
            "--allowedTools", TOOLS[role], "--append-system-prompt", skill.read_text()]
-    # The agent gets only what Claude Code needs: never RUNNER_TOKEN, and only the one model credential in use.
-    keep = {"PATH", "HOME", "LANG", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "DISABLE_AUTOUPDATER", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"}
+    # The agent holds no secret: model calls go through model-proxy, which swaps the placeholder for the real credential.
+    keep = {"PATH", "LANG", "HTTP_PROXY", "HTTPS_PROXY", "DISABLE_AUTOUPDATER"}
     env = {k: v for k, v in os.environ.items() if k in keep or k.startswith(("OTEL_", "CLAUDE_CODE_ENABLE_TELEMETRY", "CLAUDE_CODE_ENHANCED"))}
-    env["NO_PROXY"] = "phoenix,172.30.0.4"  # not localhost: the runner API is not the agent's business
+    env.update(HOME=AGENT_HOME, USER="agent", NO_PROXY="phoenix,172.30.0.4,172.30.0.5")
     billing = "subscription"
-    if role in API_ROLES and env.get("ANTHROPIC_API_KEY") and body.get("use_api", True):
+    if role in API_ROLES and HAS_API_KEY and body.get("use_api", True):
         # Prepaid API budget when a key is configured; otherwise the subscription is used.
         billing = "api"
-        env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
-        budget = min(float(body.get("budget_usd", 4)), float(env.get("MAX_BUDGET_PER_RUN_USD", "8")))
+        env.update(ANTHROPIC_BASE_URL=f"{MODEL_PROXY}:8081", ANTHROPIC_API_KEY=PLACEHOLDER_KEY)
+        budget = min(float(body.get("budget_usd", 4)), float(os.environ.get("MAX_BUDGET_PER_RUN_USD", "8")))
         cmd += ["--max-budget-usd", f"{budget:.2f}"]
     else:
-        env.pop("ANTHROPIC_API_KEY", None)
+        env.update(ANTHROPIC_BASE_URL=f"{MODEL_PROXY}:8080", CLAUDE_CODE_OAUTH_TOKEN=PLACEHOLDER_OAUTH)
     if body.get("model"):
         cmd += ["--model", body["model"]]
+    _give_to_agent(work)
     try:
-        proc = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=int(body.get("timeout_s", 3000)))
+        proc = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=int(body.get("timeout_s", 3000)),
+                              preexec_fn=_drop_to_agent)
     except subprocess.TimeoutExpired:
         return 504, {"ok": False, "error": "agent timed out"}
     out = {}
@@ -519,7 +542,7 @@ def render_diligence(exp, slug):
     args = ["python3", "/app/render_deck.py", str(d)]
     if (d / "verification.json").exists():
         args.append(str(d / "verification.json"))
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=300)
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=300, preexec_fn=_drop_to_agent)
     if proc.returncode != 0:
         return 500, {"ok": False, "error": proc.stderr[-1500:]}
     pdf = d / "deck.pdf"
@@ -554,8 +577,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/healthz":
             claude = subprocess.run(["claude", "--version"], capture_output=True, text=True).stdout.strip()
             return self._send(200, {"ok": True, "busy": LOCK.locked(), "claude": claude,
-                                    "auth": bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")),
-                                    "api_key": bool(os.environ.get("ANTHROPIC_API_KEY"))})
+                                    "auth": HAS_SUBSCRIPTION, "api_key": HAS_API_KEY, "uid": os.getuid()})
         self._send(404, {"ok": False})
 
     def do_POST(self):
