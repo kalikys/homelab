@@ -13,5 +13,8 @@ macfilter: 1
 
 [RULES]
 IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 22 # SSH from the LAN (Tailscale clients arrive through the subnet router)
-IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 5678 # n8n UI and approval links, LAN and Tailscale only
+IN ACCEPT -source 192.168.1.4 -p tcp -dport 5678 # n8n via Nginx Proxy Manager (https://n8n.home.kalik8s.ru)
+IN ACCEPT -source 192.168.1.4 -p tcp -dport 6006 # Phoenix via Nginx Proxy Manager (https://phoenix.home.kalik8s.ru)
+IN ACCEPT -source 192.168.1.52 -p tcp -dport 5678 # n8n API from the Proxmox host (workflow builder)
+IN ACCEPT -source 192.168.1.52 -p tcp -dport 6006 # Phoenix API from the Proxmox host
 IN ACCEPT -p icmp # ping for Gatus / Uptime Kuma

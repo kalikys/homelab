@@ -1,0 +1,12 @@
+[Unit]
+Description=Farm agent egress lockdown (iptables)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/farm/agent-egress.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

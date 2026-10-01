@@ -1,0 +1,12 @@
+# Claude Code headless runner for farm agents. No secrets baked in; no direct internet (egress proxy only).
+FROM debian:13-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl python3 git ripgrep jq \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u 1000 agent && install -d -o agent -g agent /work
+USER agent
+ARG CLAUDE_VERSION=2.1.286
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_VERSION}"
+ENV PATH=/home/agent/.local/bin:$PATH
+COPY --chown=agent:agent runner.py /app/runner.py
+EXPOSE 8080
+CMD ["python3", "/app/runner.py"]

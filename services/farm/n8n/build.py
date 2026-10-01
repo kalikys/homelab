@@ -16,6 +16,10 @@ URL = env["N8N_URL"].rstrip("/") + "/api/v1"
 KEY = env["N8N_API_KEY"]
 PG = {"postgres": {"id": env["PG_CRED_ID"], "name": "Farm DB (farm)"}}
 TG = {"telegramApi": {"id": env["TG_CRED_ID"], "name": "Telegram (Hermes bot, send only)"}}
+RUNNER = {"httpHeaderAuth": {"id": env["RUNNER_CRED_ID"], "name": "Agent runner token"}}
+PANEL_URL = "https://n8n.home.kalik8s.ru/webhook/farm"
+PANEL_TOKEN = env["FARM_CONTROL_TOKEN"]
+REAL_MONEY = "source NOT LIKE 'claude_subscription%'"
 
 
 def api(method, path, body=None):
@@ -159,8 +163,8 @@ PREFLIGHT_SQL = """WITH s AS (
   FROM settings),
 e AS (SELECT * FROM experiments WHERE id = $1),
 a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'waiting_owner')),
-m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now())),
-x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1),
+m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_subscription%'),
 checks AS (
   SELECT * FROM (VALUES
     ('kill_switch_off',   (SELECT ks FROM s) = 'off',                                        'Kill switch выключен'),
@@ -185,6 +189,63 @@ n = [
 ]
 link(c, "Called by another workflow", "Run checks")
 PRE = upsert("90 · Guardrail preflight", n, c, ERR)
+
+
+DISCOVERY_SUMMARY_JS = r"""const run = $('Agent: discovery').first().json;
+const val = $input.first().json;
+const exp = $('Called by another workflow').first().json.exp_id;
+const passed = (val.briefs || []).filter(b => b.passed);
+const failed = (val.briefs || []).filter(b => !b.passed);
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const link = slug => `PANEL?t=TOKEN&action=decide&exp=${exp}&gate=G1&decision=approve&note=${encodeURIComponent(slug)}`;
+let text;
+if (passed.length) {
+  text = `🧭 <b>${exp}: брифы готовы</b>, прошли проверку ${passed.length} из ${(val.briefs||[]).length}.\nВыбери один (G1):\n\n` +
+    passed.map((b, i) => `${i+1}. <b>${esc(b.title)}</b>\n   канал ${esc(b.channel)} · CPC ~$${b.cpc} · цена ${esc(b.price)}\n   <a href="${link(b.slug)}">Выбрать</a>`).join('\n\n') +
+    (failed.length ? `\n\nОтсеяно проверкой: ${failed.length}` : '');
+} else {
+  text = `⛔ <b>${exp}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\n` + failed.slice(0,3).map(b => `• ${esc(b.title || b.file)}: ${esc((b.failures||[]).join('; '))}`).join('\n');
+}
+return [{ json: { exp_id: exp, passed: passed.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id, text, agent_ok: run.ok, agent_error: run.error || '' } }];""".replace("PANEL", PANEL_URL).replace("TOKEN", PANEL_TOKEN)
+
+DISCOVERY_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
+c AS (INSERT INTO costs (exp_id, source, usd, detail)
+      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),
+u AS (UPDATE experiments SET stage = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
+                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'waiting_owner' ELSE 'blocked' END,
+                             updated_at = now()
+      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING stage, status),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
+       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',
+              'Discovery: прошли проверку ' || (j->>'passed') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
+SELECT (SELECT value FROM settings WHERE key = 'owner_chat_id') AS chat_id, (SELECT j->>'text' FROM j) AS text"""
+
+
+def build_discovery(n, c):
+    """Stage 01: agent writes briefs → code validates them in the isolated runner → record → owner chooses (G1)."""
+    n.append(node("Agent: discovery", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "POST", "url": "http://172.30.0.10:8080/run/discovery",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                   "sendBody": True, "specifyBody": "json",
+                   "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 1, \"max_turns\": 120, \"input\": {\"note\": \"Stop when 3 to 5 briefs pass the checklist\"}}",
+                   "options": {"timeout": 3600000}}, [720, -100], RUNNER,
+                  extra={"retryOnFail": False, "onError": "continueRegularOutput"}))
+    link(c, "All checks passed?", "Agent: discovery", 0)
+    n.append(node("Validate briefs (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "POST", "url": "=http://172.30.0.10:8080/validate/discovery/{{ $('Called by another workflow').first().json.exp_id }}",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                   "options": {"timeout": 600000}}, [960, -100], RUNNER))
+    link(c, "Agent: discovery", "Validate briefs (code, no LLM)")
+    n.append(code("Summarise for owner", DISCOVERY_SUMMARY_JS, [1200, -100]))
+    link(c, "Validate briefs (code, no LLM)", "Summarise for owner")
+    n.append(sql("Record cost, stage and event", DISCOVERY_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [1440, -100]))
+    link(c, "Summarise for owner", "Record cost, stage and event")
+    n.append(telegram("Send briefs to owner", "={{ $json.chat_id }}", "={{ $json.text }}", [1680, -100]))
+    link(c, "Record cost, stage and event", "Send briefs to owner")
+    n.append(code("Blocked report", "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 1, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 01 · Discovery остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];", [720, 140]))
+    link(c, "All checks passed?", "Blocked report", 1)
+    n.append(call("Log blocked", LOG, [960, 140]))
+    link(c, "Blocked report", "Log blocked")
 
 # ---------- stage workflows 01–08 ----------
 STAGES = [
@@ -235,6 +296,10 @@ for num, title, role, agent_txt, guard_txt, owner_txt in STAGES:
     link(c, "Guardrail preflight", "All checks passed?")
     prev = "All checks passed?"
     x = 720
+    if role == "discovery":
+        build_discovery(n, c)
+        STAGE_WF[num] = upsert(f"{num:02d} · {title}", n, c, ERR)
+        continue
     if role:
         n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
                       {"method": "POST", "url": f"http://agent-runner:8080/run/{role}",
@@ -279,7 +344,8 @@ DIGEST_SQL = """SELECT json_build_object(
   'status',      (SELECT json_agg(v ORDER BY v.id) FROM v_status v),
   'events',      (SELECT json_agg(e ORDER BY e.ts) FROM (SELECT ts, exp_id, kind, message FROM events WHERE ts > now() - interval '24 hours') e),
   'guard_fail',  (SELECT count(*) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '24 hours'),
-  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now())),
+  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+  'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),
   'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),
   'kill',        (SELECT value FROM settings WHERE key = 'kill_switch'),
   'chat_id',     (SELECT value FROM settings WHERE key = 'owner_chat_id')) AS d"""
@@ -287,7 +353,7 @@ DIGEST_JS = r"""const d = $input.first().json.d;
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const status = (d.status || []).map(s => `• <b>${esc(s.id)}</b> ${esc(s.title)}\n   этап ${s.stage} · ${esc(s.stage_name)} · ${esc(s.status)} · $${Number(s.spent_usd).toFixed(2)} из $${Number(s.budget_usd).toFixed(0)}`).join('\n') || '—';
 const events = (d.events || []).slice(-10).map(e => `• ${esc(e.exp_id || 'ферма')}: ${esc(e.message)}`).join('\n') || 'событий нет';
-const text = `🌱 <b>Ферма · дайджест</b>\n\n<b>Стартапы</b>\n${status}\n\n<b>За сутки</b>\n${events}\n\nGuardrails сработали: ${d.guard_fail}\nТраты за месяц: $${Number(d.month_spend).toFixed(2)} из $${d.month_cap}\nKill switch: ${d.kill === 'on' ? '🔴 ВКЛЮЧЁН' : 'выключен'}`;
+const text = `🌱 <b>Ферма · дайджест</b>\n\n<b>Стартапы</b>\n${status}\n\n<b>За сутки</b>\n${events}\n\nGuardrails сработали: ${d.guard_fail}\nТраты за месяц: $${Number(d.month_spend).toFixed(2)} из $${d.month_cap}\nАгенты (подписка, эквивалент API): $${Number(d.agent_equiv).toFixed(2)}\nKill switch: ${d.kill === 'on' ? '🔴 ВКЛЮЧЁН' : 'выключен'}`;
 return [{ json: { chat_id: d.chat_id, text } }];"""
 c = {}
 n = [
@@ -307,7 +373,7 @@ DIG = upsert("91 · Daily digest", n, c, ERR)
 # ---------- 92 Guardrail watchdog ----------
 WATCH_SQL = """WITH s AS (
   SELECT max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap FROM settings),
-m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now())),
+m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
 upd AS (
   UPDATE settings SET value = 'on'
   WHERE key = 'kill_switch' AND value = 'off' AND (SELECT spent FROM m) >= (SELECT cap FROM s)
@@ -355,7 +421,7 @@ if (a === 'kill_on' || a === 'kill_off') {
 if (a === 'decide') {
   const allowed = ['approve', 'reject', 'go', 'kill', 'extend', 'pause', 'resume'];
   if (!q.exp || !q.gate || !allowed.includes(q.decision)) return [{ json: { ok: false, reply: 'decide требует exp, gate и decision из: ' + allowed.join(', ') } }];
-  return [{ json: { ok: true, action: a, sql: "WITH d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) VALUES ($1, $2, $3, 'owner', $4) RETURNING exp_id, gate, decision), ev AS (INSERT INTO events (exp_id, kind, actor, message) SELECT exp_id, 'owner_decision', 'owner', gate || ': ' || decision FROM d RETURNING 1), u AS (UPDATE experiments SET status = CASE $3 WHEN 'kill' THEN 'killed' WHEN 'go' THEN 'go' WHEN 'pause' THEN 'paused' ELSE 'active' END, updated_at = now() WHERE id = $1 RETURNING id, status) SELECT * FROM u", params: [q.exp, q.gate, q.decision, q.note || ''] } }];
+  return [{ json: { ok: true, action: a, sql: "WITH d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) VALUES ($1, $2, $3, 'owner', $4) RETURNING exp_id, gate, decision), ev AS (INSERT INTO events (exp_id, kind, actor, message) SELECT exp_id, 'owner_decision', 'owner', gate || ': ' || decision FROM d RETURNING 1), u AS (UPDATE experiments SET status = CASE $3 WHEN 'kill' THEN 'killed' WHEN 'pause' THEN 'paused' WHEN 'reject' THEN 'waiting_owner' ELSE 'active' END, stage = CASE WHEN $3 IN ('approve', 'go') THEN least(stage + 1, 8) ELSE stage END, updated_at = now() WHERE id = $1 RETURNING id, stage, status) SELECT * FROM u", params: [q.exp, q.gate, q.decision, q.note || ''] } }];
 }
 if (a === 'digest') return [{ json: { ok: true, action: a } }];
 if (a === 'cost') {
@@ -375,7 +441,7 @@ if (a === 'run') {
 return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide, digest, run, cost, advance' } }];"""
 c = {}
 n = [
-    sticky("About", "## 99 · Пульт\nОдна ссылка, доступна только из домашней сети и Tailscale:\n`http://192.168.1.30:5678/webhook/farm?t=<токен>&action=…`\n\n- `status` — где каждый стартап\n- `kill_on` / `kill_off` — всё на паузу / снять паузу\n- `decide&exp=EXP-001&gate=G1&decision=approve` — решение на гейте\n- `digest` — дайджест сейчас\n- `run&exp=EXP-001` — прогнать текущий этап эксперимента\n- `cost&exp=EXP-001&usd=12.5&source=domain` — записать трату\n- `advance&exp=EXP-001&to=2` — перевести этап вручную\nТокен — в `/home/kalikys/prj/farm/.env` (FARM_CONTROL_TOKEN).", [-80, -380], 520, 300),
+    sticky("About", "## 99 · Пульт\nОдна ссылка, доступна только из домашней сети и Tailscale:\n`https://n8n.home.kalik8s.ru/webhook/farm?t=<токен>&action=…`\n\n- `status` — где каждый стартап\n- `kill_on` / `kill_off` — всё на паузу / снять паузу\n- `decide&exp=EXP-001&gate=G1&decision=approve` — решение на гейте\n- `digest` — дайджест сейчас\n- `run&exp=EXP-001` — прогнать текущий этап эксперимента\n- `cost&exp=EXP-001&usd=12.5&source=domain` — записать трату\n- `advance&exp=EXP-001&to=2` — перевести этап вручную\nТокен — в `/home/kalikys/prj/farm/.env` (FARM_CONTROL_TOKEN).", [-80, -380], 520, 300),
     node("Control link", "n8n-nodes-base.webhook", 2,
          {"httpMethod": "GET", "path": "farm", "responseMode": "lastNode", "options": {}}, [0, 0],
          extra={"webhookId": "b7f0c2a4-farm-control"}),

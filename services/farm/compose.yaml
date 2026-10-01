@@ -1,4 +1,5 @@
-# Startup farm on VM 230: n8n (skeleton: stages, guardrails, approvals) + Postgres (n8n DB and farm state).
+# Startup farm on VM 230: n8n (skeleton: stages, guardrails, approvals), Postgres (n8n, farm state, Phoenix),
+# Phoenix (agent traces: model calls, tools, tokens, cost).
 # Secrets live in /opt/farm/.env on the VM only. UI and webhooks are reachable from the LAN and Tailscale only.
 services:
   postgres:
@@ -10,6 +11,7 @@ services:
       POSTGRES_DB: n8n
       FARM_DB_PASSWORD: ${FARM_DB_PASSWORD}
       FARM_RO_PASSWORD: ${FARM_RO_PASSWORD}
+      PHOENIX_DB_PASSWORD: ${PHOENIX_DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./initdb:/docker-entrypoint-initdb.d:ro
@@ -34,11 +36,13 @@ services:
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      N8N_HOST: 192.168.1.30
+      N8N_HOST: n8n.home.kalik8s.ru
       N8N_PORT: "5678"
-      N8N_PROTOCOL: http
-      WEBHOOK_URL: http://192.168.1.30:5678/
-      N8N_SECURE_COOKIE: "false"
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.home.kalik8s.ru/
+      N8N_EDITOR_BASE_URL: https://n8n.home.kalik8s.ru/
+      N8N_PROXY_HOPS: "1"
+      N8N_SECURE_COOKIE: "true"
       GENERIC_TIMEZONE: Asia/Tbilisi
       TZ: Asia/Tbilisi
       N8N_DIAGNOSTICS_ENABLED: "false"
@@ -53,8 +57,89 @@ services:
       - n8ndata:/home/node/.n8n
     ports:
       - "5678:5678"
+    networks:
+      default: {}
+      agents:
+        ipv4_address: 172.30.0.2
     mem_limit: 1536m
+
+  phoenix:
+    image: arizephoenix/phoenix:version-20.18
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PHOENIX_SQL_DATABASE_URL: postgresql://phoenix:${PHOENIX_DB_PASSWORD}@postgres:5432/phoenix
+      PHOENIX_ENABLE_AUTH: "true"
+      PHOENIX_SECRET: ${PHOENIX_SECRET}
+      PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD: ${PHOENIX_ADMIN_PASSWORD}
+      PHOENIX_TELEMETRY_ENABLED: "false"
+      PHOENIX_ROOT_URL: https://phoenix.home.kalik8s.ru
+    ports:
+      - "6006:6006"
+    networks:
+      default: {}
+      agents:
+        ipv4_address: 172.30.0.4
+    mem_limit: 2g
+
+  # Agents: Claude Code headless. Locked down by host/farm/agent-egress.sh: proxy and Phoenix only.
+  agent-runner:
+    build: ./agent-runner
+    image: farm/agent-runner:local
+    restart: unless-stopped
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      HTTP_PROXY: http://172.30.0.3:3128
+      HTTPS_PROXY: http://172.30.0.3:3128
+      NO_PROXY: phoenix,172.30.0.4,localhost,127.0.0.1
+      DISABLE_AUTOUPDATER: "1"
+      CLAUDE_CODE_ENABLE_TELEMETRY: "1"
+      CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1"
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://172.30.0.4:6006
+      OTEL_EXPORTER_OTLP_HEADERS: authorization=Bearer ${PHOENIX_API_KEY:-none}
+      OTEL_RESOURCE_ATTRIBUTES: openinference.project.name=farm-agents
+      OTEL_LOG_USER_PROMPTS: "1"
+      OTEL_LOG_TOOL_DETAILS: "1"
+    volumes:
+      - ./skills:/skills:ro
+      - agentwork:/work
+    networks:
+      agents:
+        ipv4_address: 172.30.0.10
+    mem_limit: 2g
+    pids_limit: 512
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  egress-proxy:
+    build: ./egress-proxy
+    image: farm/egress-proxy:local
+    restart: unless-stopped
+    networks:
+      default: {}
+      agents:
+        ipv4_address: 172.30.0.3
+    mem_limit: 256m
+
+networks:
+  agents:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
 
 volumes:
   pgdata:
   n8ndata:
+  agentwork:

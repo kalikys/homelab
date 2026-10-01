@@ -86,16 +86,16 @@
       "role": "AI ops agent (Telegram), read-only"
     },
     {
-      "cores": 2,
+      "cores": 4,
       "disk_gb": 40,
       "id": 230,
       "kind": "vm",
-      "memory_mb": 4096,
+      "memory_mb": 8192,
       "name": "farm",
       "network": [
         "lan"
       ],
-      "role": "Startup farm: n8n workflows, Postgres, Claude agent runner"
+      "role": "Startup farm: n8n workflows, Postgres, Claude agents, Phoenix tracing"
     },
     {
       "cores": 2,

@@ -4,10 +4,10 @@ locals {
     vm_id     = 230
     ip        = "192.168.1.30"
     mac       = "BC:24:11:4B:38:30"
-    cores     = 2
-    memory_mb = 4096
+    cores     = 4
+    memory_mb = 8192
     disk_gb   = 40
-    role      = "Startup farm: n8n workflows, Postgres, Claude agent runner"
+    role      = "Startup farm: n8n workflows, Postgres, Claude agents, Phoenix tracing"
   }
 }
 
@@ -15,7 +15,7 @@ resource "proxmox_virtual_environment_vm" "farm" {
   node_name   = var.proxmox_node
   vm_id       = local.farm.vm_id
   name        = "farm"
-  description = "Startup farm: ${local.farm.role}\n"
+  description = "${local.farm.role}\n"
   tags        = ["farm"]
 
   on_boot = true
