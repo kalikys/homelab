@@ -160,6 +160,7 @@ def upsert(name, nodes, conns, error_wf=None, publish=True, **settings_over):
             pass
     w = api("GET", f"/workflows/{wid}")
     lock[wid] = w.get("versionId")
+    LOCK_FILE.write_text(json.dumps(lock, indent=1, sort_keys=True))  # saved per workflow, so a crash mid-build is not mistaken for UI edits
     state = "published" if w.get("active") else "draft"
     if publish and w.get("activeVersionId") and w.get("activeVersionId") != w.get("versionId"):
         state = "PUBLISH MISMATCH"
@@ -208,13 +209,13 @@ PREFLIGHT_SQL = """WITH s AS (
          max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap
   FROM settings),
 e AS (SELECT * FROM experiments WHERE id = $1),
-a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner')),
+a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner') AND track = (SELECT track FROM e)),
 m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
 x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_subscription%'),
 checks AS (
   SELECT * FROM (VALUES
     ('kill_switch_off',   (SELECT ks FROM s) = 'off',                                      'Kill switch выключен'),
-    ('wip_limit',         (SELECT n FROM a) <= (SELECT wip FROM s),                        'В работе не больше WIP-лимита стартапов'),
+    ('wip_limit',         (SELECT n FROM a) <= (SELECT wip FROM s),                        'В работе не больше WIP-лимита (в своём треке)'),
     ('month_budget',      (SELECT spent FROM m) < (SELECT cap FROM s),                     'Траты фермы за месяц ниже потолка'),
     ('experiment_budget', (SELECT spent FROM x) < coalesce((SELECT budget_usd FROM e), 0), 'Траты эксперимента ниже его бюджета'),
     ('experiment_active', coalesce((SELECT status FROM e) = 'active', false),              'Эксперимент в статусе active (не ждёт решения, не занят, не закрыт)'),
@@ -268,229 +269,275 @@ def stage_head(n, c, num, about):
     link(c, "Guardrail preflight", "All checks passed?")
 
 
-# ---------- stage 02 id (discovery hands off to it) ----------
-STAGE2_NAME = "02 · Due diligence and pitch"
-if "02 · Brief choice" in existing and STAGE2_NAME not in existing:
-    existing[STAGE2_NAME] = existing.pop("02 · Brief choice")
-if STAGE2_NAME not in existing:
-    existing[STAGE2_NAME] = {"id": api("POST", "/workflows", {"name": STAGE2_NAME, "nodes": [sub_trigger([0, 0])], "connections": {}, "settings": BASE_SETTINGS})["id"]}
-STAGE2_ID = existing[STAGE2_NAME]["id"]
+# ---------- tracks: startups and web games share the same discovery → due diligence → gate shape ----------
+TRACKS = {
+    "startup": {"p": "", "disc_role": "discovery", "dd_role": "diligence", "dd_validate": "diligence", "noun": "брифов",
+                "disc_name": "01 · Discovery", "dd_name": "02 · Due diligence and pitch", "dd_legacy": "02 · Brief choice",
+                "disc_input": "Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist",
+                "pick_limit": 5, "dd_title": "инвестиционные меморандумы", "choice": "Выбрать для смоук-теста",
+                "disc_about": "## 01 · Discovery (стартапы)\nАгент ищет боли с доказательствами денег → 5–8 брифов.\n\n**Guardrails:** preflight · ошибка агента → этап блокируется · проверка **кодом**: поля, чек-лист, CPC ≤ $1, канал, ≥2 типа источников, ≥3 цитаты дословно.\n\nУспех → этап 02 запускается сам.",
+                "dd_about": "## 02 · Due diligence and pitch (стартапы)\nАналитики по ≤5 брифам: спрос (≥4 типа источников), рынок, конкуренты, юнит-экономика, план теста, red team → `memo.json` → проверка кодом → PDF.\n\n**Тебе уходят только лучшие:** проверка пройдена, вердикт не «pass», оценка ≥ `min_show_score`, максимум `max_shown` по убыванию оценки.\n\n**Твой шаг:** G1 — выбрать идею по PDF."},
+    "game": {"p": "G", "disc_role": "game-discovery", "dd_role": "game-diligence", "dd_validate": "game-diligence", "noun": "концептов",
+             "disc_name": "G01 · Game discovery", "dd_name": "G02 · Game due diligence and pitch", "dd_legacy": None,
+             "disc_input": "Find 4 to 6 game concepts; stop when at least 4 pass the checklist",
+             "pick_limit": 5, "dd_title": "меморандумы по играм", "choice": "Делать эту игру",
+             "disc_about": "## G01 · Game discovery\nАгент изучает тренды порталов (CrazyGames, Poki, itch.io) → 4–6 концептов «популярная механика + новый поворот».\n\n**Guardrails:** проверка **кодом**: поля, чек-лист, ≥2 типа источников, ≥3 цитаты дословно, у референса есть цифра популярности.\n\nУспех → G02 запускается сам.",
+             "dd_about": "## G02 · Game due diligence and pitch\nАналитики по ≤5 концептам: популярность механики, похожие игры, сценарии дохода (код пересчитывает), план разработки, требования порталов, red team → PDF.\n\n**Тебе уходят только лучшие** (как у стартапов).\n\n**Твой шаг:** G1 — выбрать игры для прототипа."},
+}
+STAGE_WF = {}
 
-# ---------- 01 Discovery ----------
-DISCOVERY_SUMMARY_JS = r"""const run = $('Agent: discovery').first().json;
+
+def wf_id(name, legacy=None):
+    if legacy and legacy in existing and name not in existing:
+        existing[name] = existing.pop(legacy)
+    if name not in existing:
+        existing[name] = {"id": api("POST", "/workflows", {"name": name, "nodes": [sub_trigger([0, 0])], "connections": {}, "settings": BASE_SETTINGS})["id"]}
+    return existing[name]["id"]
+
+
+def build_discovery(track, cfg, next_id):
+    role = cfg["disc_role"]
+    summary_js = f"""const run = $('Agent: {role}').first().json;
 const val = $input.first().json;
 const exp = $('Expect this stage').first().json.exp_id;
 const briefs = val.briefs || [];
 const passed = briefs.filter(b => b.passed);
-return [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,
-  choices: passed.map(b => b.slug),
-  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"""
-
-DISCOVERY_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
+return [{{ json: {{ exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,
+  briefs: briefs.map(b => ({{ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures }})) }} }}];"""
+    record_sql = f"""WITH j AS (SELECT $1::jsonb AS j),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
-      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),
+      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), '{role} session ' || coalesce(j->>'session','') FROM j RETURNING 1),
 u AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
                              status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,
-                             briefs = (SELECT j->'briefs' FROM j),
-                             updated_at = now()
-      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),
+                             briefs = (SELECT j->'briefs' FROM j), updated_at = now()
+      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),
 ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
-       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',
-              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
+       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',
+              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' {cfg['noun']}, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
 SELECT (SELECT (j->>'passed')::int FROM j) AS passed"""
-
-DISCOVERY_MESSAGE_JS = ESC_JS + """const s = $('Summarise').first().json;
+    message_js = ESC_JS + f"""const s = $('Summarise').first().json;
 const passed = s.briefs.filter(b => b.passed);
 const failed = s.briefs.filter(b => !b.passed);
 let text;
-if (passed.length) {
-  text = `🧭 <b>${s.exp_id}: найдено ${passed.length} кандидатов</b> (проверку прошли ${passed.length} из ${s.total}).\nДальше аналитики делают due diligence по каждому и пришлют PDF-меморандумы:\n\n` +
-    passed.slice(0, 3).map((b, i) => `${i+1}. ${esc(b.title)}`).join('\n');
-} else {
-  text = `⛔ <b>${s.exp_id}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\n` +
-    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\n');
-}
-return [{ json: { text, passed: passed.length } }];"""
-
-AGENT_FAILED_JS = """const exp = $('Expect this stage').first().json.exp_id;
-const r = $input.first().json || {};
+if (passed.length) {{
+  text = `🧭 <b>${{s.exp_id}}: в работу аналитикам ушло ${{Math.min(passed.length, {cfg['pick_limit']})}} из ${{s.total}} {cfg['noun']}</b>.\\nТебе придут только лучшие — после due diligence и проверки кодом.`;
+}} else {{
+  text = `⛔ <b>${{s.exp_id}}: ни один из ${{s.total}} {cfg['noun']} не прошёл проверку</b>. Этап заблокирован до разбора.\\n` +
+    failed.slice(0, 3).map(b => `• ${{esc(b.title || b.slug)}}: ${{esc((b.failures || []).join('; '))}}`).join('\\n');
+}}
+return [{{ json: {{ text, passed: passed.length }} }}];"""
+    failed_js = f"""const exp = $('Expect this stage').first().json.exp_id;
+const r = $input.first().json || {{}};
 const why = r.error || r.result || (r.message ?? 'нет ответа от агента');
-return [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ Этап 01 · Discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"""
-
-c, n = {}, []
-stage_head(n, c, 1, "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\nУспех → этап 02 (due diligence) запускается сам.")
-n.append(node("Agent: discovery", "n8n-nodes-base.httpRequest", 4.2,
-              {"method": "POST", "url": f"{RUNNER_URL}/run/discovery",
-               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-               "sendBody": True, "specifyBody": "json",
-               "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 120, \"input\": {\"note\": \"Stop when 3 to 5 briefs pass the checklist\"}}",
-               "options": {"timeout": 3600000}}, [720, -100], RUNNER, extra={"onError": "continueErrorOutput"}))
-link(c, "All checks passed?", "Agent: discovery", 0)
-n.append(if_true("Agent succeeded?", "={{ $json.ok === true }}", [960, -100]))
-link(c, "Agent: discovery", "Agent succeeded?", 0)
-n.append(node("Validate briefs (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
-              {"method": "POST", "url": f"={RUNNER_URL}/validate/discovery/{{{{ $('Expect this stage').first().json.exp_id }}}}",
-               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-               "options": {"timeout": 600000}}, [1200, -180], RUNNER))
-link(c, "Agent succeeded?", "Validate briefs (code, no LLM)", 0)
-n.append(code("Summarise", DISCOVERY_SUMMARY_JS, [1440, -180]))
-link(c, "Validate briefs (code, no LLM)", "Summarise")
-n.append(sql("Record cost, briefs, stage, gate", DISCOVERY_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [1680, -180]))
-link(c, "Summarise", "Record cost, briefs, stage, gate")
-n.append(code("Compose message", DISCOVERY_MESSAGE_JS, [1920, -180]))
-link(c, "Record cost, briefs, stage, gate", "Compose message")
-n.append(telegram("Send briefs to owner", "={{ $json.text }}", [2160, -180]))
-link(c, "Compose message", "Send briefs to owner")
-n.append(if_true("Any candidates?", "={{ $('Compose message').first().json.passed > 0 }}", [2400, -180]))
-link(c, "Send briefs to owner", "Any candidates?")
-n.append(code("Next stage input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2640, -260]))
-link(c, "Any candidates?", "Next stage input", 0)
-n.append(call("Start due diligence", STAGE2_ID, [2880, -260], wait=False))
-link(c, "Next stage input", "Start due diligence")
-n.append(code("Agent failed", AGENT_FAILED_JS, [1200, 20]))
-link(c, "Agent: discovery", "Agent failed", 1)
-link(c, "Agent succeeded?", "Agent failed", 1)
-n.append(sql("Mark blocked", RELEASE_SQL, "={{ [$json.exp_id, 'blocked'] }}", [1440, 20], extra={"alwaysOutputData": True}))
-link(c, "Agent failed", "Mark blocked")
-n.append(code("Pass failure on", "return [{ json: $('Agent failed').first().json }];", [1680, 20]))
-link(c, "Mark blocked", "Pass failure on")
-n.append(call("Log failure", LOG, [1920, 20]))
-link(c, "Pass failure on", "Log failure")
-blocked_branch(n, c, 1, "Discovery", pos_y=220)
-STAGE_WF = {1: upsert("01 · Discovery", n, c, ERR, executionTimeout=4000)}
-
-# ---------- stage skeletons 02–08 ----------
-STAGES = [
-    (3, "Pre-registration", "preregistration", "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
-     "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.", "Твой шаг: одобрить пороги."),
-    (4, "Landing", "landing", "Агент: лендинг → превью на Cloudflare Pages.",
-     "Guardrails: HTTP 200 · форма пишет в waitlist · аналитика · Terms и Privacy · цена как в брифе.", "Твой шаг: одобрить публикацию."),
-    (5, "Traffic and metrics", "traffic", "Агент: спецификация кампании, ежедневный сбор метрик в `metrics`.",
-     "Guardrails: трата ≤ budget_day_usd и ≤ бюджета теста · ранний KILL на 100 визитах.", "Твой шаг: одобрить деньги и запустить кампанию."),
-    (6, "Decision", None, "Решение по правилу предрегистрации.",
-     "Guardrails: GO / KILL / продление только по правилу; переопределение пишется в decisions.", "Твой шаг: G2 — подтвердить."),
-    (7, "Build MVP", "builder", "Агент: MVP в песочнице (только после GO).",
-     "Guardrails: auth и оплату менять нельзя · тесты · сканеры зависимостей и секретов.", "Твой шаг: одобрить запуск оплаты."),
-    (8, "Active users", "analyst", "Агент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.",
-     "Guardrails: алерт при падении сайта или метрик.", "Твой шаг: G3 на 30-й день."),
-]
-for num, title, role, agent_txt, guard_txt, owner_txt in STAGES:
+return [{{ json: {{ exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ {cfg['disc_name']}: агент не справился — ' + String(why).slice(0, 400), notify: true }} }}];"""
     c, n = {}, []
-    note = "Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку." if role else "Этап без агента."
-    stage_head(n, c, num, f"## {num:02d} · {title}\n{agent_txt}\n\n{guard_txt}\n\n{owner_txt}\n\n_{note}_")
-    prev, x = "All checks passed?", 720
-    if role:
-        n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
-                      {"method": "POST", "url": f"{RUNNER_URL}/run/{role}",
-                       "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-                       "sendBody": True, "specifyBody": "json",
-                       "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": " + str(num) + "}",
-                       "options": {"timeout": 3600000}}, [x, -100], RUNNER, disabled=True))
-        link(c, prev, f"Agent: {role}", 0)
-        prev, x = f"Agent: {role}", x + 240
-        n.append(code("Validate output", "// Stage-specific checks run here once the agent is connected.\nreturn $input.all();", [x, -100], disabled=True))
-        link(c, prev, "Validate output")
-        prev, x = "Validate output", x + 240
-    n.append(sql("Release lock", RELEASE_SQL, "={{ [$('Expect this stage').first().json.exp_id, 'active'] }}", [x, -100], extra={"alwaysOutputData": True}))
-    link(c, prev, "Release lock", 0)
-    n.append(code("Report", f"return [{{ json: {{ exp_id: $('Expect this stage').first().json.exp_id, stage: {num}, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап {num:02d} · {title}: проверки пройдены, каркас отработал' + ({'true' if role else 'false'} ? ' (агент ещё не подключён)' : ''), notify: false }} }}];", [x + 240, -100]))
-    link(c, "Release lock", "Report")
-    n.append(call("Log event", LOG, [x + 480, -100]))
-    link(c, "Report", "Log event")
-    blocked_branch(n, c, num, title)
-    STAGE_WF[num] = upsert(f"{num:02d} · {title}", n, c, ERR)
+    stage_head(n, c, 1, cfg["disc_about"])
+    n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "POST", "url": f"{RUNNER_URL}/run/{role}",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                   "sendBody": True, "specifyBody": "json",
+                   "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"input\": {\"note\": \"" + cfg["disc_input"] + "\"}}",
+                   "options": {"timeout": 10800000}}, [720, -100], RUNNER, extra={"onError": "continueErrorOutput"}))
+    link(c, "All checks passed?", f"Agent: {role}", 0)
+    n.append(if_true("Agent succeeded?", "={{ $json.ok === true }}", [960, -100]))
+    link(c, f"Agent: {role}", "Agent succeeded?", 0)
+    n.append(node("Validate (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "POST", "url": f"={RUNNER_URL}/validate/{role}/{{{{ $('Expect this stage').first().json.exp_id }}}}",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "options": {"timeout": 600000}}, [1200, -180], RUNNER))
+    link(c, "Agent succeeded?", "Validate (code, no LLM)", 0)
+    n.append(code("Summarise", summary_js, [1440, -180]))
+    link(c, "Validate (code, no LLM)", "Summarise")
+    n.append(sql("Record cost, candidates, stage", record_sql, "={{ [JSON.stringify($json)] }}", [1680, -180]))
+    link(c, "Summarise", "Record cost, candidates, stage")
+    n.append(code("Compose message", message_js, [1920, -180]))
+    link(c, "Record cost, candidates, stage", "Compose message")
+    n.append(telegram("Tell owner", "={{ $json.text }}", [2160, -180]))
+    link(c, "Compose message", "Tell owner")
+    n.append(if_true("Any candidates?", "={{ $('Compose message').first().json.passed > 0 }}", [2400, -180]))
+    link(c, "Tell owner", "Any candidates?")
+    n.append(code("Next stage input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2640, -260]))
+    link(c, "Any candidates?", "Next stage input", 0)
+    n.append(call("Start due diligence", next_id, [2880, -260], wait=False))
+    link(c, "Next stage input", "Start due diligence")
+    n.append(code("Agent failed", failed_js, [1200, 20]))
+    link(c, f"Agent: {role}", "Agent failed", 1)
+    link(c, "Agent succeeded?", "Agent failed", 1)
+    n.append(sql("Mark blocked", RELEASE_SQL, "={{ [$json.exp_id, 'blocked'] }}", [1440, 20], extra={"alwaysOutputData": True}))
+    link(c, "Agent failed", "Mark blocked")
+    n.append(code("Pass failure on", "return [{ json: $('Agent failed').first().json }];", [1680, 20]))
+    link(c, "Mark blocked", "Pass failure on")
+    n.append(call("Log failure", LOG, [1920, 20]))
+    link(c, "Pass failure on", "Log failure")
+    blocked_branch(n, c, 1, cfg["disc_name"], pos_y=220)
+    return upsert(cfg["disc_name"], n, c, ERR, executionTimeout=12000)
 
 
-# ---------- 02 Due diligence and pitch ----------
-DD_PICK_SQL = """SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title
+def build_diligence(track, cfg):
+    role = cfg["dd_role"]
+    pick_sql = f"""SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title
 FROM experiments e, jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b
 WHERE e.id = $1 AND (b->>'passed')::boolean IS TRUE
-LIMIT 3"""
-DD_COLLECT_JS = ESC_JS + r"""const items = $('Briefs to analyse').all().map(i => i.json);
-const runs = $('Agent: diligence').all().map(i => i.json);
+LIMIT {cfg['pick_limit']}"""
+    collect_js = f"""const items = $('To analyse').all().map(i => i.json);
+const runs = $('Agent: {role}').all().map(i => i.json);
 const vals = $('Validate memo (code, no LLM)').all().map(i => i.json);
-const out = items.map((it, k) => {
-  const r = runs[k] || {}, v = vals[k] || {};
-  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,
-           passed: v.passed === true, verdict: v.verdict || null, evidence: v.evidence_count, verified: v.verified_quotes,
-           failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };
-});
-const exp = $('Expect this stage').first().json.exp_id;
-return [{ json: { exp_id: exp, memos: out, choices: out.filter(m => m.passed).map(m => m.slug), total_cost: out.reduce((a, m) => a + Number(m.cost || 0), 0) } }];"""
-DD_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
+const out = items.map((it, k) => {{
+  const r = runs[k] || {{}}, v = vals[k] || {{}};
+  return {{ slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,
+           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {{}}).score_0_10 || 0),
+           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) }};
+}});
+return [{{ json: {{ exp_id: $('Expect this stage').first().json.exp_id, memos: out }} }}];"""
+    record_sql = f"""WITH j AS (SELECT $1::jsonb AS j),
+lim AS (SELECT coalesce(max(value) FILTER (WHERE key = 'min_show_score'), '6')::numeric AS min_score,
+               coalesce(max(value) FILTER (WHERE key = 'max_shown'), '3')::int AS max_shown FROM settings),
+q AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m
+      WHERE (m->>'passed')::boolean AND coalesce(m->'verdict'->>'recommendation', 'pass') <> 'pass'
+        AND (m->>'score')::numeric >= (SELECT min_score FROM lim)
+      ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
-      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), 'diligence ' || (m->>'slug')
-      FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),
+      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), '{role} ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),
 u AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),
-                             status = CASE WHEN jsonb_array_length((SELECT j->'choices' FROM j)) > 0 THEN 'waiting_owner' ELSE 'blocked' END,
-                             updated_at = now()
+             status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()
       WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),
 g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)
-      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE jsonb_array_length(j->'choices') > 0
-      RETURNING token),
+      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT slug FROM q) FROM j WHERE EXISTS (SELECT 1 FROM q) RETURNING token),
 ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
-       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: меморандумов прошло проверку ' || jsonb_array_length(j->'choices') || ' из ' || jsonb_array_length(j->'memos') FROM j RETURNING 1)
-SELECT (SELECT token FROM g) AS token"""
-DD_MESSAGE_JS = ESC_JS + f"""const s = $('Collect results').first().json;
-const token = $input.first().json.token;
+       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: разобрано ' || jsonb_array_length(j->'memos') || ', лучших (проверка + оценка) ' || (SELECT count(*) FROM q) FROM j RETURNING 1)
+SELECT (SELECT token FROM g) AS token, (SELECT coalesce(json_agg(slug), '[]'::json) FROM q) AS shown, (SELECT min_score FROM lim) AS min_score"""
+    message_js = ESC_JS + f"""const s = $('Collect results').first().json;
+const r = $input.first().json;
+const shown = r.shown || [];
 const rec = {{ invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' }};
-const lines = s.memos.map((m, i) => {{
-  const v = m.verdict || {{}};
-  const head = `${{i+1}}. <b>${{esc(m.title)}}</b>\\n   ${{rec[v.recommendation] || '—'}} · ${{v.score_0_10 ?? '—'}}/10 · доказательств ${{m.evidence ?? '—'}}, подтверждено цитат ${{m.verified ?? '—'}}`;
-  if (m.passed && token) return head + `\\n   <a href="{BASE}/farm-gate?g=${{token}}&c=${{encodeURIComponent(m.slug)}}">Выбрать для теста</a>`;
-  return head + `\\n   ✗ не прошёл проверку: ${{esc((m.failed_checks || []).slice(0, 2).join('; ') || (m.agent_ok ? '' : 'агент не справился'))}}`;
-}});
-const text = `📊 <b>${{s.exp_id}}: инвестиционные меморандумы готовы</b>\\nPDF — выше. Выбери одну идею для смоук-теста за $150 (ссылки одноразовые, 72 ч, дома или через Tailscale):\\n\\n` + lines.join('\\n\\n');
+const best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);
+const rest = s.memos.length - best.length;
+let text;
+if (best.length) {{
+  text = `📊 <b>${{s.exp_id}}: {cfg['dd_title']}</b>\\nРазобрано ${{s.memos.length}}, тебе — лучшие ${{best.length}} (проверка кодом пройдена, оценка ≥ ${{r.min_score}}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +
+    best.map((m, i) => `${{i+1}}. <b>${{esc(m.title)}}</b>\\n   ${{rec[(m.verdict || {{}}).recommendation] || '—'}} · ${{m.score}}/10 · доказательств ${{m.evidence ?? '—'}}, цитат подтверждено ${{m.verified ?? '—'}}\\n   <a href="{BASE}/farm-gate?g=${{r.token}}&c=${{encodeURIComponent(m.slug)}}">{cfg['choice']}</a>`).join('\\n\\n') +
+    (rest ? `\\n\\nОтсеяно аналитикой: ${{rest}}` : '');
+}} else {{
+  text = `🗑 <b>${{s.exp_id}}: ни одна идея не дотянула</b> до порога (проверка кодом + оценка ≥ ${{r.min_score}}). Разобрано ${{s.memos.length}}:\\n` +
+    s.memos.map(m => `• ${{esc(m.title)}} — ${{m.score || '—'}}/10${{m.passed ? '' : ', не прошла проверку'}}`).join('\\n') + `\\nМожно запустить новый поиск.`;
+}}
 return [{{ json: {{ text }} }}];"""
-c, n = {}, []
-stage_head(n, c, 2, "## 02 · Due diligence and pitch\nКоманда аналитиков (Claude, изолированный контейнер) по каждому из ≤3 брифов: доказательства спроса из ≥4 типов источников, рынок TAM/SAM/SOM, конкуренты, юнит-экономика, план теста, red team → `memo.json`.\n\n**Guardrails (код, без LLM):** ≥8 доказательств, ≥5 доменов, цитаты найдены дословно, TAM ≥ SAM ≥ SOM, CAC и LTV пересчитаны, ≥4 конкурента с ценой из источника, ≥4 риска.\n\nPDF рисует код по шаблону и отправляет тебе в Telegram.\n\n**Твой шаг:** G1 — выбрать идею по PDF (одноразовые ссылки).")
-n.append(sql("Briefs to analyse", DD_PICK_SQL, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
-link(c, "All checks passed?", "Briefs to analyse", 0)
-for name, url, timeout, body, pos, extra in [
-    ("Agent: diligence", f"{RUNNER_URL}/run/diligence", 3300000,
-     "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000}", [960, -120], {"onError": "continueRegularOutput"}),
-    ("Validate memo (code, no LLM)", f"={RUNNER_URL}/validate/diligence/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/{{{{ $('Briefs to analyse').item.json.slug }}}}", 600000, None, [1200, -120], {"onError": "continueRegularOutput"}),
-    ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/{{{{ $('Briefs to analyse').item.json.slug }}}}", 300000, None, [1440, -120], {"onError": "continueRegularOutput"}),
-]:
-    params = {"method": "POST", "url": url, "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-              "options": {"timeout": timeout, "batching": {"batch": {"batchSize": 1, "batchInterval": 0}}}}
-    if body:
-        params.update({"sendBody": True, "specifyBody": "json", "jsonBody": body})
-    n.append(node(name, "n8n-nodes-base.httpRequest", 4.2, params, pos, RUNNER, extra=extra))
-link(c, "Briefs to analyse", "Agent: diligence")
-link(c, "Agent: diligence", "Validate memo (code, no LLM)")
-link(c, "Validate memo (code, no LLM)", "Render PDF")
-n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
-              {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/dd/{{{{ $('Briefs to analyse').item.json.slug }}}}/deck.pdf",
-               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-               "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}},
-              [1680, -120], RUNNER, extra={"onError": "continueRegularOutput"}))
-link(c, "Render PDF", "Download PDF")
-n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
-              {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
-               "additionalFields": {"caption": "={{ '📄 ' + $('Briefs to analyse').item.json.exp_id + ' · ' + ($('Validate memo (code, no LLM)').item.json.title || $('Briefs to analyse').item.json.title) + ($('Validate memo (code, no LLM)').item.json.passed ? '' : ' (не прошёл проверку)') }}",
-                                    "fileName": "={{ $('Briefs to analyse').item.json.exp_id + '-' + $('Briefs to analyse').item.json.slug + '.pdf' }}"}},
-              [1920, -120], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
-link(c, "Download PDF", "Send PDF")
-n.append(code("Collect results", DD_COLLECT_JS, [2160, -120]))
-link(c, "Send PDF", "Collect results")
-n.append(sql("Record memos, cost, gate", DD_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [2400, -120]))
-link(c, "Collect results", "Record memos, cost, gate")
-n.append(code("Compose summary", DD_MESSAGE_JS, [2640, -120]))
-link(c, "Record memos, cost, gate", "Compose summary")
-n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2880, -120]))
-link(c, "Compose summary", "Send summary and choice links")
-blocked_branch(n, c, 2, "Due diligence", pos_y=220)
-STAGE_WF[2] = upsert(STAGE2_NAME, n, c, ERR, executionTimeout=12000)
+    shown_items_js = """const r = $('Record memos, cost, gate').first().json;
+const s = $('Collect results').first().json;
+return (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug) || {}; return { json: { exp_id: s.exp_id, slug, title: m.title, score: m.score } }; });"""
+    c, n = {}, []
+    stage_head(n, c, 2, cfg["dd_about"])
+    n.append(sql("To analyse", pick_sql, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
+    link(c, "All checks passed?", "To analyse", 0)
+    for name, url, timeout, body, pos in [
+        (f"Agent: {role}", f"{RUNNER_URL}/run/{role}", 10800000,
+         "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800}", [960, -120]),
+        ("Validate memo (code, no LLM)", f"={RUNNER_URL}/validate/{cfg['dd_validate']}/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 600000, None, [1200, -120]),
+        ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 300000, None, [1440, -120]),
+    ]:
+        params = {"method": "POST", "url": url, "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                  "options": {"timeout": timeout, "batching": {"batch": {"batchSize": 1, "batchInterval": 0}}}}
+        if body:
+            params.update({"sendBody": True, "specifyBody": "json", "jsonBody": body})
+        n.append(node(name, "n8n-nodes-base.httpRequest", 4.2, params, pos, RUNNER, extra={"onError": "continueRegularOutput"}))
+    link(c, "To analyse", f"Agent: {role}")
+    link(c, f"Agent: {role}", "Validate memo (code, no LLM)")
+    link(c, "Validate memo (code, no LLM)", "Render PDF")
+    n.append(code("Collect results", collect_js, [1680, -120]))
+    link(c, "Render PDF", "Collect results")
+    n.append(sql("Record memos, cost, gate", record_sql, "={{ [JSON.stringify($json)] }}", [1920, -120]))
+    link(c, "Collect results", "Record memos, cost, gate")
+    n.append(code("Compose summary", message_js, [2160, -200]))
+    link(c, "Record memos, cost, gate", "Compose summary")
+    n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2400, -200]))
+    link(c, "Compose summary", "Send summary and choice links")
+    n.append(code("Best only", shown_items_js, [2160, 0]))
+    link(c, "Record memos, cost, gate", "Best only")
+    n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $json.exp_id }}}}/dd/{{{{ $json.slug }}}}/deck.pdf",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                   "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}},
+                  [2400, 0], RUNNER, extra={"onError": "continueRegularOutput"}))
+    link(c, "Best only", "Download PDF")
+    n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
+                  {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
+                   "additionalFields": {"caption": "={{ '📄 ' + $('Best only').item.json.exp_id + ' · ' + $('Best only').item.json.title + ' · ' + $('Best only').item.json.score + '/10' }}",
+                                        "fileName": "={{ $('Best only').item.json.exp_id + '-' + $('Best only').item.json.slug + '.pdf' }}"}},
+                  [2640, 0], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
+    link(c, "Download PDF", "Send PDF")
+    blocked_branch(n, c, 2, cfg["dd_name"], pos_y=260)
+    return upsert(cfg["dd_name"], n, c, ERR, executionTimeout=30000)
 
-MAP_JS = f"const map = {json.dumps({str(k): v for k, v in STAGE_WF.items()})};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[String(i.json.stage)] }} }}));"
+
+for track, cfg in TRACKS.items():
+    wf_id(cfg["dd_name"], cfg["dd_legacy"])
+    # Publish order matters in n8n 2.x: the sub-workflow (02) must be published before 01 references it.
+    STAGE_WF[f"{track}:2"] = build_diligence(track, cfg)
+    STAGE_WF[f"{track}:1"] = build_discovery(track, cfg, STAGE_WF[f"{track}:2"])
+
+# ---------- stage skeletons 03–08 for both tracks ----------
+SKELETONS = {
+    "startup": [
+        (3, "Pre-registration", "preregistration", "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
+         "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.", "Твой шаг: одобрить пороги."),
+        (4, "Landing", "landing", "Агент: лендинг → превью на Cloudflare Pages.",
+         "Guardrails: HTTP 200 · форма пишет в waitlist · аналитика · Terms и Privacy · цена как в брифе.", "Твой шаг: одобрить публикацию."),
+        (5, "Traffic and metrics", "traffic", "Агент: спецификация кампании, ежедневный сбор метрик в `metrics`.",
+         "Guardrails: трата ≤ budget_day_usd и ≤ бюджета теста · ранний KILL на 100 визитах.", "Твой шаг: одобрить деньги и запустить кампанию."),
+        (6, "Decision", None, "Решение по правилу предрегистрации.",
+         "Guardrails: GO / KILL / продление только по правилу; переопределение пишется в decisions.", "Твой шаг: G2 — подтвердить."),
+        (7, "Build MVP", "builder", "Агент: MVP в песочнице (только после GO).",
+         "Guardrails: auth и оплату менять нельзя · тесты · сканеры зависимостей и секретов.", "Твой шаг: одобрить запуск оплаты."),
+        (8, "Active users", "analyst", "Агент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.",
+         "Guardrails: алерт при падении сайта или метрик.", "Твой шаг: G3 на 30-й день."),
+    ],
+    "game": [
+        (3, "Prototype (HTML5)", "builder", "Агент: прототип HTML5/Phaser в песочнице, 1 механика, мобильный и десктоп.",
+         "Guardrails: сборка без ошибок · без внешних запросов · размер < 10 МБ.", "Твой шаг: нет."),
+        (4, "Autoplaytest and polish", "builder", "Бот играет 5 минут (Playwright), затем агент полирует: звук, частицы, обучение, SDK портала.",
+         "Guardrails: 0 ошибок в консоли · FPS ≥ 50 · первый уровень проходим · чек-лист качества портала.", "Твой шаг: нет."),
+        (5, "Owner review and publish", None, "Видео геймплея → тебе.", "Guardrails: публикация только после твоего решения.", "Твой шаг: G2 — публикуем или в мусор."),
+        (6, "Portal metrics (30 days)", "analyst", "Агент собирает плейтайм, удержание и доход с портала.", "Guardrails: kill через 30 дней ниже порога.", "Твой шаг: нет."),
+        (7, "Scale", "builder", "Уровни, обновления, порт на другие порталы и Telegram.", "Guardrails: как на этапах 03–04.", "Твой шаг: G3 — вкладываемся ли."),
+        (8, "Live ops", "analyst", "Метрики и мелкие обновления.", "Guardrails: алерт при падении метрик.", "Твой шаг: нет."),
+    ],
+}
+for track, stages in SKELETONS.items():
+    pfx = TRACKS[track]["p"]
+    for num, title, role, agent_txt, guard_txt, owner_txt in stages:
+        c, n = {}, []
+        note = "Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку." if role else "Этап без агента."
+        stage_head(n, c, num, f"## {pfx}{num:02d} · {title}\n{agent_txt}\n\n{guard_txt}\n\n{owner_txt}\n\n_{note}_")
+        prev, x = "All checks passed?", 720
+        if role:
+            n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
+                          {"method": "POST", "url": f"{RUNNER_URL}/run/{role}",
+                           "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                           "sendBody": True, "specifyBody": "json",
+                           "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": " + str(num) + "}",
+                           "options": {"timeout": 3600000}}, [x, -100], RUNNER, disabled=True))
+            link(c, prev, f"Agent: {role}", 0)
+            prev, x = f"Agent: {role}", x + 240
+            n.append(code("Validate output", "// Stage-specific checks run here once the agent is connected.\nreturn $input.all();", [x, -100], disabled=True))
+            link(c, prev, "Validate output")
+            prev, x = "Validate output", x + 240
+        n.append(sql("Release lock", RELEASE_SQL, "={{ [$('Expect this stage').first().json.exp_id, 'active'] }}", [x, -100], extra={"alwaysOutputData": True}))
+        link(c, prev, "Release lock", 0)
+        n.append(code("Report", f"return [{{ json: {{ exp_id: $('Expect this stage').first().json.exp_id, stage: {num}, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап {pfx}{num:02d} · {title}: проверки пройдены, каркас отработал' + ({'true' if role else 'false'} ? ' (агент ещё не подключён)' : ''), notify: false }} }}];", [x + 240, -100]))
+        link(c, "Release lock", "Report")
+        n.append(call("Log event", LOG, [x + 480, -100]))
+        link(c, "Report", "Log event")
+        blocked_branch(n, c, num, f"{pfx}{num:02d} · {title}")
+        STAGE_WF[f"{track}:{num}"] = upsert(f"{pfx}{num:02d} · {title}", n, c, ERR)
+
+
+MAP_JS = f"const map = {json.dumps(STAGE_WF)};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[(i.json.track || 'startup') + ':' + i.json.stage] }} }}));"
 
 # ---------- 00 Controller (draft until the next stage has an agent) ----------
 c = {}
 n = [
     sticky("## 00 · Controller\nКаждые 15 минут берёт эксперименты в статусе `active` и запускает workflow их этапа (по одному запуску на эксперимент, без ожидания). Двойной запуск невозможен: preflight ставит `running` атомарно.\n\n**Черновик** (не опубликован), пока у следующего этапа нет агента.", [-80, -300], 460, 240),
     schedule("Every 15 minutes", "*/15 * * * *", [0, 0]),
-    sql("Active experiments", "SELECT id AS exp_id, stage FROM experiments WHERE status = 'active' ORDER BY created_at", None, [240, 0]),
+    sql("Active experiments", "SELECT id AS exp_id, stage, track FROM experiments WHERE status = 'active' ORDER BY created_at", None, [240, 0]),
     code("Pick stage workflow", MAP_JS, [480, 0]),
     call("Run stage", "={{ $json.workflow_id }}", [720, 0], wait=False),
 ]
@@ -635,13 +682,13 @@ GATES = upsert("95 · Owner gates", n, c, ERR, saveDataSuccessExecution="none")
 # ---------- 96 Read-only status API (Hermes) ----------
 RO_SQL = """SELECT CASE WHEN $1 <> '' AND $1 = (SELECT value FROM settings WHERE key = 'ro_token') THEN json_build_object(
   'ok', true,
-  'experiments', (SELECT json_agg(json_build_object('id', e.id, 'title', e.title, 'stage', e.stage, 'stage_name', s.name, 'status', e.status,
-                   'chosen_brief', e.chosen_brief, 'briefs', e.briefs, 'budget_usd', e.budget_usd,
+  'experiments', (SELECT json_agg(json_build_object('id', e.id, 'track', e.track, 'title', e.title, 'stage', e.stage, 'stage_name', s.name, 'status', e.status,
+                   'chosen_brief', e.chosen_brief, 'briefs', e.briefs, 'diligence', e.diligence, 'budget_usd', e.budget_usd,
                    'spent_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_subscription%'),
                    'agent_equiv_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source LIKE 'claude_subscription%'),
                    'issue_url', e.issue_url, 'updated_at', e.updated_at) ORDER BY e.id)
-                  FROM experiments e JOIN stages s USING (stage)),
-  'stages', (SELECT json_agg(json_build_object('stage', stage, 'name', name, 'gate', gate) ORDER BY stage) FROM stages),
+                  FROM experiments e JOIN stages s ON s.track = e.track AND s.stage = e.stage),
+  'stages', (SELECT json_agg(json_build_object('track', track, 'stage', stage, 'name', name, 'gate', gate) ORDER BY track, stage) FROM stages),
   'recent_events', (SELECT json_agg(v ORDER BY v.ts DESC) FROM (SELECT ts, exp_id, stage, kind, message FROM events ORDER BY id DESC LIMIT 30) v),
   'guardrail_failures_24h', (SELECT json_agg(v) FROM (SELECT ts, exp_id, stage, detail FROM guardrail_events WHERE NOT passed AND rule <> 'lock_acquired' AND ts > now() - interval '24 hours' ORDER BY id DESC LIMIT 20) v),
   'kill_switch', (SELECT value FROM settings WHERE key = 'kill_switch'),
@@ -686,7 +733,7 @@ if (a === 'advance') {
 }
 if (a === 'run') {
   if (!q.exp) return [{ json: { ok: false, reply: 'run требует exp' } }];
-  return [{ json: { ok: true, action: a, sql: "SELECT id AS exp_id, stage FROM experiments WHERE id = $1", params: [q.exp] } }];
+  return [{ json: { ok: true, action: a, sql: "SELECT id AS exp_id, stage, track FROM experiments WHERE id = $1", params: [q.exp] } }];
 }
 if (a === 'digest') return [{ json: { ok: true, action: a } }];
 return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide (kill/pause/resume), digest, run, cost, advance' } }];"""

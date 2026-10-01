@@ -1,5 +1,5 @@
 {
- "name": "08 · Active users",
+ "name": "G05 · Owner review and publish",
  "nodes": [
   {
    "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 08 · Active users\nАгент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.\n\nGuardrails: алерт при падении сайта или метрик.\n\nТвой шаг: G3 на 30-й день.\n\n_Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку._",
+    "content": "## G05 · Owner review and publish\nВидео геймплея → тебе.\n\nGuardrails: публикация только после твоего решения.\n\nТвой шаг: G2 — публикуем или в мусор.\n\n_Этап без агента._",
     "width": 540,
     "height": 320,
     "color": 5
@@ -40,7 +40,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 8 } }));"
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 5 } }));"
    }
   },
   {
@@ -100,55 +100,12 @@
    }
   },
   {
-   "id": "c13267fe-afc8-5e51-a045-103780093264",
-   "name": "Agent: analyst",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    720,
-    -100
-   ],
-   "parameters": {
-    "method": "POST",
-    "url": "http://172.30.0.10:8080/run/analyst",
-    "authentication": "genericCredentialType",
-    "genericAuthType": "httpHeaderAuth",
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 8}",
-    "options": {
-     "timeout": 3600000
-    }
-   },
-   "credentials": {
-    "httpHeaderAuth": {
-     "id": "sMBbx1wz3RKIJAgm",
-     "name": "Agent runner token"
-    }
-   },
-   "disabled": true
-  },
-  {
-   "id": "c67f63a1-885b-5893-8eef-4170d0f88240",
-   "name": "Validate output",
-   "type": "n8n-nodes-base.code",
-   "typeVersion": 2,
-   "position": [
-    960,
-    -100
-   ],
-   "parameters": {
-    "jsCode": "// Stage-specific checks run here once the agent is connected.\nreturn $input.all();"
-   },
-   "disabled": true
-  },
-  {
    "id": "e54a3af1-59d0-511c-b139-f33622dad4d5",
    "name": "Release lock",
    "type": "n8n-nodes-base.postgres",
    "typeVersion": 2.5,
    "position": [
-    1200,
+    720,
     -100
    ],
    "parameters": {
@@ -172,11 +129,11 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    1440,
+    960,
     -100
    ],
    "parameters": {
-    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 8, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап 08 · Active users: проверки пройдены, каркас отработал' + (true ? ' (агент ещё не подключён)' : ''), notify: false } }];"
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 5, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап G05 · Owner review and publish: проверки пройдены, каркас отработал' + (false ? ' (агент ещё не подключён)' : ''), notify: false } }];"
    }
   },
   {
@@ -185,7 +142,7 @@
    "type": "n8n-nodes-base.executeWorkflow",
    "typeVersion": 1.2,
    "position": [
-    1680,
+    1200,
     -100
    ],
    "parameters": {
@@ -211,7 +168,7 @@
     160
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 8, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 08 · 08 · Active users остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 5, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 05 · G05 · Owner review and publish остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {
@@ -275,7 +232,7 @@
    "main": [
     [
      {
-      "node": "Agent: analyst",
+      "node": "Release lock",
       "type": "main",
       "index": 0
      }
@@ -283,28 +240,6 @@
     [
      {
       "node": "Blocked report",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Agent: analyst": {
-   "main": [
-    [
-     {
-      "node": "Validate output",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Validate output": {
-   "main": [
-    [
-     {
-      "node": "Release lock",
       "type": "main",
       "index": 0
      }

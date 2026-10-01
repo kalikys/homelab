@@ -85,6 +85,66 @@ def slide(title, body, kicker=""):
     return f'<section class="slide">{k}<h2>{e(title)}</h2><div class="body">{body}</div></section>'
 
 
+def chart_scenarios(sc):
+    if not sc:
+        return ""
+    names = [str(x.get("name")) for x in sc]
+    vals = [float(x.get("monthly_revenue_usd") or 0) for x in sc]
+    fig, ax = plt.subplots(figsize=(4.8, 2.4))
+    bars = ax.bar(names, vals, color=["#a7c9b5", "#5c9a78", ACCENT][: len(vals)])
+    for b, v in zip(bars, vals):
+        ax.text(b.get_x() + b.get_width() / 2, b.get_height(), f"${v:,.0f}", ha="center", va="bottom", color=INK, fontsize=10)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.set_yticks([])
+    ax.tick_params(colors=MUTED, labelsize=9)
+    return png(fig)
+
+
+def game_slides(m, ver):
+    v = m.get("verdict", {})
+    rec = (v.get("recommendation") or "maybe").lower()
+    rec_color = {"invest": GOOD, "maybe": WARN, "pass": BAD}.get(rec, WARN)
+    rec_ru = {"invest": "Делать игру", "maybe": "Под вопросом", "pass": "Не делать"}.get(rec, rec)
+    ev = m.get("evidence", [])
+    checks = ver.get("checks", [])
+    domains = sorted({urlparse(x.get("url", "")).netloc for x in ev if x.get("url")})
+    c = m.get("concept", {})
+    mo = m.get("monetization", {})
+    pr = m.get("production", {})
+    out = [f"""<section class="slide title">
+      <div class="kicker">Ферма · трек игр · меморандум · {e(m.get('slug'))}</div>
+      <h1>{e(m.get('title'))}</h1><p class="lead">{e(m.get('one_liner'))}</p>
+      <div class="verdict" style="border-color:{rec_color}"><span style="color:{rec_color}">{e(rec_ru)}</span>
+        <b>{e(v.get('score_0_10'))}/10</b><p>{e(v.get('why'))}</p></div>
+      <p class="muted small">Проверка кодом: {sum(1 for x in checks if x.get('passed'))} из {len(checks)} · {len(ev)} доказательств из {len(domains)} доменов</p></section>"""]
+    out.append(slide("Концепт", f"""<div class="cols"><div><p><b>Механика:</b> {e(c.get('core_mechanic'))}</p><p><b>Новый поворот:</b> {e(c.get('twist'))}</p>
+      <p><b>Сессия:</b> {e(c.get('session_minutes'))} мин · <b>Платформы:</b> {e(', '.join(c.get('platforms', [])))}</p></div>
+      <div><p><b>Игровой цикл:</b> {e(pr.get('core_loop'))}</p><p><b>Управление:</b> {e(pr.get('controls'))}</p><p><b>Прогрессия:</b> {e(pr.get('progression'))}</p></div></div>""", "Что за игра"))
+    rows = "".join(f'<tr><td>{e(x.get("source_type"))}</td><td>{e(x.get("signal"))}</td><td class="q">«{e(x.get("quote"))}»</td><td>{"✓" if x.get("verified") else ("✗" if "verified" in x else "")}</td></tr>' for x in ev[:9])
+    img = chart_evidence(ev)
+    out.append(slide("Доказательства популярности", f"""<div class="cols wide-left"><table><tr><th>Тип</th><th>Что доказывает</th><th>Цитата</th><th>Найдена</th></tr>{rows}</table>
+      <div>{f'<img src="{img}">' if img else ''}<p class="muted small">Источники: {e(', '.join(domains[:8]))}</p></div></div>""", "Механика в тренде?"))
+    crows = "".join(f'<tr><td><b>{e(x.get("name"))}</b><br><span class="muted small">{e(x.get("portal"))}</span></td><td>{e(x.get("plays_or_rating"))}</td><td>{e(x.get("praise"))}</td><td>{e(x.get("complaints"))}</td><td>{e(x.get("our_difference"))}</td></tr>' for x in m.get("competitors", [])[:7])
+    out.append(slide("Похожие игры", f'<table><tr><th>Игра</th><th>Игры / рейтинг</th><th>Хвалят</th><th>Ругают</th><th>Наше отличие</th></tr>{crows}</table>', "С кем делим трафик портала"))
+    simg = chart_scenarios(mo.get("scenarios", []))
+    srows = "".join(f'<tr><td><b>{e(x.get("name"))}</b></td><td>{e(x.get("daily_plays"))}</td><td>${e(x.get("monthly_revenue_usd"))}</td></tr>' for x in mo.get("scenarios", []))
+    out.append(slide("Монетизация", f"""<div class="cols"><div><table><tr><th>Сценарий</th><th>Игр в день</th><th>Доход в месяц</th></tr>{srows}</table>
+      <p class="small">RPM ${e(mo.get('rpm_usd'))} на 1000 игр · доля разработчика {e(mo.get('dev_share'))}<br>{e(mo.get('formula'))}</p>
+      <p class="muted small">{e(ver.get('unit_economics_note', ''))}</p></div><div>{f'<img src="{simg}">' if simg else ''}</div></div>""", "Реклама на портале, без закупки трафика"))
+    out.append(slide("План разработки", f"""<div class="cols"><div><p><b>Срок:</b> {e(pr.get('build_days'))} дн. агента</p><p><b>Сочность и звук:</b> {e(pr.get('juice_and_sound'))}</p>
+      <p><b>Рекламные слоты:</b> {e(', '.join(pr.get('ad_slots', [])))}</p><p><b>Ассеты:</b> {e(pr.get('assets'))}</p></div>
+      <div><p><b>Технические риски</b></p><ul>{''.join(f'<li>{e(x)}</li>' for x in pr.get('tech_risks', []))}</ul></div></div>""", "Что строим за неделю"))
+    prow = "".join(f'<tr><td>{e(x.get("rule"))}</td><td>{e(x.get("how_we_meet_it"))}</td></tr>' for x in m.get("portal_fit", []))
+    out.append(slide("Требования порталов", f'<table><tr><th>Правило портала</th><th>Как выполняем</th></tr>{prow}</table>', "Чтобы не отклонили"))
+    rrows = "".join(f'<tr><td>{e(r.get("risk"))}</td><td class="sev {e(r.get("severity"))}">{e(r.get("severity"))}</td><td>{e(r.get("mitigation"))}</td><td class="small">{e(r.get("would_change_my_mind"))}</td></tr>' for r in m.get("risks", [])[:6])
+    out.append(slide("Риски (red team)", f'<table><tr><th>Риск</th><th>Тяжесть</th><th>Что делаем</th><th>Что изменит оценку</th></tr>{rrows}</table>', "Почему может не взлететь"))
+    crow = "".join(f'<tr><td>{"✓" if x.get("passed") else "✗"}</td><td>{e(x.get("detail"))}</td></tr>' for x in checks)
+    out.append(slide("Проверка фермой", f'<table>{crow}</table>', "Это проверил код, а не агент"))
+    src = "".join(f'<li><b>{e(x.get("source_type"))}</b> · {e(x.get("url"))}</li>' for x in ev)
+    out.append(slide("Источники", f'<ol class="sources">{src}</ol>', "Всё, на чём стоит меморандум"))
+    return out
+
+
 def main(d, verification=None):
     m = json.loads((d / "memo.json").read_text())
     ver = verification or {}
@@ -99,7 +159,16 @@ def main(d, verification=None):
 
     slides = []
     checks = ver.get("checks", [])
+    if m.get("kind") == "game":
+        slides = game_slides(m, ver)
     passed_checks = sum(1 for c in checks if c.get("passed"))
+    if m.get("kind") != "game":
+      slides += startup_slides(m, ver, v, rec, rec_color, rec_ru, ev, ue, mk, domains, checks, passed_checks)
+    return finish(d, slides)
+
+
+def startup_slides(m, ver, v, rec, rec_color, rec_ru, ev, ue, mk, domains, checks, passed_checks):
+    slides = []
     slides.append(f"""<section class="slide title">
       <div class="kicker">Ферма стартапов · инвестиционный меморандум · {e(m.get('slug'))}</div>
       <h1>{e(m.get('title'))}</h1>
@@ -167,6 +236,10 @@ def main(d, verification=None):
     src = "".join(f'<li><b>{e(x.get("source_type"))}</b> · {e(x.get("url"))}</li>' for x in ev)
     slides.append(slide("Источники", f'<ol class="sources">{src}</ol>', "Всё, на чём стоит меморандум"))
 
+    return slides
+
+
+def finish(d, slides):
     css = f"""@page {{ size: 297mm 167mm; margin: 0 }}
     body {{ font-family: 'DejaVu Sans', sans-serif; color: {INK}; margin: 0 }}
     .slide {{ page-break-after: always; height: 167mm; box-sizing: border-box; padding: 12mm 14mm; background: {BG}; position: relative }}

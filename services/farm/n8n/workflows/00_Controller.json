@@ -48,7 +48,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "SELECT id AS exp_id, stage FROM experiments WHERE status = 'active' ORDER BY created_at",
+    "query": "SELECT id AS exp_id, stage, track FROM experiments WHERE status = 'active' ORDER BY created_at",
     "options": {}
    },
    "credentials": {
@@ -68,7 +68,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "const map = {\"1\": \"WxGHGSCpfBMLfJmh\", \"3\": \"3SRcs8QNLS9PnkOT\", \"4\": \"LjEaqT7XZBGv22TL\", \"5\": \"JMjoxsmKLUNDf2z7\", \"6\": \"TG0EROgHyhyybnHN\", \"7\": \"GzEqdP0PI9RQRA5Q\", \"8\": \"HPH3rJsMxE76igGQ\", \"2\": \"wQjtnUcUPODoPdBe\"};\nreturn $input.all().map(i => ({ json: { ...i.json, workflow_id: map[String(i.json.stage)] } }));"
+    "jsCode": "const map = {\"startup:2\": \"wQjtnUcUPODoPdBe\", \"startup:1\": \"WxGHGSCpfBMLfJmh\", \"game:2\": \"i0K2Wzi0SxW9P74G\", \"game:1\": \"hLE9J8RbmGweYqKz\", \"startup:3\": \"3SRcs8QNLS9PnkOT\", \"startup:4\": \"LjEaqT7XZBGv22TL\", \"startup:5\": \"JMjoxsmKLUNDf2z7\", \"startup:6\": \"TG0EROgHyhyybnHN\", \"startup:7\": \"GzEqdP0PI9RQRA5Q\", \"startup:8\": \"HPH3rJsMxE76igGQ\", \"game:3\": \"T315b1Lxgivds0xj\", \"game:4\": \"5SSsabNsv9uA6NPJ\", \"game:5\": \"laaUjATC4KoUMsxF\", \"game:6\": \"fXnaN9Bc0A5XGb5F\", \"game:7\": \"bvWbchxyamxwosfu\", \"game:8\": \"MVrV3asQZryHzRjr\"};\nreturn $input.all().map(i => ({ json: { ...i.json, workflow_id: map[(i.json.track || 'startup') + ':' + i.json.stage] } }));"
    }
   },
   {

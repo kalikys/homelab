@@ -15,13 +15,17 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROLES = {"discovery", "diligence", "preregistration", "landing", "traffic", "builder", "analyst"}
+ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "preregistration", "landing", "traffic", "builder", "analyst"}
 # Roles that run on the Anthropic API key (separate prepaid budget) instead of the Claude subscription.
-API_ROLES = {"diligence"}
+API_ROLES = {"diligence", "game-diligence"}
+DILIGENCE_ROLES = {"diligence": ("briefs", "brief.json"), "game-diligence": ("concepts", "concept.json")}
+DISCOVERY_DIRS = {"discovery": "briefs", "game-discovery": "concepts"}
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,60}$")
 TOOLS = {
     "discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "diligence": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Task,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
+    "game-discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
+    "game-diligence": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Task,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "preregistration": "Read,Write,Edit,Glob,Grep",
     "landing": "Read,Write,Edit,Glob,Grep,WebFetch",
     "traffic": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
@@ -30,18 +34,19 @@ TOOLS = {
 }
 TOKEN = os.environ["RUNNER_TOKEN"]
 LOCK = threading.Lock()
-EXP_RE = re.compile(r"^EXP-\d{3}$")
+EXP_RE = re.compile(r"^(EXP|GAME)-\d{3}$")
 
 
 def run(role, body):
     exp = body.get("exp_id", "")
     if not EXP_RE.match(exp):
-        return 400, {"ok": False, "error": "exp_id must look like EXP-001"}
+        return 400, {"ok": False, "error": "exp_id must look like EXP-001 or GAME-001"}
     skill = Path(f"/skills/{role}/SKILL.md")
     if not skill.exists():
         return 404, {"ok": False, "error": f"no skill for role {role}"}
     work = Path("/work") / exp
-    if role == "diligence":
+    if role in DILIGENCE_ROLES:
+        src_dir, in_name = DILIGENCE_ROLES[role]
         slug = body.get("slug", "")
         if not SLUG_RE.match(slug):
             return 400, {"ok": False, "error": "diligence needs a slug"}
@@ -50,18 +55,18 @@ def run(role, body):
             work.rename(work.parent / f"{slug}-previous-{int(time.time())}")
         work.mkdir(parents=True, exist_ok=True)
         brief = body.get("brief")
-        src = Path("/work") / exp / "briefs" / f"{slug}.json"
+        src = Path("/work") / exp / src_dir / f"{slug}.json"
         if not brief and src.exists():
             brief = json.loads(src.read_text())
         if not brief:
             return 404, {"ok": False, "error": f"no brief {slug} for {exp}"}
-        (work / "brief.json").write_text(json.dumps(brief, ensure_ascii=False, indent=2))
+        (work / in_name).write_text(json.dumps(brief, ensure_ascii=False, indent=2))
     (work / "runs").mkdir(parents=True, exist_ok=True)
     max_turns = min(int(body.get("max_turns", 60)), 150)
     prompt = body.get("prompt") or f"You are the farm '{role}' agent for {exp}, stage {body.get('stage')}. Follow your skill exactly. Input: {json.dumps(body.get('input', {}), ensure_ascii=False)}"
-    if role == "discovery" and (work / "briefs").exists():
-        # Never let a new run be judged on the previous run's briefs.
-        (work / "briefs").rename(work / "runs" / f"{int(time.time())}-briefs-previous")
+    if role in DISCOVERY_DIRS and (work / DISCOVERY_DIRS[role]).exists():
+        # Never let a new run be judged on the previous run's output.
+        (work / DISCOVERY_DIRS[role]).rename(work / "runs" / f"{int(time.time())}-{DISCOVERY_DIRS[role]}-previous")
     before = {p for p in work.rglob("*") if p.is_file()}
     started = time.time()
     cmd = ["claude", "-p", prompt, "--output-format", "json", "--max-turns", str(max_turns),
@@ -247,6 +252,97 @@ def validate_diligence(exp, slug):
     return result
 
 
+def _verify_quotes(items, limit=14):
+    verified = 0
+    for x in items[:limit]:
+        url, quote = x.get("url", ""), _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", x.get("quote", ""))))
+        ok = False
+        if url.startswith(("http://", "https://")) and len(quote) >= 15:
+            try:
+                ok = quote in _page_text(url)
+            except Exception:
+                ok = False
+        x["verified"] = ok
+        verified += ok
+    return verified
+
+
+def validate_game_discovery(exp):
+    d = Path("/work") / exp / "concepts"
+    reports = []
+    for f in sorted(d.glob("*.json")):
+        fails = []
+        try:
+            b = json.loads(f.read_text())
+        except Exception as ex:
+            reports.append({"file": f.name, "passed": False, "failures": [f"not valid JSON: {ex}"]}); continue
+        missing = [k for k in ("slug", "title", "core_mechanic", "twist", "references", "evidence", "platforms", "checklist") if not b.get(k)]
+        if missing:
+            fails.append("missing fields: " + ", ".join(missing))
+        cl = b.get("checklist") or {}
+        if len(cl) < 5 or any(v is not True for v in cl.values()):
+            fails.append("checklist not all true")
+        items = (b.get("references") or []) + (b.get("evidence") or [])
+        kinds = {x.get("source_type") for x in items if x.get("source_type")}
+        if len(kinds) < 2:
+            fails.append(f"only {len(kinds)} source type(s), need 2+")
+        verified = _verify_quotes(items, 10)
+        if verified < 3:
+            fails.append(f"only {verified} quotes verified on their pages, need 3")
+        if not any(x.get("verified") and re.search(r"\d", x.get("quote", "")) for x in b.get("references") or []):
+            fails.append("no verified reference quote with a popularity number")
+        reports.append({"file": f.name, "slug": b.get("slug"), "title": b.get("title"), "channel": ", ".join(b.get("platforms") or []),
+                        "cpc": None, "price": f"{b.get('build_days_estimate', '?')} дн. разработки", "passed": not fails, "failures": fails})
+    return {"ok": True, "exp_id": exp, "briefs": reports, "passed_count": sum(r["passed"] for r in reports)}
+
+
+def validate_game_diligence(exp, slug):
+    d = Path("/work") / exp / "dd" / slug
+    checks = []
+
+    def chk(rule, ok, detail):
+        checks.append({"rule": rule, "passed": bool(ok), "detail": detail})
+
+    try:
+        m = json.loads((d / "memo.json").read_text())
+    except Exception as ex:
+        return {"ok": True, "exp_id": exp, "slug": slug, "passed": False, "checks": [{"rule": "memo", "passed": False, "detail": f"memo.json не читается: {ex}"}]}
+    ev = m.get("evidence") or []
+    kinds = {x.get("source_type") for x in ev}
+    domains = {re.sub(r"^www\.", "", re.sub(r"^https?://", "", x.get("url", "")).split("/")[0]) for x in ev if x.get("url")}
+    chk("evidence_count", len(ev) >= 6, f"Доказательств: {len(ev)} (нужно ≥ 6)")
+    chk("source_types", len(kinds) >= 2, f"Типов источников: {len(kinds)} (нужно ≥ 2)")
+    chk("domains", len(domains) >= 3, f"Разных доменов: {len(domains)} (нужно ≥ 3)")
+    verified = _verify_quotes(ev)
+    chk("quotes_verified", verified >= max(4, int(0.6 * min(len(ev), 14))), f"Цитаты найдены дословно на страницах: {verified} из {min(len(ev), 14)}")
+    comps = m.get("competitors") or []
+    chk("competitors", len(comps) >= 4 and all(c.get("source_url") for c in comps), f"Похожих игр с источником: {sum(1 for c in comps if c.get('source_url'))} (нужно ≥ 4)")
+    mo = m.get("monetization") or {}
+    note = "Не хватает данных для пересчёта дохода"
+    try:
+        rpm, share = float(mo["rpm_usd"]), float(mo["dev_share"])
+        sc = mo.get("scenarios") or []
+        calc = [float(x["daily_plays"]) * 30 * rpm / 1000 * share for x in sc]
+        ok = len(sc) >= 3 and calc == sorted(calc) and all(_close(x.get("monthly_revenue_usd"), c) for x, c in zip(sc, calc))
+        note = "Доход по формуле: " + ", ".join(f"{x.get('name')} ${c:,.0f}/мес (в отчёте ${float(x.get('monthly_revenue_usd', 0)):,.0f})" for x, c in zip(sc, calc))
+    except (KeyError, TypeError, ValueError):
+        ok = False
+    chk("monetization", ok, note)
+    chk("monetization_sourced", bool(mo.get("rpm_source_url") and mo.get("dev_share_source_url")), "RPM и доля портала взяты из источников")
+    pf = m.get("portal_fit") or []
+    chk("portal_fit", len(pf) >= 2 and all(x.get("source_url") for x in pf), f"Правил портала с источником: {sum(1 for x in pf if x.get('source_url'))} (нужно ≥ 2)")
+    chk("risks", len(m.get("risks") or []) >= 4, f"Рисков разобрано: {len(m.get('risks') or [])} (нужно ≥ 4)")
+    rec = (m.get("verdict") or {}).get("recommendation")
+    chk("verdict", rec in ("invest", "maybe", "pass"), f"Вердикт: {rec}")
+    m["kind"] = "game"
+    (d / "memo.json").write_text(json.dumps(m, ensure_ascii=False, indent=2))
+    result = {"ok": True, "exp_id": exp, "slug": slug, "passed": all(c["passed"] for c in checks), "checks": checks,
+              "unit_economics_note": note, "title": m.get("title"), "verdict": m.get("verdict"),
+              "evidence_count": len(ev), "verified_quotes": verified}
+    (d / "verification.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
+
+
 def render_diligence(exp, slug):
     d = Path("/work") / exp / "dd" / slug
     if not (d / "memo.json").exists():
@@ -271,7 +367,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        f = re.match(r"^/files/(EXP-\d{3})/([A-Za-z0-9._/-]+)$", self.path)
+        f = re.match(r"^/files/((?:EXP|GAME)-\d{3})/([A-Za-z0-9._/-]+)$", self.path)
         if f:
             if self.headers.get("X-Runner-Token") != TOKEN:
                 return self._send(401, {"ok": False, "error": "bad token"})
@@ -296,22 +392,29 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.headers.get("X-Runner-Token") != TOKEN:
             return self._send(401, {"ok": False, "error": "bad token"})
-        v = re.match(r"^/validate/discovery/(EXP-\d{3})$", self.path)
+        v = re.match(r"^/validate/discovery/((?:EXP|GAME)-\d{3})$", self.path)
         if v:
             return self._send(200, validate_discovery(v.group(1)))
-        v = re.match(r"^/validate/diligence/(EXP-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
+        v = re.match(r"^/validate/diligence/((?:EXP|GAME)-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
         if v:
             return self._send(200, validate_diligence(v.group(1), v.group(2)))
-        v = re.match(r"^/render/diligence/(EXP-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
+        v = re.match(r"^/validate/game-discovery/((?:EXP|GAME)-\d{3})$", self.path)
+        if v:
+            return self._send(200, validate_game_discovery(v.group(1)))
+        v = re.match(r"^/validate/game-diligence/((?:EXP|GAME)-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
+        if v:
+            return self._send(200, validate_game_diligence(v.group(1), v.group(2)))
+        v = re.match(r"^/render/(?:game-)?diligence/((?:EXP|GAME)-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
         if v:
             return self._send(*render_diligence(v.group(1), v.group(2)))
-        m = re.match(r"^/run/([a-z]+)$", self.path)
+        m = re.match(r"^/run/([a-z-]+)$", self.path)
         if not m or m.group(1) not in ROLES:
             return self._send(404, {"ok": False, "error": "unknown role"})
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"{}")
-        if not LOCK.acquire(blocking=False):
-            return self._send(409, {"ok": False, "error": "another agent job is running"})
+        # Jobs are serialised: a second request waits for the first instead of being refused.
+        if not LOCK.acquire(timeout=float(body.get("queue_timeout_s", 10800))):
+            return self._send(409, {"ok": False, "error": "agent queue timeout"})
         try:
             code, obj = run(m.group(1), body)
         finally:

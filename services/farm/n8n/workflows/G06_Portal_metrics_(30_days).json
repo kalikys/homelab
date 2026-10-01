@@ -1,5 +1,5 @@
 {
- "name": "08 · Active users",
+ "name": "G06 · Portal metrics (30 days)",
  "nodes": [
   {
    "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 08 · Active users\nАгент: регистрации, активация, удержание D1/D7, ошибки, аптайм — ежедневно.\n\nGuardrails: алерт при падении сайта или метрик.\n\nТвой шаг: G3 на 30-й день.\n\n_Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку._",
+    "content": "## G06 · Portal metrics (30 days)\nАгент собирает плейтайм, удержание и доход с портала.\n\nGuardrails: kill через 30 дней ниже порога.\n\nТвой шаг: нет.\n\n_Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку._",
     "width": 540,
     "height": 320,
     "color": 5
@@ -40,7 +40,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 8 } }));"
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 6 } }));"
    }
   },
   {
@@ -115,7 +115,7 @@
     "genericAuthType": "httpHeaderAuth",
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 8}",
+    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 6}",
     "options": {
      "timeout": 3600000
     }
@@ -176,7 +176,7 @@
     -100
    ],
    "parameters": {
-    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 8, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап 08 · Active users: проверки пройдены, каркас отработал' + (true ? ' (агент ещё не подключён)' : ''), notify: false } }];"
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 6, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап G06 · Portal metrics (30 days): проверки пройдены, каркас отработал' + (true ? ' (агент ещё не подключён)' : ''), notify: false } }];"
    }
   },
   {
@@ -211,7 +211,7 @@
     160
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 8, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 08 · 08 · Active users остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 6, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 06 · G06 · Portal metrics (30 days) остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {

@@ -1,5 +1,5 @@
 {
- "name": "01 · Discovery",
+ "name": "G01 · Game discovery",
  "nodes": [
   {
    "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 01 · Discovery (стартапы)\nАгент ищет боли с доказательствами денег → 5–8 брифов.\n\n**Guardrails:** preflight · ошибка агента → этап блокируется · проверка **кодом**: поля, чек-лист, CPC ≤ $1, канал, ≥2 типа источников, ≥3 цитаты дословно.\n\nУспех → этап 02 запускается сам.",
+    "content": "## G01 · Game discovery\nАгент изучает тренды порталов (CrazyGames, Poki, itch.io) → 4–6 концептов «популярная механика + новый поворот».\n\n**Guardrails:** проверка **кодом**: поля, чек-лист, ≥2 типа источников, ≥3 цитаты дословно, у референса есть цифра популярности.\n\nУспех → G02 запускается сам.",
     "width": 540,
     "height": 320,
     "color": 5
@@ -100,8 +100,8 @@
    }
   },
   {
-   "id": "bf691aab-bfe2-512e-b3ff-94d28be8464c",
-   "name": "Agent: discovery",
+   "id": "c8ca0c45-b5aa-5979-906a-b5c7f1e5bd3b",
+   "name": "Agent: game-discovery",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
@@ -110,12 +110,12 @@
    ],
    "parameters": {
     "method": "POST",
-    "url": "http://172.30.0.10:8080/run/discovery",
+    "url": "http://172.30.0.10:8080/run/game-discovery",
     "authentication": "genericCredentialType",
     "genericAuthType": "httpHeaderAuth",
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"input\": {\"note\": \"Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist\"}}",
+    "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"input\": {\"note\": \"Find 4 to 6 game concepts; stop when at least 4 pass the checklist\"}}",
     "options": {
      "timeout": 10800000
     }
@@ -173,7 +173,7 @@
    ],
    "parameters": {
     "method": "POST",
-    "url": "=http://172.30.0.10:8080/validate/discovery/{{ $('Expect this stage').first().json.exp_id }}",
+    "url": "=http://172.30.0.10:8080/validate/game-discovery/{{ $('Expect this stage').first().json.exp_id }}",
     "authentication": "genericCredentialType",
     "genericAuthType": "httpHeaderAuth",
     "options": {
@@ -197,7 +197,7 @@
     -180
    ],
    "parameters": {
-    "jsCode": "const run = $('Agent: discovery').first().json;\nconst val = $input.first().json;\nconst exp = $('Expect this stage').first().json.exp_id;\nconst briefs = val.briefs || [];\nconst passed = briefs.filter(b => b.passed);\nreturn [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,\n  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"
+    "jsCode": "const run = $('Agent: game-discovery').first().json;\nconst val = $input.first().json;\nconst exp = $('Expect this stage').first().json.exp_id;\nconst briefs = val.briefs || [];\nconst passed = briefs.filter(b => b.passed);\nreturn [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,\n  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"
    }
   },
   {
@@ -211,7 +211,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j), updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT (j->>'passed')::int FROM j) AS passed",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'game-discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j), updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' концептов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT (j->>'passed')::int FROM j) AS passed",
     "options": {
      "queryReplacement": "={{ [JSON.stringify($json)] }}"
     }
@@ -233,7 +233,7 @@
     -180
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length) {\n  text = `🧭 <b>${s.exp_id}: в работу аналитикам ушло ${Math.min(passed.length, 5)} из ${s.total} брифов</b>.\\nТебе придут только лучшие — после due diligence и проверки кодом.`;\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один из ${s.total} брифов не прошёл проверку</b>. Этап заблокирован до разбора.\\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\\n');\n}\nreturn [{ json: { text, passed: passed.length } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length) {\n  text = `🧭 <b>${s.exp_id}: в работу аналитикам ушло ${Math.min(passed.length, 5)} из ${s.total} концептов</b>.\\nТебе придут только лучшие — после due diligence и проверки кодом.`;\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один из ${s.total} концептов не прошёл проверку</b>. Этап заблокирован до разбора.\\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\\n');\n}\nreturn [{ json: { text, passed: passed.length } }];"
    }
   },
   {
@@ -325,7 +325,7 @@
     "source": "database",
     "workflowId": {
      "__rl": true,
-     "value": "wQjtnUcUPODoPdBe",
+     "value": "i0K2Wzi0SxW9P74G",
      "mode": "id"
     },
     "mode": "each",
@@ -344,7 +344,7 @@
     20
    ],
    "parameters": {
-    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst why = r.error || r.result || (r.message ?? 'нет ответа от агента');\nreturn [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ 01 · Discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"
+    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst why = r.error || r.result || (r.message ?? 'нет ответа от агента');\nreturn [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ G01 · Game discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"
    }
   },
   {
@@ -416,7 +416,7 @@
     220
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 1, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 01 · 01 · Discovery остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 1, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 01 · G01 · Game discovery остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {
@@ -480,7 +480,7 @@
    "main": [
     [
      {
-      "node": "Agent: discovery",
+      "node": "Agent: game-discovery",
       "type": "main",
       "index": 0
      }
@@ -494,7 +494,7 @@
     ]
    ]
   },
-  "Agent: discovery": {
+  "Agent: game-discovery": {
    "main": [
     [
      {

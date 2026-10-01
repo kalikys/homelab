@@ -168,7 +168,7 @@
     160
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 6, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 06 · Decision остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 6, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 06 · 06 · Decision остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {

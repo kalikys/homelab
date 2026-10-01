@@ -1,5 +1,5 @@
 {
- "name": "02 · Due diligence and pitch",
+ "name": "G02 · Game due diligence and pitch",
  "nodes": [
   {
    "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 02 · Due diligence and pitch (стартапы)\nАналитики по ≤5 брифам: спрос (≥4 типа источников), рынок, конкуренты, юнит-экономика, план теста, red team → `memo.json` → проверка кодом → PDF.\n\n**Тебе уходят только лучшие:** проверка пройдена, вердикт не «pass», оценка ≥ `min_show_score`, максимум `max_shown` по убыванию оценки.\n\n**Твой шаг:** G1 — выбрать идею по PDF.",
+    "content": "## G02 · Game due diligence and pitch\nАналитики по ≤5 концептам: популярность механики, похожие игры, сценарии дохода (код пересчитывает), план разработки, требования порталов, red team → PDF.\n\n**Тебе уходят только лучшие** (как у стартапов).\n\n**Твой шаг:** G1 — выбрать игры для прототипа.",
     "width": 540,
     "height": 320,
     "color": 5
@@ -123,8 +123,8 @@
    }
   },
   {
-   "id": "19f3924f-faf8-554a-8e82-621863949776",
-   "name": "Agent: diligence",
+   "id": "5c027f39-ae31-5529-b857-6b9fd4367ea7",
+   "name": "Agent: game-diligence",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
@@ -133,7 +133,7 @@
    ],
    "parameters": {
     "method": "POST",
-    "url": "http://172.30.0.10:8080/run/diligence",
+    "url": "http://172.30.0.10:8080/run/game-diligence",
     "authentication": "genericCredentialType",
     "genericAuthType": "httpHeaderAuth",
     "options": {
@@ -168,7 +168,7 @@
    ],
    "parameters": {
     "method": "POST",
-    "url": "=http://172.30.0.10:8080/validate/diligence/{{ $('To analyse').item.json.exp_id }}/{{ $('To analyse').item.json.slug }}",
+    "url": "=http://172.30.0.10:8080/validate/game-diligence/{{ $('To analyse').item.json.exp_id }}/{{ $('To analyse').item.json.slug }}",
     "authentication": "genericCredentialType",
     "genericAuthType": "httpHeaderAuth",
     "options": {
@@ -231,7 +231,7 @@
     -120
    ],
    "parameters": {
-    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {};\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,\n           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {}).score_0_10 || 0),\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
+    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: game-diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {};\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,\n           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {}).score_0_10 || 0),\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
    }
   },
   {
@@ -245,7 +245,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH j AS (SELECT $1::jsonb AS j),\nlim AS (SELECT coalesce(max(value) FILTER (WHERE key = 'min_show_score'), '6')::numeric AS min_score,\n               coalesce(max(value) FILTER (WHERE key = 'max_shown'), '3')::int AS max_shown FROM settings),\nq AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m\n      WHERE (m->>'passed')::boolean AND coalesce(m->'verdict'->>'recommendation', 'pass') <> 'pass'\n        AND (m->>'score')::numeric >= (SELECT min_score FROM lim)\n      ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), 'diligence ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),\nu AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),\n             status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT slug FROM q) FROM j WHERE EXISTS (SELECT 1 FROM q) RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: разобрано ' || jsonb_array_length(j->'memos') || ', лучших (проверка + оценка) ' || (SELECT count(*) FROM q) FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token, (SELECT coalesce(json_agg(slug), '[]'::json) FROM q) AS shown, (SELECT min_score FROM lim) AS min_score",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nlim AS (SELECT coalesce(max(value) FILTER (WHERE key = 'min_show_score'), '6')::numeric AS min_score,\n               coalesce(max(value) FILTER (WHERE key = 'max_shown'), '3')::int AS max_shown FROM settings),\nq AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m\n      WHERE (m->>'passed')::boolean AND coalesce(m->'verdict'->>'recommendation', 'pass') <> 'pass'\n        AND (m->>'score')::numeric >= (SELECT min_score FROM lim)\n      ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), 'game-diligence ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),\nu AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),\n             status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT slug FROM q) FROM j WHERE EXISTS (SELECT 1 FROM q) RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: разобрано ' || jsonb_array_length(j->'memos') || ', лучших (проверка + оценка) ' || (SELECT count(*) FROM q) FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token, (SELECT coalesce(json_agg(slug), '[]'::json) FROM q) AS shown, (SELECT min_score FROM lim) AS min_score",
     "options": {
      "queryReplacement": "={{ [JSON.stringify($json)] }}"
     }
@@ -267,7 +267,7 @@
     -200
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nlet text;\nif (best.length) {\n  text = `📊 <b>${s.exp_id}: инвестиционные меморандумы</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, оценка ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Выбрать для смоук-теста</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\n} else {\n  text = `🗑 <b>${s.exp_id}: ни одна идея не дотянула</b> до порога (проверка кодом + оценка ≥ ${r.min_score}). Разобрано ${s.memos.length}:\\n` +\n    s.memos.map(m => `• ${esc(m.title)} — ${m.score || '—'}/10${m.passed ? '' : ', не прошла проверку'}`).join('\\n') + `\\nМожно запустить новый поиск.`;\n}\nreturn [{ json: { text } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nlet text;\nif (best.length) {\n  text = `📊 <b>${s.exp_id}: меморандумы по играм</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, оценка ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Делать эту игру</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\n} else {\n  text = `🗑 <b>${s.exp_id}: ни одна идея не дотянула</b> до порога (проверка кодом + оценка ≥ ${r.min_score}). Разобрано ${s.memos.length}:\\n` +\n    s.memos.map(m => `• ${esc(m.title)} — ${m.score || '—'}/10${m.passed ? '' : ', не прошла проверку'}`).join('\\n') + `\\nМожно запустить новый поиск.`;\n}\nreturn [{ json: { text } }];"
    }
   },
   {
@@ -384,7 +384,7 @@
     260
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 2, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 02 · 02 · Due diligence and pitch остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 2, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 02 · G02 · Game due diligence and pitch остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {
@@ -466,14 +466,14 @@
    "main": [
     [
      {
-      "node": "Agent: diligence",
+      "node": "Agent: game-diligence",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Agent: diligence": {
+  "Agent: game-diligence": {
    "main": [
     [
      {
