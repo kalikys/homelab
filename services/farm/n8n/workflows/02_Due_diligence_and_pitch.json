@@ -110,7 +110,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title\nFROM experiments e, jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b\nWHERE e.id = $1 AND (b->>'passed')::boolean IS TRUE\nLIMIT 5",
+    "query": "SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title, (SELECT json_build_object(\n  'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)\n              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 40) l),\n  'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,\n                                                          'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)\n              FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))\n FROM (SELECT track FROM experiments WHERE id = $1) x) AS memory, ((SELECT coalesce(max(value) FILTER (WHERE key = 'api_budget_month_usd'), '0')::numeric FROM settings)\n  - (SELECT coalesce(sum(usd), 0) FROM costs WHERE source = 'claude_api' AND ts >= date_trunc('month', now())) > 5) AS use_api\nFROM experiments e, jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b\nWHERE e.id = $1 AND (b->>'passed')::boolean IS TRUE\nLIMIT 5",
     "options": {
      "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id] }}"
     }
@@ -147,7 +147,7 @@
     },
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800}"
+    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}}"
    },
    "credentials": {
     "httpHeaderAuth": {
@@ -231,7 +231,7 @@
     -120
    ],
    "parameters": {
-    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {};\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,\n           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {}).score_0_10 || 0),\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
+    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {};\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id, billing: r.billing,\n           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {}).score_0_10 || 0),\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
    }
   },
   {
@@ -245,7 +245,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH j AS (SELECT $1::jsonb AS j),\nlim AS (SELECT coalesce(max(value) FILTER (WHERE key = 'min_show_score'), '6')::numeric AS min_score,\n               coalesce(max(value) FILTER (WHERE key = 'max_shown'), '3')::int AS max_shown FROM settings),\nq AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m\n      WHERE (m->>'passed')::boolean AND coalesce(m->'verdict'->>'recommendation', 'pass') <> 'pass'\n        AND (m->>'score')::numeric >= (SELECT min_score FROM lim)\n      ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), 'diligence ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),\nu AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),\n             status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT slug FROM q) FROM j WHERE EXISTS (SELECT 1 FROM q) RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: разобрано ' || jsonb_array_length(j->'memos') || ', лучших (проверка + оценка) ' || (SELECT count(*) FROM q) FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token, (SELECT coalesce(json_agg(slug), '[]'::json) FROM q) AS shown, (SELECT min_score FROM lim) AS min_score",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nlim AS (SELECT coalesce(max(value) FILTER (WHERE key = 'min_show_score'), '6')::numeric AS min_score,\n               coalesce(max(value) FILTER (WHERE key = 'max_shown'), '3')::int AS max_shown FROM settings),\nq AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m\n      WHERE (m->>'passed')::boolean AND coalesce(m->'verdict'->>'recommendation', 'pass') <> 'pass'\n        AND (m->>'score')::numeric >= (SELECT min_score FROM lim)\n      ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', CASE WHEN m->>'billing' = 'api' THEN 'claude_api' ELSE 'claude_subscription_equiv' END, coalesce((m->>'cost')::numeric, 0), 'diligence ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),\nh AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome, score, verdict, reasons)\n      SELECT e.id, e.track, e.round, m->>'slug', m->>'title',\n             CASE WHEN m->>'slug' IN (SELECT slug FROM q) THEN 'shown_to_owner'\n                  WHEN (m->>'passed')::boolean THEN 'below_threshold' ELSE 'rejected_by_checks' END,\n             NULLIF(m->>'score', '')::numeric, m->'verdict'->>'recommendation',\n             jsonb_build_object('why', m->'verdict'->>'why', 'failed_checks', m->'failed_checks')\n      FROM j, experiments e, jsonb_array_elements(j->'memos') m WHERE e.id = j->>'exp_id' RETURNING 1),\nu AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),\n             status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT slug FROM q) FROM j WHERE EXISTS (SELECT 1 FROM q) RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: разобрано ' || jsonb_array_length(j->'memos') || ', лучших (проверка + оценка) ' || (SELECT count(*) FROM q) FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token, (SELECT coalesce(json_agg(slug), '[]'::json) FROM q) AS shown, (SELECT min_score FROM lim) AS min_score",
     "options": {
      "queryReplacement": "={{ [JSON.stringify($json)] }}"
     }
@@ -258,16 +258,50 @@
    }
   },
   {
+   "id": "afd829b0-ef2d-5a0a-9656-ba9caa4e0186",
+   "name": "Anything worth showing?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    2160,
+    -120
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "36e6db80-bd23-5a72-a810-646ed4efad1d",
+       "leftValue": "={{ ($json.shown || []).length > 0 }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
    "id": "69c5529c-98ad-5bd2-83a0-f0668b643e90",
    "name": "Compose summary",
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2160,
-    -200
+    2400,
+    -220
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nlet text;\nif (best.length) {\n  text = `📊 <b>${s.exp_id}: инвестиционные меморандумы</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, оценка ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Выбрать для смоук-теста</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\n} else {\n  text = `🗑 <b>${s.exp_id}: ни одна идея не дотянула</b> до порога (проверка кодом + оценка ≥ ${r.min_score}). Разобрано ${s.memos.length}:\\n` +\n    s.memos.map(m => `• ${esc(m.title)} — ${m.score || '—'}/10${m.passed ? '' : ', не прошла проверку'}`).join('\\n') + `\\nМожно запустить новый поиск.`;\n}\nreturn [{ json: { text } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nconst text = `📊 <b>${s.exp_id}: инвестиционные меморандумы</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, оценка ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Выбрать для смоук-теста</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\nreturn [{ json: { text } }];"
    }
   },
   {
@@ -276,8 +310,8 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
-    2400,
-    -200
+    2640,
+    -220
    ],
    "parameters": {
     "chatId": "260160459",
@@ -305,11 +339,46 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2160,
-    0
+    2400,
+    -20
    ],
    "parameters": {
     "jsCode": "const r = $('Record memos, cost, gate').first().json;\nconst s = $('Collect results').first().json;\nreturn (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug) || {}; return { json: { exp_id: s.exp_id, slug, title: m.title, score: m.score } }; });"
+   }
+  },
+  {
+   "id": "aad3bffa-4001-52c8-ad6c-1d2f6fbe9e77",
+   "name": "Retry input",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2400,
+    180
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];"
+   }
+  },
+  {
+   "id": "e1e1fed9-86eb-59c4-a302-81885d7854cc",
+   "name": "Learn and retry",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    2640,
+    180
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "8RGD3MQcULDGrxdW",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
    }
   },
   {
@@ -318,8 +387,8 @@
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
-    2400,
-    0
+    2640,
+    -20
    ],
    "parameters": {
     "method": "GET",
@@ -350,8 +419,8 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
-    2640,
-    0
+    2880,
+    -20
    ],
    "parameters": {
     "operation": "sendDocument",
@@ -521,12 +590,30 @@
    "main": [
     [
      {
+      "node": "Anything worth showing?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Anything worth showing?": {
+   "main": [
+    [
+     {
       "node": "Compose summary",
       "type": "main",
       "index": 0
      },
      {
       "node": "Best only",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Retry input",
       "type": "main",
       "index": 0
      }
@@ -538,6 +625,17 @@
     [
      {
       "node": "Send summary and choice links",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Retry input": {
+   "main": [
+    [
+     {
+      "node": "Learn and retry",
       "type": "main",
       "index": 0
      }

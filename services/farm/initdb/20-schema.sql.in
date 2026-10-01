@@ -125,3 +125,38 @@ GRANT SELECT ON metrics TO farm;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO farm;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO farm_ro;
 REVOKE ALL ON settings, gate_tokens FROM farm_ro;
+
+-- Farm memory: every idea ever considered (append-only) and lessons distilled by the reflector agent.
+ALTER TABLE experiments ADD COLUMN IF NOT EXISTS round int NOT NULL DEFAULT 1;
+CREATE TABLE IF NOT EXISTS idea_history (
+  id          bigserial PRIMARY KEY,
+  ts          timestamptz NOT NULL DEFAULT now(),
+  exp_id      text REFERENCES experiments(id),
+  track       text NOT NULL,
+  round       int  NOT NULL DEFAULT 1,
+  slug        text NOT NULL,
+  title       text,
+  outcome     text NOT NULL CHECK (outcome IN ('rejected_by_checks', 'below_threshold', 'shown_to_owner', 'chosen', 'killed')),
+  score       numeric,
+  verdict     text,
+  reasons     jsonb
+);
+CREATE TABLE IF NOT EXISTS lessons (
+  id          bigserial PRIMARY KEY,
+  track       text NOT NULL,
+  kind        text,
+  lesson      text NOT NULL,
+  weight      int  NOT NULL DEFAULT 1,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  last_seen   timestamptz NOT NULL DEFAULT now(),
+  active      boolean NOT NULL DEFAULT true,
+  source_exp  text
+);
+GRANT SELECT, INSERT ON idea_history TO farm;
+GRANT SELECT, INSERT, UPDATE ON lessons TO farm;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO farm;
+GRANT SELECT ON idea_history, lessons TO farm_ro;
+INSERT INTO settings VALUES
+  ('max_rounds', '3', 'automatic discovery rounds per experiment before telling the owner nothing qualified'),
+  ('api_budget_month_usd', '250', 'Anthropic API (cloud agents) monthly cap; when spent, agents fall back to the subscription')
+ON CONFLICT (key) DO NOTHING;

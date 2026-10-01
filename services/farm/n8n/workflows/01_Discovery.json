@@ -100,6 +100,29 @@
    }
   },
   {
+   "id": "b333f4ed-f775-5c21-a784-a2049f657b4f",
+   "name": "Load memory",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    600,
+    -260
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT (SELECT json_build_object(\n  'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)\n              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 40) l),\n  'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,\n                                                          'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)\n              FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))\n FROM (SELECT track FROM experiments WHERE id = $1) x) AS memory, ((SELECT coalesce(max(value) FILTER (WHERE key = 'api_budget_month_usd'), '0')::numeric FROM settings)\n  - (SELECT coalesce(sum(usd), 0) FROM costs WHERE source = 'claude_api' AND ts >= date_trunc('month', now())) > 5) AS use_api",
+    "options": {
+     "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
    "id": "bf691aab-bfe2-512e-b3ff-94d28be8464c",
    "name": "Agent: discovery",
    "type": "n8n-nodes-base.httpRequest",
@@ -115,7 +138,7 @@
     "genericAuthType": "httpHeaderAuth",
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"input\": {\"note\": \"Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist\"}}",
+    "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"budget_usd\": 8, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}, \"input\": {\"note\": \"Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist. Read memory.json first.\"}}",
     "options": {
      "timeout": 10800000
     }
@@ -197,7 +220,7 @@
     -180
    ],
    "parameters": {
-    "jsCode": "const run = $('Agent: discovery').first().json;\nconst val = $input.first().json;\nconst exp = $('Expect this stage').first().json.exp_id;\nconst briefs = val.briefs || [];\nconst passed = briefs.filter(b => b.passed);\nreturn [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,\n  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"
+    "jsCode": "const run = $('Agent: discovery').first().json;\nconst val = $input.first().json;\nconst exp = $('Expect this stage').first().json.exp_id;\nconst briefs = val.briefs || [];\nconst passed = briefs.filter(b => b.passed);\nreturn [{ json: { exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,\n  billing: run.billing,\n  briefs: briefs.map(b => ({ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures })) } }];"
    }
   },
   {
@@ -211,7 +234,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j), updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT (j->>'passed')::int FROM j) AS passed",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', CASE WHEN j->>'billing' = 'api' THEN 'claude_api' ELSE 'claude_subscription_equiv' END, coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nh AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome, reasons)\n      SELECT e.id, e.track, e.round, b->>'slug', b->>'title', 'rejected_by_checks', jsonb_build_object('failed_checks', b->'failures')\n      FROM j, experiments e, jsonb_array_elements(j->'briefs') b\n      WHERE e.id = j->>'exp_id' AND NOT coalesce((b->>'passed')::boolean, false) RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j), updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT (j->>'passed')::int FROM j) AS passed",
     "options": {
      "queryReplacement": "={{ [JSON.stringify($json)] }}"
     }
@@ -224,54 +247,12 @@
    }
   },
   {
-   "id": "03b1df6a-36f2-51cc-b34e-f7f80d413cfc",
-   "name": "Compose message",
-   "type": "n8n-nodes-base.code",
-   "typeVersion": 2,
-   "position": [
-    1920,
-    -180
-   ],
-   "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length) {\n  text = `🧭 <b>${s.exp_id}: в работу аналитикам ушло ${Math.min(passed.length, 5)} из ${s.total} брифов</b>.\\nТебе придут только лучшие — после due diligence и проверки кодом.`;\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один из ${s.total} брифов не прошёл проверку</b>. Этап заблокирован до разбора.\\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\\n');\n}\nreturn [{ json: { text, passed: passed.length } }];"
-   }
-  },
-  {
-   "id": "cfd37f75-9d2d-5678-bb2a-da90812050d4",
-   "name": "Tell owner",
-   "type": "n8n-nodes-base.telegram",
-   "typeVersion": 1.2,
-   "position": [
-    2160,
-    -180
-   ],
-   "parameters": {
-    "chatId": "260160459",
-    "text": "={{ $json.text }}",
-    "additionalFields": {
-     "parse_mode": "HTML",
-     "appendAttribution": false,
-     "disable_web_page_preview": true
-    }
-   },
-   "credentials": {
-    "telegramApi": {
-     "id": "tURAovmMnZsndM8n",
-     "name": "Telegram (Hermes bot, send only)"
-    }
-   },
-   "retryOnFail": true,
-   "maxTries": 3,
-   "waitBetweenTries": 5000,
-   "onError": "continueRegularOutput"
-  },
-  {
    "id": "8a212ca2-b935-59ff-8394-c20895ae26e0",
    "name": "Any candidates?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
-    2400,
+    1920,
     -180
    ],
    "parameters": {
@@ -285,7 +266,7 @@
      "conditions": [
       {
        "id": "ec06de14-7256-505a-8a95-109e3e46aea8",
-       "leftValue": "={{ $('Compose message').first().json.passed > 0 }}",
+       "leftValue": "={{ $json.passed > 0 }}",
        "rightValue": "",
        "operator": {
         "type": "boolean",
@@ -300,13 +281,48 @@
    }
   },
   {
+   "id": "aad3bffa-4001-52c8-ad6c-1d2f6fbe9e77",
+   "name": "Retry input",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2160,
+    -60
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];"
+   }
+  },
+  {
+   "id": "e1e1fed9-86eb-59c4-a302-81885d7854cc",
+   "name": "Learn and retry",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    2400,
+    -60
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "8RGD3MQcULDGrxdW",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
+   }
+  },
+  {
    "id": "4476ce23-6244-5740-8d1b-9059fdcb477e",
    "name": "Next stage input",
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2640,
-    -260
+    2160,
+    -300
    ],
    "parameters": {
     "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];"
@@ -318,8 +334,8 @@
    "type": "n8n-nodes-base.executeWorkflow",
    "typeVersion": 1.2,
    "position": [
-    2880,
-    -260
+    2400,
+    -300
    ],
    "parameters": {
     "source": "database",
@@ -480,7 +496,7 @@
    "main": [
     [
      {
-      "node": "Agent: discovery",
+      "node": "Load memory",
       "type": "main",
       "index": 0
      }
@@ -488,6 +504,17 @@
     [
      {
       "node": "Blocked report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Load memory": {
+   "main": [
+    [
+     {
+      "node": "Agent: discovery",
       "type": "main",
       "index": 0
      }
@@ -556,28 +583,6 @@
    "main": [
     [
      {
-      "node": "Compose message",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Compose message": {
-   "main": [
-    [
-     {
-      "node": "Tell owner",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Tell owner": {
-   "main": [
-    [
-     {
       "node": "Any candidates?",
       "type": "main",
       "index": 0
@@ -590,6 +595,24 @@
     [
      {
       "node": "Next stage input",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Retry input",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Retry input": {
+   "main": [
+    [
+     {
+      "node": "Learn and retry",
       "type": "main",
       "index": 0
      }

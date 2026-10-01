@@ -210,8 +210,8 @@ PREFLIGHT_SQL = """WITH s AS (
   FROM settings),
 e AS (SELECT * FROM experiments WHERE id = $1),
 a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner') AND track = (SELECT track FROM e)),
-m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
-x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_subscription%'),
+m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),
+x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_%'),
 checks AS (
   SELECT * FROM (VALUES
     ('kill_switch_off',   (SELECT ks FROM s) = 'off',                                      'Kill switch выключен'),
@@ -286,6 +286,18 @@ TRACKS = {
 }
 STAGE_WF = {}
 
+# Farm memory for agents: lessons and past ideas of the same track, plus whether the API budget still has room.
+MEMORY_SQL = """(SELECT json_build_object(
+  'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)
+              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 40) l),
+  'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,
+                                                          'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)
+              FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))
+ FROM (SELECT track FROM experiments WHERE id = $1) x)"""
+USE_API_SQL = """((SELECT coalesce(max(value) FILTER (WHERE key = 'api_budget_month_usd'), '0')::numeric FROM settings)
+  - (SELECT coalesce(sum(usd), 0) FROM costs WHERE source = 'claude_api' AND ts >= date_trunc('month', now())) > 5)"""
+COST_SOURCE = "CASE WHEN {0}->>'billing' = 'api' THEN 'claude_api' ELSE 'claude_subscription_equiv' END"
+
 
 def wf_id(name, legacy=None):
     if legacy and legacy in existing and name not in existing:
@@ -303,10 +315,15 @@ const exp = $('Expect this stage').first().json.exp_id;
 const briefs = val.briefs || [];
 const passed = briefs.filter(b => b.passed);
 return [{{ json: {{ exp_id: exp, passed: passed.length, total: briefs.length, cost: run.cost_usd || 0, turns: run.turns, session: run.session_id,
+  billing: run.billing,
   briefs: briefs.map(b => ({{ slug: b.slug, title: b.title, channel: b.channel, cpc: b.cpc, price: b.price, passed: b.passed, failures: b.failures }})) }} }}];"""
     record_sql = f"""WITH j AS (SELECT $1::jsonb AS j),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
-      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), '{role} session ' || coalesce(j->>'session','') FROM j RETURNING 1),
+      SELECT j->>'exp_id', {COST_SOURCE.format("j")}, coalesce((j->>'cost')::numeric, 0), '{role} session ' || coalesce(j->>'session','') FROM j RETURNING 1),
+h AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome, reasons)
+      SELECT e.id, e.track, e.round, b->>'slug', b->>'title', 'rejected_by_checks', jsonb_build_object('failed_checks', b->'failures')
+      FROM j, experiments e, jsonb_array_elements(j->'briefs') b
+      WHERE e.id = j->>'exp_id' AND NOT coalesce((b->>'passed')::boolean, false) RETURNING 1),
 u AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
                              status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,
                              briefs = (SELECT j->'briefs' FROM j), updated_at = now()
@@ -315,30 +332,22 @@ ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
        SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'candidates_ready' ELSE 'candidates_rejected' END, 'n8n',
               'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' {cfg['noun']}, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
 SELECT (SELECT (j->>'passed')::int FROM j) AS passed"""
-    message_js = ESC_JS + f"""const s = $('Summarise').first().json;
-const passed = s.briefs.filter(b => b.passed);
-const failed = s.briefs.filter(b => !b.passed);
-let text;
-if (passed.length) {{
-  text = `🧭 <b>${{s.exp_id}}: в работу аналитикам ушло ${{Math.min(passed.length, {cfg['pick_limit']})}} из ${{s.total}} {cfg['noun']}</b>.\\nТебе придут только лучшие — после due diligence и проверки кодом.`;
-}} else {{
-  text = `⛔ <b>${{s.exp_id}}: ни один из ${{s.total}} {cfg['noun']} не прошёл проверку</b>. Этап заблокирован до разбора.\\n` +
-    failed.slice(0, 3).map(b => `• ${{esc(b.title || b.slug)}}: ${{esc((b.failures || []).join('; '))}}`).join('\\n');
-}}
-return [{{ json: {{ text, passed: passed.length }} }}];"""
     failed_js = f"""const exp = $('Expect this stage').first().json.exp_id;
 const r = $input.first().json || {{}};
 const why = r.error || r.result || (r.message ?? 'нет ответа от агента');
 return [{{ json: {{ exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ {cfg['disc_name']}: агент не справился — ' + String(why).slice(0, 400), notify: true }} }}];"""
     c, n = {}, []
     stage_head(n, c, 1, cfg["disc_about"])
+    n.append(sql("Load memory", f"SELECT {MEMORY_SQL} AS memory, {USE_API_SQL} AS use_api",
+                 "={{ [$('Expect this stage').first().json.exp_id] }}", [600, -260]))
+    link(c, "All checks passed?", "Load memory", 0)
     n.append(node(f"Agent: {role}", "n8n-nodes-base.httpRequest", 4.2,
                   {"method": "POST", "url": f"{RUNNER_URL}/run/{role}",
                    "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
                    "sendBody": True, "specifyBody": "json",
-                   "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"input\": {\"note\": \"" + cfg["disc_input"] + "\"}}",
+                   "jsonBody": "={\"exp_id\": \"{{ $('Expect this stage').first().json.exp_id }}\", \"stage\": 1, \"max_turns\": 150, \"queue_timeout_s\": 10800, \"budget_usd\": 8, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}, \"input\": {\"note\": \"" + cfg["disc_input"] + ". Read memory.json first.\"}}",
                    "options": {"timeout": 10800000}}, [720, -100], RUNNER, extra={"onError": "continueErrorOutput"}))
-    link(c, "All checks passed?", f"Agent: {role}", 0)
+    link(c, "Load memory", f"Agent: {role}")
     n.append(if_true("Agent succeeded?", "={{ $json.ok === true }}", [960, -100]))
     link(c, f"Agent: {role}", "Agent succeeded?", 0)
     n.append(node("Validate (code, no LLM)", "n8n-nodes-base.httpRequest", 4.2,
@@ -349,15 +358,15 @@ return [{{ json: {{ exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', m
     link(c, "Validate (code, no LLM)", "Summarise")
     n.append(sql("Record cost, candidates, stage", record_sql, "={{ [JSON.stringify($json)] }}", [1680, -180]))
     link(c, "Summarise", "Record cost, candidates, stage")
-    n.append(code("Compose message", message_js, [1920, -180]))
-    link(c, "Record cost, candidates, stage", "Compose message")
-    n.append(telegram("Tell owner", "={{ $json.text }}", [2160, -180]))
-    link(c, "Compose message", "Tell owner")
-    n.append(if_true("Any candidates?", "={{ $('Compose message').first().json.passed > 0 }}", [2400, -180]))
-    link(c, "Tell owner", "Any candidates?")
-    n.append(code("Next stage input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2640, -260]))
+    n.append(if_true("Any candidates?", "={{ $json.passed > 0 }}", [1920, -180]))
+    link(c, "Record cost, candidates, stage", "Any candidates?")
+    n.append(code("Retry input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2160, -60]))
+    link(c, "Any candidates?", "Retry input", 1)
+    n.append(call("Learn and retry", LEARN, [2400, -60], wait=False))
+    link(c, "Retry input", "Learn and retry")
+    n.append(code("Next stage input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2160, -300]))
     link(c, "Any candidates?", "Next stage input", 0)
-    n.append(call("Start due diligence", next_id, [2880, -260], wait=False))
+    n.append(call("Start due diligence", next_id, [2400, -300], wait=False))
     link(c, "Next stage input", "Start due diligence")
     n.append(code("Agent failed", failed_js, [1200, 20]))
     link(c, f"Agent: {role}", "Agent failed", 1)
@@ -374,7 +383,7 @@ return [{{ json: {{ exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', m
 
 def build_diligence(track, cfg):
     role = cfg["dd_role"]
-    pick_sql = f"""SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title
+    pick_sql = f"""SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title, {MEMORY_SQL} AS memory, {USE_API_SQL} AS use_api
 FROM experiments e, jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b
 WHERE e.id = $1 AND (b->>'passed')::boolean IS TRUE
 LIMIT {cfg['pick_limit']}"""
@@ -383,7 +392,7 @@ const runs = $('Agent: {role}').all().map(i => i.json);
 const vals = $('Validate memo (code, no LLM)').all().map(i => i.json);
 const out = items.map((it, k) => {{
   const r = runs[k] || {{}}, v = vals[k] || {{}};
-  return {{ slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,
+  return {{ slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id, billing: r.billing,
            passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {{}}).score_0_10 || 0),
            evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) }};
 }});
@@ -396,7 +405,14 @@ q AS (SELECT m->>'slug' AS slug FROM j, jsonb_array_elements(j->'memos') m
         AND (m->>'score')::numeric >= (SELECT min_score FROM lim)
       ORDER BY (m->>'score')::numeric DESC LIMIT (SELECT max_shown FROM lim)),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
-      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), '{role} ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),
+      SELECT j->>'exp_id', {COST_SOURCE.format("m")}, coalesce((m->>'cost')::numeric, 0), '{role} ' || (m->>'slug') FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),
+h AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome, score, verdict, reasons)
+      SELECT e.id, e.track, e.round, m->>'slug', m->>'title',
+             CASE WHEN m->>'slug' IN (SELECT slug FROM q) THEN 'shown_to_owner'
+                  WHEN (m->>'passed')::boolean THEN 'below_threshold' ELSE 'rejected_by_checks' END,
+             NULLIF(m->>'score', '')::numeric, m->'verdict'->>'recommendation',
+             jsonb_build_object('why', m->'verdict'->>'why', 'failed_checks', m->'failed_checks')
+      FROM j, experiments e, jsonb_array_elements(j->'memos') m WHERE e.id = j->>'exp_id' RETURNING 1),
 u AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),
              status = CASE WHEN EXISTS (SELECT 1 FROM q) THEN 'waiting_owner' ELSE 'blocked' END, updated_at = now()
       WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),
@@ -411,15 +427,9 @@ const shown = r.shown || [];
 const rec = {{ invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' }};
 const best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);
 const rest = s.memos.length - best.length;
-let text;
-if (best.length) {{
-  text = `📊 <b>${{s.exp_id}}: {cfg['dd_title']}</b>\\nРазобрано ${{s.memos.length}}, тебе — лучшие ${{best.length}} (проверка кодом пройдена, оценка ≥ ${{r.min_score}}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +
+const text = `📊 <b>${{s.exp_id}}: {cfg['dd_title']}</b>\\nРазобрано ${{s.memos.length}}, тебе — лучшие ${{best.length}} (проверка кодом пройдена, оценка ≥ ${{r.min_score}}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +
     best.map((m, i) => `${{i+1}}. <b>${{esc(m.title)}}</b>\\n   ${{rec[(m.verdict || {{}}).recommendation] || '—'}} · ${{m.score}}/10 · доказательств ${{m.evidence ?? '—'}}, цитат подтверждено ${{m.verified ?? '—'}}\\n   <a href="{BASE}/farm-gate?g=${{r.token}}&c=${{encodeURIComponent(m.slug)}}">{cfg['choice']}</a>`).join('\\n\\n') +
     (rest ? `\\n\\nОтсеяно аналитикой: ${{rest}}` : '');
-}} else {{
-  text = `🗑 <b>${{s.exp_id}}: ни одна идея не дотянула</b> до порога (проверка кодом + оценка ≥ ${{r.min_score}}). Разобрано ${{s.memos.length}}:\\n` +
-    s.memos.map(m => `• ${{esc(m.title)}} — ${{m.score || '—'}}/10${{m.passed ? '' : ', не прошла проверку'}}`).join('\\n') + `\\nМожно запустить новый поиск.`;
-}}
 return [{{ json: {{ text }} }}];"""
     shown_items_js = """const r = $('Record memos, cost, gate').first().json;
 const s = $('Collect results').first().json;
@@ -430,7 +440,7 @@ return (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug
     link(c, "All checks passed?", "To analyse", 0)
     for name, url, timeout, body, pos in [
         (f"Agent: {role}", f"{RUNNER_URL}/run/{role}", 10800000,
-         "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800}", [960, -120]),
+         "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}}", [960, -120]),
         ("Validate memo (code, no LLM)", f"={RUNNER_URL}/validate/{cfg['dd_validate']}/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 600000, None, [1200, -120]),
         ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 300000, None, [1440, -120]),
     ]:
@@ -446,27 +456,107 @@ return (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug
     link(c, "Render PDF", "Collect results")
     n.append(sql("Record memos, cost, gate", record_sql, "={{ [JSON.stringify($json)] }}", [1920, -120]))
     link(c, "Collect results", "Record memos, cost, gate")
-    n.append(code("Compose summary", message_js, [2160, -200]))
-    link(c, "Record memos, cost, gate", "Compose summary")
-    n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2400, -200]))
+    n.append(if_true("Anything worth showing?", "={{ ($json.shown || []).length > 0 }}", [2160, -120]))
+    link(c, "Record memos, cost, gate", "Anything worth showing?")
+    n.append(code("Compose summary", message_js, [2400, -220]))
+    link(c, "Anything worth showing?", "Compose summary", 0)
+    n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2640, -220]))
     link(c, "Compose summary", "Send summary and choice links")
-    n.append(code("Best only", shown_items_js, [2160, 0]))
-    link(c, "Record memos, cost, gate", "Best only")
+    n.append(code("Best only", shown_items_js, [2400, -20]))
+    link(c, "Anything worth showing?", "Best only", 0)
+    n.append(code("Retry input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2400, 180]))
+    link(c, "Anything worth showing?", "Retry input", 1)
+    n.append(call("Learn and retry", LEARN, [2640, 180], wait=False))
+    link(c, "Retry input", "Learn and retry")
     n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
                   {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $json.exp_id }}}}/dd/{{{{ $json.slug }}}}/deck.pdf",
                    "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
                    "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}},
-                  [2400, 0], RUNNER, extra={"onError": "continueRegularOutput"}))
+                  [2640, -20], RUNNER, extra={"onError": "continueRegularOutput"}))
     link(c, "Best only", "Download PDF")
     n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
                   {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
                    "additionalFields": {"caption": "={{ '📄 ' + $('Best only').item.json.exp_id + ' · ' + $('Best only').item.json.title + ' · ' + $('Best only').item.json.score + '/10' }}",
                                         "fileName": "={{ $('Best only').item.json.exp_id + '-' + $('Best only').item.json.slug + '.pdf' }}"}},
-                  [2640, 0], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
+                  [2880, -20], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
     link(c, "Download PDF", "Send PDF")
     blocked_branch(n, c, 2, cfg["dd_name"], pos_y=260)
     return upsert(cfg["dd_name"], n, c, ERR, executionTimeout=30000)
 
+
+# ---------- 93 Learn and retry: reflect on a round that produced nothing worth showing, save lessons, start the next round ----------
+LEARN_LOAD_SQL = f"""SELECT e.id AS exp_id, e.track, e.round,
+  ({MEMORY_SQL}::jsonb || jsonb_build_object('current',
+     (SELECT coalesce(jsonb_agg(b->>'slug'), '[]'::jsonb) FROM jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b))) AS memory,
+  {USE_API_SQL} AS use_api
+FROM experiments e WHERE e.id = $1"""
+LEARN_SAVE_SQL = f"""WITH j AS (SELECT $1::jsonb AS j),
+e AS (SELECT * FROM experiments WHERE id = (SELECT j->>'exp_id' FROM j)),
+s AS (SELECT coalesce(max(value) FILTER (WHERE key = 'max_rounds'), '3')::int AS max_rounds FROM settings),
+l AS (SELECT x FROM j, jsonb_array_elements(coalesce(j->'out'->'lessons', '[]'::jsonb)) x),
+c AS (INSERT INTO costs (exp_id, source, usd, detail)
+      SELECT j->>'exp_id', {COST_SOURCE.format("j")}, coalesce((j->>'cost')::numeric, 0), 'reflector round ' || (SELECT round FROM e) FROM j RETURNING 1),
+r AS (UPDATE lessons SET weight = weight + 1, last_seen = now()
+      WHERE track = (SELECT track FROM e) AND id IN (SELECT (x->>'reinforces_id')::bigint FROM l WHERE jsonb_typeof(x->'reinforces_id') = 'number')
+      RETURNING 1),
+nl AS (INSERT INTO lessons (track, kind, lesson, source_exp)
+       SELECT (SELECT track FROM e), x->>'kind', x->>'lesson', (SELECT id FROM e) FROM l
+       WHERE jsonb_typeof(x->'reinforces_id') IS DISTINCT FROM 'number' AND length(coalesce(x->>'lesson', '')) > 10
+       UNION ALL
+       SELECT (SELECT track FROM e), 'avoid', 'Не предлагать: ' || (a->>'pattern') || coalesce(' — пока не изменится: ' || (a->>'until_new_evidence'), ''), (SELECT id FROM e)
+       FROM j, jsonb_array_elements(coalesce(j->'out'->'avoid', '[]'::jsonb)) a WHERE length(coalesce(a->>'pattern', '')) > 3
+       RETURNING 1),
+d AS (UPDATE lessons SET weight = weight - 1, active = weight > 1
+      WHERE track = (SELECT track FROM e) AND id IN (SELECT jsonb_array_elements_text(coalesce(j->'out'->'contradicted_ids', '[]'::jsonb))::bigint FROM j)
+      RETURNING 1),
+nx AS (UPDATE experiments SET round = round + 1, stage = 1, status = 'active', briefs = NULL, diligence = NULL, updated_at = now()
+       WHERE id = (SELECT id FROM e) AND status = 'blocked' AND round < (SELECT max_rounds FROM s) RETURNING id),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
+       SELECT id, stage, 'lessons_learned', 'reflector',
+              'Раунд ' || round || ': уроков новых ' || (SELECT count(*) FROM nl) || ', подтверждено ' || (SELECT count(*) FROM r) ||
+              CASE WHEN EXISTS (SELECT 1 FROM nx) THEN '. Запускаю раунд ' || (round + 1) ELSE '. Раунды исчерпаны' END ||
+              coalesce('. ' || (SELECT j->'out'->>'round_summary' FROM j), '') FROM e RETURNING 1)
+SELECT (SELECT id FROM e) AS exp_id, (SELECT track FROM e) AS track, (SELECT round FROM e) AS round,
+       EXISTS (SELECT 1 FROM nx) AS next_round, (SELECT count(*) FROM nl) AS new_lessons, (SELECT count(*) FROM r) AS reinforced,
+       (SELECT count(*) FROM lessons WHERE active AND track = (SELECT track FROM e)) AS lessons_total"""
+LEARN_PREP_JS = """const run = $('Agent: reflector').first().json || {};
+const out = $input.first().json || {};
+return [{ json: { exp_id: $('Round and memory').first().json.exp_id, billing: run.billing, cost: run.cost_usd || 0,
+  out: Array.isArray(out.lessons) ? out : {} } }];"""
+DISC_WF = {t: wf_id(cfg["disc_name"]) for t, cfg in TRACKS.items()}
+LEARN_DONE_JS = ESC_JS + """const r = $input.first().json;
+return [{ json: { text: `🧪 <b>${esc(r.exp_id)}</b>: за ${r.round} раунд(а) ни одна идея не набрала проходной балл, поэтому ничего не присылаю. ` +
+  `Ферма записала уроков: ${r.lessons_total}. Новый поиск — командой run в панели.` } }];"""
+c, n = {}, []
+n += [
+    sticky("## 93 · Learn and retry\nВызывается, когда раунд не дал ничего достойного (discovery без кандидатов или due diligence без оценок ≥ порога).\n\n1. Агент **reflector** читает меморандумы и отказы валидатора → `lessons.json`.\n2. Уроки пишутся в `lessons` (повтор → вес +1, опровергнут → вес −1).\n3. Если раундов меньше `max_rounds` — эксперимент снова на этапе 1, discovery стартует с памятью.\n4. Иначе — одна короткая строка владельцу, без отчётов.", [-80, -420], 560, 320),
+    sub_trigger([-240, 0]),
+    sql("Round and memory", LEARN_LOAD_SQL, "={{ [$json.exp_id] }}", [0, 0]),
+    node("Agent: reflector", "n8n-nodes-base.httpRequest", 4.2,
+         {"method": "POST", "url": f"{RUNNER_URL}/run/reflector", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+          "sendBody": True, "specifyBody": "json",
+          "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 0, \"max_turns\": 40, \"budget_usd\": 1.5, \"timeout_s\": 1800, \"queue_timeout_s\": 10800, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}, \"input\": {\"note\": \"Distil lessons from this round; write lessons.json\"}}",
+          "options": {"timeout": 10800000}}, [240, 0], RUNNER, extra={"onError": "continueRegularOutput"}),
+    node("Read lessons.json", "n8n-nodes-base.httpRequest", 4.2,
+         {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $('Round and memory').first().json.exp_id }}}}/lessons.json",
+          "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+          "options": {"timeout": 60000, "response": {"response": {"responseFormat": "json"}}}}, [480, 0], RUNNER,
+         extra={"onError": "continueRegularOutput"}),
+    code("Prepare", LEARN_PREP_JS, [720, 0]),
+    sql("Save lessons, next round", LEARN_SAVE_SQL, "={{ [JSON.stringify($json)] }}", [960, 0]),
+    if_true("Another round?", "={{ $json.next_round }}", [1200, 0]),
+    code("Discovery workflow", f"const map = {json.dumps(DISC_WF)};\nreturn [{{ json: {{ exp_id: $json.exp_id, workflow_id: map[$json.track] }} }}];", [1440, -100]),
+    call("Start discovery", "={{ $json.workflow_id }}", [1680, -100], wait=False),
+    code("Nothing this time", LEARN_DONE_JS, [1440, 100]),
+    telegram("Tell owner (one line)", "={{ $json.text }}", [1680, 100]),
+]
+for a, b in [("Called by another workflow", "Round and memory"), ("Round and memory", "Agent: reflector"), ("Agent: reflector", "Read lessons.json"),
+             ("Read lessons.json", "Prepare"), ("Prepare", "Save lessons, next round"), ("Save lessons, next round", "Another round?"),
+             ("Discovery workflow", "Start discovery"), ("Nothing this time", "Tell owner (one line)")]:
+    link(c, a, b)
+link(c, "Another round?", "Discovery workflow", 0)
+link(c, "Another round?", "Nothing this time", 1)
+LEARN = upsert("93 · Learn and retry", n, c, ERR, executionTimeout=12000)
 
 for track, cfg in TRACKS.items():
     wf_id(cfg["dd_name"], cfg["dd_legacy"])
@@ -551,7 +641,7 @@ DIGEST_SQL = """SELECT json_build_object(
   'status',      (SELECT json_agg(v ORDER BY v.id) FROM v_status v),
   'events',      (SELECT json_agg(e ORDER BY e.ts) FROM (SELECT ts, exp_id, kind, message FROM events WHERE ts > now() - interval '24 hours') e),
   'guard_fail',  (SELECT count(*) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '24 hours'),
-  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),
   'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),
   'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),
   'kill',        (SELECT value FROM settings WHERE key = 'kill_switch')) AS d"""
@@ -577,7 +667,7 @@ DIG = upsert("91 · Daily digest", n, c, ERR)
 
 # ---------- 92 Guardrail watchdog ----------
 WATCH_SQL = """WITH s AS (SELECT max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap FROM settings),
-m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),
 upd AS (
   UPDATE settings SET value = 'on'
   WHERE key = 'kill_switch' AND value = 'off' AND (SELECT spent FROM m) >= (SELECT cap FROM s)
@@ -684,7 +774,7 @@ RO_SQL = """SELECT CASE WHEN $1 <> '' AND $1 = (SELECT value FROM settings WHERE
   'ok', true,
   'experiments', (SELECT json_agg(json_build_object('id', e.id, 'track', e.track, 'title', e.title, 'stage', e.stage, 'stage_name', s.name, 'status', e.status,
                    'chosen_brief', e.chosen_brief, 'briefs', e.briefs, 'diligence', e.diligence, 'budget_usd', e.budget_usd,
-                   'spent_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_subscription%'),
+                   'spent_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_%'),
                    'agent_equiv_usd', (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source LIKE 'claude_subscription%'),
                    'issue_url', e.issue_url, 'updated_at', e.updated_at) ORDER BY e.id)
                   FROM experiments e JOIN stages s ON s.track = e.track AND s.stage = e.stage),
@@ -692,7 +782,7 @@ RO_SQL = """SELECT CASE WHEN $1 <> '' AND $1 = (SELECT value FROM settings WHERE
   'recent_events', (SELECT json_agg(v ORDER BY v.ts DESC) FROM (SELECT ts, exp_id, stage, kind, message FROM events ORDER BY id DESC LIMIT 30) v),
   'guardrail_failures_24h', (SELECT json_agg(v) FROM (SELECT ts, exp_id, stage, detail FROM guardrail_events WHERE NOT passed AND rule <> 'lock_acquired' AND ts > now() - interval '24 hours' ORDER BY id DESC LIMIT 20) v),
   'kill_switch', (SELECT value FROM settings WHERE key = 'kill_switch'),
-  'month_spend_usd', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),
+  'month_spend_usd', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),
   'month_cap_usd', (SELECT value FROM settings WHERE key = 'budget_month_usd'))
 ELSE json_build_object('ok', false, 'error', 'bad token') END AS d"""
 c = {}

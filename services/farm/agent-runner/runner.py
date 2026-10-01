@@ -15,9 +15,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "preregistration", "landing", "traffic", "builder", "analyst"}
+ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "reflector", "preregistration", "landing", "traffic", "builder", "analyst"}
 # Roles that run on the Anthropic API key (separate prepaid budget) instead of the Claude subscription.
-API_ROLES = {"diligence", "game-diligence"}
+# n8n sends use_api=false once the month's API budget is spent; then the subscription is used.
+API_ROLES = {"discovery", "game-discovery", "diligence", "game-diligence", "reflector"}
 DILIGENCE_ROLES = {"diligence": ("briefs", "brief.json"), "game-diligence": ("concepts", "concept.json")}
 DISCOVERY_DIRS = {"discovery": "briefs", "game-discovery": "concepts"}
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,60}$")
@@ -26,6 +27,7 @@ TOOLS = {
     "diligence": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Task,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "game-discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "game-diligence": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Task,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
+    "reflector": "Read,Write,Edit,Glob,Grep",
     "preregistration": "Read,Write,Edit,Glob,Grep",
     "landing": "Read,Write,Edit,Glob,Grep,WebFetch",
     "traffic": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
@@ -62,6 +64,9 @@ def run(role, body):
             return 404, {"ok": False, "error": f"no brief {slug} for {exp}"}
         (work / in_name).write_text(json.dumps(brief, ensure_ascii=False, indent=2))
     (work / "runs").mkdir(parents=True, exist_ok=True)
+    if body.get("memory") is not None:
+        # Farm memory from the database: past ideas with outcomes and distilled lessons (see the skills).
+        (work / "memory.json").write_text(json.dumps(body["memory"], ensure_ascii=False, indent=2))
     max_turns = min(int(body.get("max_turns", 60)), 150)
     prompt = body.get("prompt") or f"You are the farm '{role}' agent for {exp}, stage {body.get('stage')}. Follow your skill exactly. Input: {json.dumps(body.get('input', {}), ensure_ascii=False)}"
     if role in DISCOVERY_DIRS and (work / DISCOVERY_DIRS[role]).exists():
@@ -73,7 +78,7 @@ def run(role, body):
            "--allowedTools", TOOLS[role], "--append-system-prompt", skill.read_text()]
     env = dict(os.environ)
     billing = "subscription"
-    if role in API_ROLES and env.get("ANTHROPIC_API_KEY"):
+    if role in API_ROLES and env.get("ANTHROPIC_API_KEY") and body.get("use_api", True):
         # Prepaid API budget when a key is configured; otherwise the subscription is used.
         billing = "api"
         env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
@@ -119,6 +124,31 @@ def _page_text(url):
     raw = raw.replace("\\n", " ").replace('\\"', '"').replace("\\/", "/")
     raw = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", raw)
     return _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", raw)))
+
+
+def _quote_found(url, quote_raw):
+    """True if the quote is on the page: visible text, raw HTML (attributes such as title="4.86 average rating"),
+    or JSON compared without whitespace (API responses quoted compactly)."""
+    q = _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", quote_raw or "")))
+    if len(q) < 15:
+        return False
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (farm-validator)"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        raw = r.read(3_000_000).decode("utf-8", "ignore")
+    variants = [raw]
+    try:
+        obj = json.loads(raw)
+        variants += [json.dumps(obj, ensure_ascii=False), json.dumps(obj, ensure_ascii=False, separators=(",", ":"))]
+    except ValueError:
+        pass
+    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", raw)
+    variants.append(re.sub(r"(?s)<[^>]+>", " ", text))
+    q_tight = re.sub(r"\s+", "", q)
+    for v in variants:
+        nv = _norm(html.unescape(v))
+        if q in nv or q_tight in re.sub(r"\s+", "", nv):
+            return True
+    return False
 
 
 def _norm(t):
@@ -169,7 +199,7 @@ def validate_discovery(exp):
             if not url.startswith(("http://", "https://")) or len(quote) < 15:
                 checked.append({"url": url, "ok": False, "why": "bad url or quote too short"}); continue
             try:
-                ok = quote in _page_text(url)
+                ok = _quote_found(url, e.get("quote", ""))
                 checked.append({"url": url, "ok": ok, "why": "" if ok else "quote not found on page"})
             except Exception as ex:
                 checked.append({"url": url, "ok": False, "why": f"fetch failed: {ex}"[:160]})
@@ -215,7 +245,7 @@ def validate_diligence(exp, slug):
         ok = False
         if url.startswith(("http://", "https://")) and len(quote) >= 15:
             try:
-                ok = quote in _page_text(url)
+                ok = _quote_found(url, x.get("quote", ""))
             except Exception:
                 ok = False
         x["verified"] = ok
@@ -259,7 +289,7 @@ def _verify_quotes(items, limit=14):
         ok = False
         if url.startswith(("http://", "https://")) and len(quote) >= 15:
             try:
-                ok = quote in _page_text(url)
+                ok = _quote_found(url, x.get("quote", ""))
             except Exception:
                 ok = False
         x["verified"] = ok
@@ -377,7 +407,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"ok": False, "error": "no such file"})
             data = target.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", "application/pdf" if target.suffix == ".pdf" else "application/octet-stream")
+            self.send_header("Content-Type", {".pdf": "application/pdf", ".json": "application/json"}.get(target.suffix, "application/octet-stream"))
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)

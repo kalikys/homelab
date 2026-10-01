@@ -61,7 +61,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "SELECT json_build_object(\n  'status',      (SELECT json_agg(v ORDER BY v.id) FROM v_status v),\n  'events',      (SELECT json_agg(e ORDER BY e.ts) FROM (SELECT ts, exp_id, kind, message FROM events WHERE ts > now() - interval '24 hours') e),\n  'guard_fail',  (SELECT count(*) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '24 hours'),\n  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_subscription%'),\n  'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),\n  'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),\n  'kill',        (SELECT value FROM settings WHERE key = 'kill_switch')) AS d",
+    "query": "SELECT json_build_object(\n  'status',      (SELECT json_agg(v ORDER BY v.id) FROM v_status v),\n  'events',      (SELECT json_agg(e ORDER BY e.ts) FROM (SELECT ts, exp_id, kind, message FROM events WHERE ts > now() - interval '24 hours') e),\n  'guard_fail',  (SELECT count(*) FROM guardrail_events WHERE NOT passed AND ts > now() - interval '24 hours'),\n  'month_spend', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),\n  'agent_equiv', (SELECT coalesce(sum(usd), 0) FROM costs WHERE ts >= date_trunc('month', now()) AND source LIKE 'claude_subscription%'),\n  'month_cap',   (SELECT value FROM settings WHERE key = 'budget_month_usd'),\n  'kill',        (SELECT value FROM settings WHERE key = 'kill_switch')) AS d",
     "options": {}
    },
    "credentials": {
