@@ -87,6 +87,18 @@
     },
     {
       "cores": 2,
+      "disk_gb": 40,
+      "id": 230,
+      "kind": "vm",
+      "memory_mb": 4096,
+      "name": "farm",
+      "network": [
+        "lan"
+      ],
+      "role": "Startup farm: n8n workflows, Postgres, Claude agent runner"
+    },
+    {
+      "cores": 2,
       "disk_gb": 30,
       "id": 210,
       "kind": "vm",

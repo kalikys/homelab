@@ -1,0 +1,17 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+dhcp: 0
+ndp: 0
+radv: 0
+ipfilter: 1
+macfilter: 1
+
+[IPSET ipfilter-net0]
+192.168.1.30
+
+[RULES]
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 22 # SSH from the LAN (Tailscale clients arrive through the subnet router)
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 5678 # n8n UI and approval links, LAN and Tailscale only
+IN ACCEPT -p icmp # ping for Gatus / Uptime Kuma

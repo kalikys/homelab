@@ -53,6 +53,16 @@ locals {
         role      = local.agent.role
         network   = ["lan"]
       }],
+      [{
+        name      = "farm"
+        id        = local.farm.vm_id
+        kind      = "vm"
+        cores     = local.farm.cores
+        memory_mb = local.farm.memory_mb
+        disk_gb   = local.farm.disk_gb
+        role      = local.farm.role
+        network   = ["lan"]
+      }],
       [for name, vm in local.lab_vms : {
         name      = name
         id        = vm.vm_id

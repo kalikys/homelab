@@ -1,0 +1,60 @@
+# Startup farm on VM 230: n8n (skeleton: stages, guardrails, approvals) + Postgres (n8n DB and farm state).
+# Secrets live in /opt/farm/.env on the VM only. UI and webhooks are reachable from the LAN and Tailscale only.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: n8n
+      FARM_DB_PASSWORD: ${FARM_DB_PASSWORD}
+      FARM_RO_PASSWORD: ${FARM_RO_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d n8n"]
+      interval: 10s
+      retries: 10
+    mem_limit: 768m
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  n8n:
+    image: n8nio/n8n:2.41.3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: 192.168.1.30
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://192.168.1.30:5678/
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: Asia/Tbilisi
+      TZ: Asia/Tbilisi
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_PUBLIC_API_DISABLED: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "720"
+    volumes:
+      - n8ndata:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    mem_limit: 1536m
+
+volumes:
+  pgdata:
+  n8ndata:

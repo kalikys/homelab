@@ -1,0 +1,109 @@
+-- Farm state. Applied by 10-farm.sh as the superuser, then ownership goes to role farm.
+-- events, guardrail_events, decisions and costs are append-only: role farm cannot UPDATE or DELETE them.
+CREATE TABLE settings (
+  key   text PRIMARY KEY,
+  value text NOT NULL,
+  note  text
+);
+INSERT INTO settings VALUES
+  ('kill_switch', 'off', 'on = every workflow stops at preflight'),
+  ('wip_limit', '1', 'startups in work at the same time'),
+  ('budget_test_usd', '150', 'ad budget per test'),
+  ('budget_day_usd', '25', 'ad spend per day'),
+  ('budget_month_usd', '250', 'whole farm per month');
+
+CREATE TABLE stages (
+  stage int PRIMARY KEY,
+  name  text NOT NULL,
+  gate  text
+);
+INSERT INTO stages VALUES
+  (1,'Discovery',NULL),(2,'Brief choice','G1 owner'),(3,'Pre-registration','owner approves'),
+  (4,'Landing','owner approves publish'),(5,'Traffic and metrics','owner approves money'),
+  (6,'Decision','G2 owner'),(7,'Build MVP','owner approves live payments'),(8,'Active users','G3 at day 30');
+
+CREATE TABLE experiments (
+  id          text PRIMARY KEY,
+  title       text NOT NULL,
+  stage       int NOT NULL REFERENCES stages(stage),
+  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','waiting_owner','blocked','go','killed','paused')),
+  issue_url   text,
+  budget_usd  numeric(10,2) NOT NULL DEFAULT 150,
+  prereg      jsonb,
+  prereg_hash text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE events (
+  id      bigserial PRIMARY KEY,
+  ts      timestamptz NOT NULL DEFAULT now(),
+  exp_id  text REFERENCES experiments(id),
+  stage   int,
+  kind    text NOT NULL,
+  actor   text NOT NULL,
+  message text NOT NULL,
+  data    jsonb
+);
+
+CREATE TABLE guardrail_events (
+  id     bigserial PRIMARY KEY,
+  ts     timestamptz NOT NULL DEFAULT now(),
+  exp_id text REFERENCES experiments(id),
+  stage  int,
+  rule   text NOT NULL,
+  passed boolean NOT NULL,
+  detail text
+);
+
+CREATE TABLE decisions (
+  id            bigserial PRIMARY KEY,
+  ts            timestamptz NOT NULL DEFAULT now(),
+  exp_id        text REFERENCES experiments(id),
+  gate          text NOT NULL,
+  decision      text NOT NULL,
+  decided_by    text NOT NULL,
+  artifact_hash text,
+  note          text
+);
+
+CREATE TABLE costs (
+  id     bigserial PRIMARY KEY,
+  ts     timestamptz NOT NULL DEFAULT now(),
+  exp_id text REFERENCES experiments(id),
+  source text NOT NULL,
+  usd    numeric(10,4) NOT NULL,
+  detail text
+);
+
+CREATE TABLE metrics (
+  exp_id     text REFERENCES experiments(id),
+  day        date NOT NULL,
+  visits     int,
+  cta_clicks int,
+  signups    int,
+  spend_usd  numeric(10,2),
+  PRIMARY KEY (exp_id, day)
+);
+
+CREATE VIEW v_status AS
+SELECT e.id, e.title, e.stage, s.name AS stage_name, e.status, e.budget_usd,
+       COALESCE((SELECT sum(usd) FROM costs c WHERE c.exp_id = e.id), 0) AS spent_usd,
+       (SELECT max(ts) FROM events v WHERE v.exp_id = e.id) AS last_event,
+       e.issue_url
+FROM experiments e JOIN stages s USING (stage);
+
+INSERT INTO experiments (id, title, stage, issue_url)
+VALUES ('EXP-001', 'First test startup (idea TBD)', 1, 'https://github.com/kalikys/farm/issues/1');
+INSERT INTO events (exp_id, stage, kind, actor, message)
+VALUES ('EXP-001', 1, 'stage_started', 'claude', 'Discovery started; farm skeleton on n8n being built');
+
+ALTER TABLE settings OWNER TO farm;
+ALTER TABLE stages OWNER TO farm;
+ALTER TABLE experiments OWNER TO farm;
+ALTER VIEW v_status OWNER TO farm;
+GRANT SELECT, INSERT ON events, guardrail_events, decisions, costs TO farm;
+GRANT INSERT, UPDATE ON metrics TO farm;
+GRANT SELECT ON metrics TO farm;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO farm;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO farm_ro;
