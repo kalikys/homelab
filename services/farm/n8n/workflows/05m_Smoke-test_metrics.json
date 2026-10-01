@@ -1,0 +1,287 @@
+{
+ "name": "05m · Smoke-test metrics",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -400
+   ],
+   "parameters": {
+    "content": "## 05m · Smoke-test metrics\nКаждые 6 ч для экспериментов в статусе `testing`: статистика Worker'а (уникальные посетители без ботов, клики по цене, заявки) → таблица `metrics` → решение **кодом по правилу предрегистрации**: ранняя остановка, GO, KILL или EXTEND (один раз ×1,5).\nРешение → этап 06, тебе — цифры и ссылки GO / KILL.",
+    "width": 560,
+    "height": 260,
+    "color": 5
+   }
+  },
+  {
+   "id": "819693e6-5461-5d1a-b0ca-b97452b5454b",
+   "name": "Every 6 hours",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "23 */6 * * *"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "9e57ea23-4a94-5a8b-9a21-3a229a84114c",
+   "name": "Testing experiments",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT e.id AS exp_id, e.title, e.prereg, e.test_started_at, e.landing_url,\n  EXISTS (SELECT 1 FROM decisions d WHERE d.exp_id = e.id AND d.gate = 'G2' AND d.decision = 'extend') AS extended,\n  (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_%' AND c.ts >= e.test_started_at) AS spend\nFROM experiments e WHERE e.status = 'testing' AND e.test_started_at IS NOT NULL",
+    "options": {}
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "b872e573-3efe-5bb1-8416-e662fbe1dce5",
+   "name": "Landing stats",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "method": "GET",
+    "url": "=https://farm-landing.kalikfarm.workers.dev/stats?exp={{ $json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 60000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "71E0MdM1YpkEUHED",
+     "name": "Landing stats token"
+    }
+   }
+  },
+  {
+   "id": "89765b50-2296-5644-be56-2e6fa4964d8e",
+   "name": "Evaluate by the rule",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    720,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// Decision by the pre-registered rule only (code, no LLM).\nreturn $input.all().map((it, k) => {\n  const x = $('Testing experiments').all()[k].json, s = it.json || {};\n  const p = x.prereg || {}, th = p.thresholds || {}, early = th.early_kill || {};\n  const t = s.total || {}, v = Number(t.visitors || 0), cta = Number(t.cta_visitors || 0), su = Number(t.signups || 0);\n  const mult = x.extended ? 1.5 : 1;\n  const days = (Date.now() - new Date(x.test_started_at).getTime()) / 86400000;\n  const sr = v ? su / v : 0, cr = v ? cta / v : 0;\n  let decision = null, reason = '';\n  if (v >= Number(early.after_visitors || 1e9) && cr < Number(early.cta_rate_below || 0)) { decision = 'kill'; reason = `ранняя остановка: ${v} посетителей, клики по цене ${(cr * 100).toFixed(1)}% < ${(early.cta_rate_below * 100).toFixed(1)}%`; }\n  else if (v >= Number(p.target_visitors || 1e9) * mult || days >= Number(p.duration_days || 1e9) * mult) {\n    if (sr >= Number((th.go || {}).signup_rate)) { decision = 'go'; reason = `заявки ${(sr * 100).toFixed(1)}% ≥ порога GO`; }\n    else if (sr <= Number((th.kill || {}).signup_rate)) { decision = 'kill'; reason = `заявки ${(sr * 100).toFixed(1)}% ≤ порога KILL`; }\n    else { decision = x.extended ? 'kill' : 'extend'; reason = x.extended ? 'после продления всё ещё между порогами' : 'между порогами — правило говорит продлить'; }\n    if (v < 30) reason += ` (мало трафика: ${v} посетителей)`;\n  }\n  return { json: { exp_id: x.exp_id, title: x.title, stats: s, visitors: v, cta, signups: su, signup_rate: sr, cta_rate: cr, days: Math.round(days * 10) / 10,\n                   spend: Number(x.spend), decision, reason } };\n});"
+   }
+  },
+  {
+   "id": "58249357-7b78-5ff5-8ba0-6192aa81658a",
+   "name": "Save metrics, decide",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    960,
+    0
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nm AS (INSERT INTO metrics (exp_id, day, visits, cta_visitors, signups, spend_usd)\n      SELECT j->>'exp_id', (d->>'day')::date, (d->>'visitors')::int, (d->>'cta_visitors')::int,\n             coalesce((SELECT (x->>'signups')::int FROM jsonb_array_elements(j->'stats'->'signups_by_day') x WHERE x->>'day' = d->>'day'), 0), NULL\n      FROM j, jsonb_array_elements(coalesce(j->'stats'->'days', '[]'::jsonb)) d\n      ON CONFLICT (exp_id, day) DO UPDATE SET visits = EXCLUDED.visits, cta_visitors = EXCLUDED.cta_visitors, signups = EXCLUDED.signups RETURNING 1),\nu AS (UPDATE experiments SET stage = 6, status = 'waiting_owner', updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'testing' AND (SELECT j->>'decision' FROM j) IS NOT NULL RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT id, 'G2', 6, ARRAY(SELECT DISTINCT unnest(ARRAY[(SELECT j->>'decision' FROM j), 'kill'])) FROM u RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT id, 6, 'test_finished', 'n8n', 'Смоук-тест: ' || (SELECT j->>'decision' FROM j) || ' — ' || (SELECT j->>'reason' FROM j) FROM u RETURNING 1)\nSELECT (SELECT token FROM g) AS token, (SELECT count(*) FROM m) AS days_saved",
+    "options": {
+     "queryReplacement": "={{ [JSON.stringify($json)] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "164b7d09-4731-562e-8abe-2ba4e6c4a99a",
+   "name": "Decision made?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1200,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "47501351-e1a1-5d26-ac8f-a56aeb66f5bb",
+       "leftValue": "={{ !!$json.token }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "97a8fc9e-82c9-5e27-b106-8d4a557527f3",
+   "name": "Compose result",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1440,
+    -80
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst x = $('Evaluate by the rule').item.json, t = $json.token;\nconst pct = v => (v * 100).toFixed(1) + '%';\nconst label = { go: '🟢 GO — строим MVP', kill: '🔴 KILL — закрываем', extend: '🟡 EXTEND — продлить тест' };\nconst links = [x.decision, 'kill'].filter((v, i, a) => a.indexOf(v) === i)\n  .map(c => `<a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${t}&c=${c}\">${label[c]}</a>`).join('\\n');\nreturn [{ json: { text: `🧪 <b>${esc(x.exp_id)}: смоук-тест завершён</b>\\n${esc(x.title)}\\n\\n` +\n  `Посетителей ${x.visitors} · клики по цене ${x.cta} (${pct(x.cta_rate)}) · заявок ${x.signups} (${pct(x.signup_rate)}) · ${x.days} дн. · траты $${x.spend}\\n` +\n  `По правилу: <b>${x.decision.toUpperCase()}</b> — ${esc(x.reason)}\\n\\n${links}` } }];"
+   }
+  },
+  {
+   "id": "cfd37f75-9d2d-5678-bb2a-da90812050d4",
+   "name": "Tell owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1680,
+    -80
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Every 6 hours": {
+   "main": [
+    [
+     {
+      "node": "Testing experiments",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Testing experiments": {
+   "main": [
+    [
+     {
+      "node": "Landing stats",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Landing stats": {
+   "main": [
+    [
+     {
+      "node": "Evaluate by the rule",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Evaluate by the rule": {
+   "main": [
+    [
+     {
+      "node": "Save metrics, decide",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Save metrics, decide": {
+   "main": [
+    [
+     {
+      "node": "Decision made?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Compose result": {
+   "main": [
+    [
+     {
+      "node": "Tell owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Decision made?": {
+   "main": [
+    [
+     {
+      "node": "Compose result",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 300,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

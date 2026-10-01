@@ -1,5 +1,5 @@
 {
- "name": "04 · Landing",
+ "name": "05 · Traffic",
  "nodes": [
   {
    "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 04 · Landing\nАгент пишет статический лендинг (HTML/CSS) по утверждённым условиям. Счётчик визитов, кликов по цене и заявок вставляет **Worker фермы**, не агент.\n\n**Guardrails (код):** index/privacy/terms · без скриптов и внешних ресурсов · цена как в условиях · кнопки цены и форма · честно «продукт в разработке, оплата не берётся» · без выдуманных отзывов и цифр. Не прошёл — одна попытка исправить по списку ошибок.\n\n**Твой шаг:** открыть превью → «Опубликовать».",
+    "content": "## 05 · Traffic\nЛендинг публикуется → агент готовит кампанию: объявления или письма, ключи/аудитории, лимиты, ссылки с UTM, пошаговая инструкция.\n\n**Guardrails (код):** канал и бюджет как в условиях · дневной лимит · все ссылки с utm_campaign=EXP · лимиты длины объявлений · для писем — отписка, адрес, вне ЕС.\n\n**Твой шаг:** запустить кампанию по инструкции → «Я запустил». Дальше метрики собирает `05m`.",
     "width": 540,
     "height": 320,
     "color": 5
@@ -40,7 +40,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 4 } }));"
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 5 } }));"
    }
   },
   {
@@ -123,195 +123,13 @@
    }
   },
   {
-   "id": "18956309-9ede-5c6e-8a1d-a1d805b20e6a",
-   "name": "Agent: landing",
+   "id": "cdde8dfc-85d4-5c42-a792-2c686b54143f",
+   "name": "Publish live",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
     960,
     -120
-   ],
-   "parameters": {
-    "method": "POST",
-    "url": "http://172.30.0.10:8080/run/landing",
-    "authentication": "genericCredentialType",
-    "genericAuthType": "httpHeaderAuth",
-    "options": {
-     "timeout": 10800000
-    },
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 4, max_turns: 60, budget_usd: 3, timeout_s: 2400, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, memory: $('Load context').first().json.memory, prereg: $('Load context').first().json.prereg, input: { note: \"Build the landing in landing/ from prereg.json\" } }) }}"
-   },
-   "credentials": {
-    "httpHeaderAuth": {
-     "id": "sMBbx1wz3RKIJAgm",
-     "name": "Agent runner token"
-    }
-   },
-   "onError": "continueErrorOutput"
-  },
-  {
-   "id": "3cd0c2e7-f5dd-5c5a-bfb7-1dabfc802f4e",
-   "name": "QA landing",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    1200,
-    -200
-   ],
-   "parameters": {
-    "method": "POST",
-    "url": "=http://172.30.0.10:8080/qa/landing/{{ $('Load context').first().json.exp_id }}",
-    "authentication": "genericCredentialType",
-    "genericAuthType": "httpHeaderAuth",
-    "options": {
-     "timeout": 600000
-    },
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg }) }}"
-   },
-   "credentials": {
-    "httpHeaderAuth": {
-     "id": "sMBbx1wz3RKIJAgm",
-     "name": "Agent runner token"
-    }
-   }
-  },
-  {
-   "id": "d09af433-fd48-58c2-9def-65a61496167b",
-   "name": "QA passed?",
-   "type": "n8n-nodes-base.if",
-   "typeVersion": 2.2,
-   "position": [
-    1440,
-    -200
-   ],
-   "parameters": {
-    "conditions": {
-     "options": {
-      "caseSensitive": true,
-      "leftValue": "",
-      "typeValidation": "loose",
-      "version": 2
-     },
-     "conditions": [
-      {
-       "id": "70316060-c26d-5b9c-9535-8b9402bf4ed4",
-       "leftValue": "={{ $json.passed === true }}",
-       "rightValue": "",
-       "operator": {
-        "type": "boolean",
-        "operation": "true",
-        "singleValue": true
-       }
-      }
-     ],
-     "combinator": "and"
-    },
-    "options": {}
-   }
-  },
-  {
-   "id": "d4cafe38-f3be-5aaf-9c29-4fe4e021faee",
-   "name": "Agent: fix landing",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    1680,
-    -80
-   ],
-   "parameters": {
-    "method": "POST",
-    "url": "http://172.30.0.10:8080/run/landing",
-    "authentication": "genericCredentialType",
-    "genericAuthType": "httpHeaderAuth",
-    "options": {
-     "timeout": 10800000
-    },
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 4, max_turns: 30, timeout_s: 1800, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, prereg: $('Load context').first().json.prereg, input: { note: 'The farm QA rejected landing/. Fix exactly these problems, keep everything else: ' + ($('QA landing').first().json.checks || []).filter(x => !x.passed).map(x => x.detail).join('; ') } }) }}"
-   },
-   "credentials": {
-    "httpHeaderAuth": {
-     "id": "sMBbx1wz3RKIJAgm",
-     "name": "Agent runner token"
-    }
-   },
-   "onError": "continueErrorOutput"
-  },
-  {
-   "id": "0682d199-bc26-5b06-a3b7-25edf885fada",
-   "name": "QA again",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    1920,
-    -80
-   ],
-   "parameters": {
-    "method": "POST",
-    "url": "=http://172.30.0.10:8080/qa/landing/{{ $('Load context').first().json.exp_id }}",
-    "authentication": "genericCredentialType",
-    "genericAuthType": "httpHeaderAuth",
-    "options": {
-     "timeout": 600000
-    },
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg }) }}"
-   },
-   "credentials": {
-    "httpHeaderAuth": {
-     "id": "sMBbx1wz3RKIJAgm",
-     "name": "Agent runner token"
-    }
-   }
-  },
-  {
-   "id": "1e36d524-6579-5335-8521-de739cdcbb94",
-   "name": "Fixed?",
-   "type": "n8n-nodes-base.if",
-   "typeVersion": 2.2,
-   "position": [
-    2160,
-    -80
-   ],
-   "parameters": {
-    "conditions": {
-     "options": {
-      "caseSensitive": true,
-      "leftValue": "",
-      "typeValidation": "loose",
-      "version": 2
-     },
-     "conditions": [
-      {
-       "id": "8a07bd61-65ca-514b-b7f4-335d6d891860",
-       "leftValue": "={{ $json.passed === true }}",
-       "rightValue": "",
-       "operator": {
-        "type": "boolean",
-        "operation": "true",
-        "singleValue": true
-       }
-      }
-     ],
-     "combinator": "and"
-    },
-    "options": {}
-   }
-  },
-  {
-   "id": "68c678eb-f130-5bc9-9c34-4fa21c7c89f1",
-   "name": "Publish preview",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    2400,
-    -280
    ],
    "parameters": {
     "method": "POST",
@@ -323,7 +141,65 @@
     },
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"mode\": \"preview\"}"
+    "jsonBody": "={\"mode\": \"live\"}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "id": "41984600-3f9e-5c43-a975-d6991e720b68",
+   "name": "Agent: traffic",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1200,
+    -120
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://172.30.0.10:8080/run/traffic",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 10800000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 5, max_turns: 60, budget_usd: 3, timeout_s: 2400, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, memory: $('Load context').first().json.memory, prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url, input: { note: \"Write campaign.json for the owner\" } }) }}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "id": "76544e09-5352-5856-949e-49095f0347ad",
+   "name": "Validate campaign",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1440,
+    -200
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/validate/campaign/{{ $('Load context').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 600000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url }) }}"
    },
    "credentials": {
     "httpHeaderAuth": {
@@ -333,19 +209,53 @@
    }
   },
   {
-   "id": "5a1438ca-2734-5b2e-8a41-8b9b2f9b3806",
-   "name": "Save, open gate",
+   "id": "ae8f304a-0dc1-59a7-b873-6609391d71ec",
+   "name": "Checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1680,
+    -200
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "1253ba70-3d60-59f9-9083-15e1842e5a0b",
+       "leftValue": "={{ $json.passed === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "b8947a5d-eed1-57bd-85e4-44217e548ab3",
+   "name": "Save campaign, open gate",
    "type": "n8n-nodes-base.postgres",
    "typeVersion": 2.5,
    "position": [
-    2640,
+    1920,
     -280
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH u AS (UPDATE experiments SET landing_url = $2, status = 'waiting_owner', updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices) SELECT id, 'G-publish', 4, ARRAY['approve']::text[] FROM u RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, 4, 'waiting_owner', 'n8n', 'Ждёт решения владельца: G-publish' FROM u RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
+    "query": "WITH u AS (UPDATE experiments SET campaign = $2::jsonb, landing_url = $3, status = 'waiting_owner', updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices) SELECT id, 'G-launch', 5, ARRAY['launched']::text[] FROM u RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, 5, 'waiting_owner', 'n8n', 'Ждёт решения владельца: G-launch' FROM u RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
     "options": {
-     "queryReplacement": "={{ [$('Load context').first().json.exp_id, $json.url] }}"
+     "queryReplacement": "={{ [$('Load context').first().json.exp_id, JSON.stringify($json.campaign), $('Publish live').first().json.url] }}"
     }
    },
    "credentials": {
@@ -356,16 +266,16 @@
    }
   },
   {
-   "id": "fe68ce39-1f2a-531f-bbfe-02782c869d07",
-   "name": "Compose approval",
+   "id": "06a9d2f3-9275-5de2-9507-679dc936f1a4",
+   "name": "Compose launch steps",
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2880,
+    2160,
     -280
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst x = $('Load context').first().json, pub = $('Publish preview').first().json;\nconst t = $('Save, open gate').first().json.token;\nreturn [{ json: { text: `🖥 <b>${esc(x.exp_id)}: лендинг готов</b> — проверка кодом пройдена.\\n${esc(x.title)}\\n\\n` +\n  `<a href=\"${pub.preview_url}\">Открыть превью</a> (видно только по этой ссылке, визиты не считаются)\\n\\n` +\n  `<a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${t}&c=approve\">Опубликовать</a> — после этого агент готовит кампанию. Не нравится — напиши, что поменять.` } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst x = $('Load context').first().json, cmp = $('Validate campaign').first().json.campaign || {};\nconst t = $('Save campaign, open gate').first().json.token;\nconst steps = (cmp.owner_steps || []).map(s => esc(s)).join('\\n');\nconst ads = (cmp.ads || []).slice(0, 1).map(a => '«' + esc((a.headlines || []).slice(0, 3).join(' | ')) + '»').join('');\nreturn [{ json: { text: `🚀 <b>${esc(x.exp_id)}: кампания готова</b> · ${esc(cmp.channel)} · бюджет $${cmp.budget_usd}, не больше $${cmp.daily_cap_usd}/день\\n` +\n  `Лендинг: ${esc($('Publish live').first().json.url)}\\n${ads ? 'Объявление: ' + ads + '\\n' : ''}\\n<b>Как запустить:</b>\\n${steps}\\n\\n` +\n  `Полная спецификация (ключи, тексты, ссылки) — в n8n и в /work/${esc(x.exp_id)}/test/campaign.json.\\n` +\n  `<a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${t}&c=launched\">Я запустил кампанию</a> — с этого момента считаем тест. Траты отмечай в пульте: action=cost&source=ads.` } }];"
    }
   },
   {
@@ -374,7 +284,7 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
-    3120,
+    2400,
     -280
    ],
    "parameters": {
@@ -404,10 +314,10 @@
    "typeVersion": 2,
    "position": [
     1200,
-    160
+    260
    ],
    "parameters": {
-    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst failed = (r.checks || []).filter(x => !x.passed).map(x => '✗ ' + x.detail).join('\\n');\nconst why = failed || r.error || r.result || 'нет ответа от агента';\nreturn [{ json: { exp_id: exp, stage: 4, kind: 'stage_failed', actor: 'n8n', message: '⛔ 04 · Landing: ' + String(why).slice(0, 700), notify: true } }];"
+    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst failed = (r.checks || []).filter(x => !x.passed).map(x => '✗ ' + x.detail).join('\\n');\nconst why = failed || r.error || r.result || 'нет ответа от агента';\nreturn [{ json: { exp_id: exp, stage: 5, kind: 'stage_failed', actor: 'n8n', message: '⛔ 05 · Traffic: ' + String(why).slice(0, 700), notify: true } }];"
    }
   },
   {
@@ -417,7 +327,7 @@
    "typeVersion": 2.5,
    "position": [
     1440,
-    160
+    260
    ],
    "parameters": {
     "operation": "executeQuery",
@@ -441,7 +351,7 @@
    "typeVersion": 2,
    "position": [
     1680,
-    160
+    260
    ],
    "parameters": {
     "jsCode": "return [{ json: $('Stage failed').first().json }];"
@@ -454,7 +364,7 @@
    "typeVersion": 1.2,
    "position": [
     1920,
-    160
+    260
    ],
    "parameters": {
     "source": "database",
@@ -479,7 +389,7 @@
     460
    ],
    "parameters": {
-    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 4, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 04 · 04 · Landing остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 5, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 05 · 05 · Traffic остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
    }
   },
   {
@@ -561,18 +471,18 @@
    "main": [
     [
      {
-      "node": "Agent: landing",
+      "node": "Publish live",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Agent: landing": {
+  "Publish live": {
    "main": [
     [
      {
-      "node": "QA landing",
+      "node": "Agent: traffic",
       "type": "main",
       "index": 0
      }
@@ -586,40 +496,11 @@
     ]
    ]
   },
-  "QA landing": {
+  "Agent: traffic": {
    "main": [
     [
      {
-      "node": "QA passed?",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "QA passed?": {
-   "main": [
-    [
-     {
-      "node": "Publish preview",
-      "type": "main",
-      "index": 0
-     }
-    ],
-    [
-     {
-      "node": "Agent: fix landing",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Agent: fix landing": {
-   "main": [
-    [
-     {
-      "node": "QA again",
+      "node": "Validate campaign",
       "type": "main",
       "index": 0
      }
@@ -633,22 +514,22 @@
     ]
    ]
   },
-  "QA again": {
+  "Validate campaign": {
    "main": [
     [
      {
-      "node": "Fixed?",
+      "node": "Checks passed?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Fixed?": {
+  "Checks passed?": {
    "main": [
     [
      {
-      "node": "Publish preview",
+      "node": "Save campaign, open gate",
       "type": "main",
       "index": 0
      }
@@ -662,29 +543,18 @@
     ]
    ]
   },
-  "Publish preview": {
+  "Save campaign, open gate": {
    "main": [
     [
      {
-      "node": "Save, open gate",
+      "node": "Compose launch steps",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Save, open gate": {
-   "main": [
-    [
-     {
-      "node": "Compose approval",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Compose approval": {
+  "Compose launch steps": {
    "main": [
     [
      {

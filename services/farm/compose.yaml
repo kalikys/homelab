@@ -95,6 +95,11 @@ services:
       HAS_SUBSCRIPTION: ${CLAUDE_CODE_OAUTH_TOKEN:+1}
       HAS_API_KEY: ${ANTHROPIC_API_KEY:+1}
       MODEL_PROXY: http://172.30.0.5
+      # Landing publishing (stage 04) by the server only; agents run as uid 1000 and cannot read these.
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
+      CF_API_TOKEN: ${CF_API_TOKEN:-}
+      CF_KV_SITES_ID: ${CF_KV_SITES_ID:-}
+      LANDING_BASE_URL: ${LANDING_BASE_URL:-}
       MAX_BUDGET_PER_RUN_USD: ${MAX_BUDGET_PER_RUN_USD:-8}
       HTTP_PROXY: http://172.30.0.3:3128
       HTTPS_PROXY: http://172.30.0.3:3128

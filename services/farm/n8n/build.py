@@ -23,6 +23,8 @@ CHAT = env["OWNER_CHAT_ID"]
 PG = {"postgres": {"id": env["PG_CRED_ID"], "name": "Farm DB (farm)"}}
 TG = {"telegramApi": {"id": env["TG_CRED_ID"], "name": "Telegram (Hermes bot, send only)"}}
 RUNNER = {"httpHeaderAuth": {"id": env["RUNNER_CRED_ID"], "name": "Agent runner token"}}
+LANDING = {"httpHeaderAuth": {"id": env["LANDING_CRED_ID"], "name": "Landing stats token"}}
+LANDING_URL = env["LANDING_BASE_URL"].rstrip("/")
 BASE = "https://n8n.home.kalik8s.ru/webhook"
 RUNNER_URL = "http://172.30.0.10:8080"
 FORCE = "--force" in sys.argv
@@ -209,7 +211,7 @@ PREFLIGHT_SQL = """WITH s AS (
          max(value) FILTER (WHERE key = 'budget_month_usd')::numeric AS cap
   FROM settings),
 e AS (SELECT * FROM experiments WHERE id = $1),
-a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner') AND track = (SELECT track FROM e)),
+a AS (SELECT count(*) AS n FROM experiments WHERE status IN ('active', 'running', 'waiting_owner', 'testing') AND track = (SELECT track FROM e)),
 m AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE ts >= date_trunc('month', now()) AND source NOT LIKE 'claude_%'),
 x AS (SELECT coalesce(sum(usd), 0) AS spent FROM costs WHERE exp_id = $1 AND source NOT LIKE 'claude_%'),
 checks AS (
@@ -275,8 +277,8 @@ TRACKS = {
                 "disc_name": "01 · Discovery", "dd_name": "02 · Due diligence and pitch", "dd_legacy": "02 · Brief choice",
                 "disc_input": "Find 5 to 8 candidate briefs; stop when at least 5 pass the checklist",
                 "pick_limit": 5, "dd_title": "инвестиционные меморандумы", "choice": "Выбрать для смоук-теста",
-                "disc_about": "## 01 · Discovery (стартапы)\nАгент ищет боли с доказательствами денег → 5–8 брифов.\n\n**Guardrails:** preflight · ошибка агента → этап блокируется · проверка **кодом**: поля, чек-лист, CPC ≤ $1, канал, ≥2 типа источников, ≥3 цитаты дословно.\n\nУспех → этап 02 запускается сам.",
-                "dd_about": "## 02 · Due diligence and pitch (стартапы)\nАналитики по ≤5 брифам: спрос (≥4 типа источников), рынок, конкуренты, юнит-экономика, план теста, red team → `memo.json` → проверка кодом → PDF.\n\n**Тебе уходят только лучшие:** проверка пройдена, вердикт не «pass», оценка ≥ `min_show_score`, максимум `max_shown` по убыванию оценки.\n\n**Твой шаг:** G1 — выбрать идею по PDF."},
+                "disc_about": "## 01 · Discovery (стартапы)\nАгент получает память фермы (история идей, уроки) и ищет задачи, за которые уже платят → 5–8 брифов. Запрещены «дешёвые клоны лидера».\n\n**Guardrails (код):** поля и чек-лист · ≥ 2 типа источников · ≥ 3 цитаты найдены дословно (эхо собственного запроса не считается) · **экономика**: LTV ≥ $150; платный канал — CPC из цитаты свежего бенчмарка ≤ $1 и LTV/CAC ≥ 1,5; органический — проверенная цифра спроса в канале.\n\nНикто не прошёл → `93` (уроки + новый раунд). Успех → этап 02 сам.",
+                "dd_about": "## 02 · Due diligence and pitch (стартапы)\nАналитики по ≤ 5 брифам: спрос, рынок, конкуренты, юнит-экономика, план теста, red team → `memo.json` → проверка кодом (счёт только по подтверждённым цитатам, потолки допущений) → **панель 3 независимых судей** (не видят оценку автора, обязаны проверить факт по ссылке) → PDF.\n\n**Тебе уходят только лучшие:** медиана судей ≥ `min_show_score`, не «pass», максимум `max_shown`. В PDF — слайд «Что нужно от инвестора».\n\n**Твой шаг:** G1 — выбрать идею по PDF. Без этого ни одного доллара на тест."},
     "game": {"p": "G", "disc_role": "game-discovery", "dd_role": "game-diligence", "dd_validate": "game-diligence", "noun": "концептов",
              "disc_name": "G01 · Game discovery", "dd_name": "G02 · Game due diligence and pitch", "dd_legacy": None,
              "disc_input": "Find 4 to 6 game concepts; stop when at least 4 pass the checklist",
@@ -571,15 +573,253 @@ for track, cfg in TRACKS.items():
     STAGE_WF[f"{track}:2"] = build_diligence(track, cfg)
     STAGE_WF[f"{track}:1"] = build_discovery(track, cfg, STAGE_WF[f"{track}:2"])
 
+
+# ---------- startup 03-05: smoke test (pre-registration → landing → traffic), each step behind an owner gate ----------
+TEST_CTX_SQL = f"""SELECT e.id AS exp_id, e.chosen_brief AS slug, e.prereg, e.landing_url, e.title,
+  (SELECT value FROM settings WHERE key = 'budget_test_usd')::numeric AS budget_cap, {MEMORY_SQL} AS memory, {USE_API_SQL} AS use_api
+FROM experiments e WHERE e.id = $1"""
+
+
+def runner_post(name, path_expr, body_expr, pos, timeout=600000, extra=None):
+    params = {"method": "POST", "url": path_expr, "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+              "options": {"timeout": timeout}}
+    if body_expr:
+        params.update({"sendBody": True, "specifyBody": "json", "jsonBody": body_expr})
+    return node(name, "n8n-nodes-base.httpRequest", 4.2, params, pos, RUNNER, extra=extra)
+
+
+def agent_body(role, stage, note, extra_fields=""):
+    return ("={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: " + str(stage)
+            + ", max_turns: 60, budget_usd: 3, timeout_s: 2400, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api"
+            + ", memory: $('Load context').first().json.memory" + extra_fields + ", input: { note: " + json.dumps(note) + " } }) }}")
+
+
+def failure_branch(n, c, num, title, sources, pos_y=260):
+    js = f"""const exp = $('Expect this stage').first().json.exp_id;
+const r = $input.first().json || {{}};
+const failed = (r.checks || []).filter(x => !x.passed).map(x => '✗ ' + x.detail).join('\\n');
+const why = failed || r.error || r.result || 'нет ответа от агента';
+return [{{ json: {{ exp_id: exp, stage: {num}, kind: 'stage_failed', actor: 'n8n', message: '⛔ {title}: ' + String(why).slice(0, 700), notify: true }} }}];"""
+    n.append(code("Stage failed", js, [1200, pos_y]))
+    for src, out in sources:
+        link(c, src, "Stage failed", out)
+    n.append(sql("Mark blocked", RELEASE_SQL, "={{ [$json.exp_id, 'blocked'] }}", [1440, pos_y], extra={"alwaysOutputData": True}))
+    link(c, "Stage failed", "Mark blocked")
+    n.append(code("Pass failure on", "return [{ json: $('Stage failed').first().json }];", [1680, pos_y]))
+    link(c, "Mark blocked", "Pass failure on")
+    n.append(call("Log failure", LOG, [1920, pos_y]))
+    link(c, "Pass failure on", "Log failure")
+
+
+def gate_sql(gate, stage, choices, set_sql):
+    return f"""WITH u AS (UPDATE experiments SET {set_sql}, status = 'waiting_owner', updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id),
+g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices) SELECT id, '{gate}', {stage}, ARRAY{choices!r}::text[] FROM u RETURNING token),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, {stage}, 'waiting_owner', 'n8n', 'Ждёт решения владельца: {gate}' FROM u RETURNING 1)
+SELECT (SELECT token FROM g) AS token"""
+
+
+def build_prereg():
+    c, n = {}, []
+    stage_head(n, c, 3, "## 03 · Pre-registration\nАгент пишет условия смоук-теста до любых трат: предложение и цена, канал, бюджет, n посетителей, пороги **GO / KILL** и раннюю остановку.\n\n**Guardrails (код):** бюджет ≤ `budget_test_usd` · цена как в меморандуме · порог GO не ниже конверсии из расчёта CAC · n ≥ 100 · 3–21 день.\n\n**Твой шаг:** PDF «Условия теста» → одноразовая ссылка «Утверждаю». После «да» условия фиксируются хэшем.")
+    n.append(sql("Load context", TEST_CTX_SQL, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
+    link(c, "All checks passed?", "Load context", 0)
+    n.append(runner_post("Agent: preregistration", f"{RUNNER_URL}/run/preregistration",
+                         agent_body("preregistration", 3, "Write prereg.json for the chosen idea", ", input_budget_cap_usd: $('Load context').first().json.budget_cap"),
+                         [960, -120], 10800000, extra={"onError": "continueErrorOutput"}))
+    link(c, "Load context", "Agent: preregistration")
+    n.append(if_true("Agent succeeded?", "={{ $json.ok === true }}", [1200, -120]))
+    link(c, "Agent: preregistration", "Agent succeeded?", 0)
+    n.append(runner_post("Validate pre-registration", f"={RUNNER_URL}/validate/prereg/{{{{ $('Load context').first().json.exp_id }}}}",
+                         "={{ JSON.stringify({ budget_cap_usd: $('Load context').first().json.budget_cap }) }}", [1440, -200]))
+    link(c, "Agent succeeded?", "Validate pre-registration", 0)
+    n.append(if_true("Checks passed?", "={{ $json.passed === true }}", [1680, -200]))
+    link(c, "Validate pre-registration", "Checks passed?")
+    n.append(sql("Save plan, open gate", gate_sql("G-prereg", 3, ["approve"], "prereg = $2::jsonb, prereg_hash = $3"),
+                 "={{ [$('Load context').first().json.exp_id, JSON.stringify($json.prereg), $json.hash] }}", [1920, -280]))
+    link(c, "Checks passed?", "Save plan, open gate", 0)
+    n.append(runner_post("Render test-plan PDF", f"={RUNNER_URL}/render/prereg/{{{{ $('Load context').first().json.exp_id }}}}", None, [2160, -280], 300000))
+    link(c, "Save plan, open gate", "Render test-plan PDF")
+    n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
+                  {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $('Load context').first().json.exp_id }}}}/test/test_plan.pdf",
+                   "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+                   "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}}, [2400, -280], RUNNER))
+    link(c, "Render test-plan PDF", "Download PDF")
+    n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
+                  {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
+                   "additionalFields": {"caption": "={{ '📋 ' + $('Load context').first().json.exp_id + ' · условия смоук-теста' }}",
+                                        "fileName": "={{ $('Load context').first().json.exp_id + '-test-plan.pdf' }}"}},
+                  [2640, -280], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000}))
+    link(c, "Download PDF", "Send PDF")
+    msg = ESC_JS + f"""const x = $('Load context').first().json, p = $('Validate pre-registration').first().json.prereg || {{}};
+const t = $('Save plan, open gate').first().json.token;
+const pct = v => (Number(v) * 100).toFixed(1) + '%';
+const th = p.thresholds || {{}};
+return [{{ json: {{ text: `📋 <b>${{esc(x.exp_id)}}: условия смоук-теста</b> (PDF выше)\\n${{esc(x.title)}}\\n\\n` +
+  `Бюджет $${{p.budget_usd}} (≤ $${{p.daily_cap_usd}}/день) · ${{p.duration_days}} дн. · цель ${{p.target_visitors}} посетителей · канал ${{esc(p.channel)}}\\n` +
+  `GO: заявки ≥ ${{pct((th.go || {{}}).signup_rate)}} · KILL: ≤ ${{pct((th.kill || {{}}).signup_rate)}}\\n\\n` +
+  `<a href="{BASE}/farm-gate?g=${{t}}&c=approve">Утверждаю условия</a> — одноразовая ссылка, 72 ч. Не согласен — просто не нажимай и напиши, что поменять.` }} }}];"""
+    n.append(code("Compose approval", msg, [2880, -280]))
+    link(c, "Send PDF", "Compose approval")
+    n.append(telegram("Ask owner", "={{ $json.text }}", [3120, -280]))
+    link(c, "Compose approval", "Ask owner")
+    failure_branch(n, c, 3, "03 · Pre-registration", [("Agent: preregistration", 1), ("Agent succeeded?", 1), ("Checks passed?", 1)])
+    blocked_branch(n, c, 3, "03 · Pre-registration", pos_y=460)
+    return upsert("03 · Pre-registration", n, c, ERR, executionTimeout=12000)
+
+
+def build_landing():
+    c, n = {}, []
+    stage_head(n, c, 4, "## 04 · Landing\nАгент пишет статический лендинг (HTML/CSS) по утверждённым условиям. Счётчик визитов, кликов по цене и заявок вставляет **Worker фермы**, не агент.\n\n**Guardrails (код):** index/privacy/terms · без скриптов и внешних ресурсов · цена как в условиях · кнопки цены и форма · честно «продукт в разработке, оплата не берётся» · без выдуманных отзывов и цифр. Не прошёл — одна попытка исправить по списку ошибок.\n\n**Твой шаг:** открыть превью → «Опубликовать».")
+    n.append(sql("Load context", TEST_CTX_SQL, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
+    link(c, "All checks passed?", "Load context", 0)
+    qa_body = "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg }) }}"
+    n.append(runner_post("Agent: landing", f"{RUNNER_URL}/run/landing",
+                         agent_body("landing", 4, "Build the landing in landing/ from prereg.json", ", prereg: $('Load context').first().json.prereg"),
+                         [960, -120], 10800000, extra={"onError": "continueErrorOutput"}))
+    link(c, "Load context", "Agent: landing")
+    n.append(runner_post("QA landing", f"={RUNNER_URL}/qa/landing/{{{{ $('Load context').first().json.exp_id }}}}", qa_body, [1200, -200]))
+    link(c, "Agent: landing", "QA landing", 0)
+    n.append(if_true("QA passed?", "={{ $json.passed === true }}", [1440, -200]))
+    link(c, "QA landing", "QA passed?")
+    fix_note = "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 4, max_turns: 30, timeout_s: 1800, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, prereg: $('Load context').first().json.prereg, input: { note: 'The farm QA rejected landing/. Fix exactly these problems, keep everything else: ' + ($('QA landing').first().json.checks || []).filter(x => !x.passed).map(x => x.detail).join('; ') } }) }}"
+    n.append(runner_post("Agent: fix landing", f"{RUNNER_URL}/run/landing", fix_note, [1680, -80], 10800000, extra={"onError": "continueErrorOutput"}))
+    link(c, "QA passed?", "Agent: fix landing", 1)
+    n.append(runner_post("QA again", f"={RUNNER_URL}/qa/landing/{{{{ $('Load context').first().json.exp_id }}}}", qa_body, [1920, -80]))
+    link(c, "Agent: fix landing", "QA again", 0)
+    n.append(if_true("Fixed?", "={{ $json.passed === true }}", [2160, -80]))
+    link(c, "QA again", "Fixed?")
+    n.append(runner_post("Publish preview", f"={RUNNER_URL}/publish/landing/{{{{ $('Load context').first().json.exp_id }}}}", '={"mode": "preview"}', [2400, -280]))
+    link(c, "QA passed?", "Publish preview", 0)
+    link(c, "Fixed?", "Publish preview", 0)
+    n.append(sql("Save, open gate", gate_sql("G-publish", 4, ["approve"], "landing_url = $2"),
+                 "={{ [$('Load context').first().json.exp_id, $json.url] }}", [2640, -280]))
+    link(c, "Publish preview", "Save, open gate")
+    msg = ESC_JS + f"""const x = $('Load context').first().json, pub = $('Publish preview').first().json;
+const t = $('Save, open gate').first().json.token;
+return [{{ json: {{ text: `🖥 <b>${{esc(x.exp_id)}}: лендинг готов</b> — проверка кодом пройдена.\\n${{esc(x.title)}}\\n\\n` +
+  `<a href="${{pub.preview_url}}">Открыть превью</a> (видно только по этой ссылке, визиты не считаются)\\n\\n` +
+  `<a href="{BASE}/farm-gate?g=${{t}}&c=approve">Опубликовать</a> — после этого агент готовит кампанию. Не нравится — напиши, что поменять.` }} }}];"""
+    n.append(code("Compose approval", msg, [2880, -280]))
+    link(c, "Save, open gate", "Compose approval")
+    n.append(telegram("Ask owner", "={{ $json.text }}", [3120, -280]))
+    link(c, "Compose approval", "Ask owner")
+    failure_branch(n, c, 4, "04 · Landing", [("Agent: landing", 1), ("Agent: fix landing", 1), ("Fixed?", 1)], pos_y=160)
+    blocked_branch(n, c, 4, "04 · Landing", pos_y=460)
+    return upsert("04 · Landing", n, c, ERR, executionTimeout=12000)
+
+
+def build_traffic():
+    c, n = {}, []
+    stage_head(n, c, 5, "## 05 · Traffic\nЛендинг публикуется → агент готовит кампанию: объявления или письма, ключи/аудитории, лимиты, ссылки с UTM, пошаговая инструкция.\n\n**Guardrails (код):** канал и бюджет как в условиях · дневной лимит · все ссылки с utm_campaign=EXP · лимиты длины объявлений · для писем — отписка, адрес, вне ЕС.\n\n**Твой шаг:** запустить кампанию по инструкции → «Я запустил». Дальше метрики собирает `05m`.")
+    n.append(sql("Load context", TEST_CTX_SQL, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
+    link(c, "All checks passed?", "Load context", 0)
+    n.append(runner_post("Publish live", f"={RUNNER_URL}/publish/landing/{{{{ $('Load context').first().json.exp_id }}}}", '={"mode": "live"}', [960, -120], extra={"onError": "continueErrorOutput"}))
+    link(c, "Load context", "Publish live")
+    n.append(runner_post("Agent: traffic", f"{RUNNER_URL}/run/traffic",
+                         agent_body("traffic", 5, "Write campaign.json for the owner", ", prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url"),
+                         [1200, -120], 10800000, extra={"onError": "continueErrorOutput"}))
+    link(c, "Publish live", "Agent: traffic", 0)
+    n.append(runner_post("Validate campaign", f"={RUNNER_URL}/validate/campaign/{{{{ $('Load context').first().json.exp_id }}}}",
+                         "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url }) }}", [1440, -200]))
+    link(c, "Agent: traffic", "Validate campaign", 0)
+    n.append(if_true("Checks passed?", "={{ $json.passed === true }}", [1680, -200]))
+    link(c, "Validate campaign", "Checks passed?")
+    n.append(sql("Save campaign, open gate", gate_sql("G-launch", 5, ["launched"], "campaign = $2::jsonb, landing_url = $3"),
+                 "={{ [$('Load context').first().json.exp_id, JSON.stringify($json.campaign), $('Publish live').first().json.url] }}", [1920, -280]))
+    link(c, "Checks passed?", "Save campaign, open gate", 0)
+    msg = ESC_JS + f"""const x = $('Load context').first().json, cmp = $('Validate campaign').first().json.campaign || {{}};
+const t = $('Save campaign, open gate').first().json.token;
+const steps = (cmp.owner_steps || []).map(s => esc(s)).join('\\n');
+const ads = (cmp.ads || []).slice(0, 1).map(a => '«' + esc((a.headlines || []).slice(0, 3).join(' | ')) + '»').join('');
+return [{{ json: {{ text: `🚀 <b>${{esc(x.exp_id)}}: кампания готова</b> · ${{esc(cmp.channel)}} · бюджет $${{cmp.budget_usd}}, не больше $${{cmp.daily_cap_usd}}/день\\n` +
+  `Лендинг: ${{esc($('Publish live').first().json.url)}}\\n${{ads ? 'Объявление: ' + ads + '\\n' : ''}}\\n<b>Как запустить:</b>\\n${{steps}}\\n\\n` +
+  `Полная спецификация (ключи, тексты, ссылки) — в n8n и в /work/${{esc(x.exp_id)}}/test/campaign.json.\\n` +
+  `<a href="{BASE}/farm-gate?g=${{t}}&c=launched">Я запустил кампанию</a> — с этого момента считаем тест. Траты отмечай в пульте: action=cost&source=ads.` }} }}];"""
+    n.append(code("Compose launch steps", msg, [2160, -280]))
+    link(c, "Save campaign, open gate", "Compose launch steps")
+    n.append(telegram("Ask owner", "={{ $json.text }}", [2400, -280]))
+    link(c, "Compose launch steps", "Ask owner")
+    failure_branch(n, c, 5, "05 · Traffic", [("Publish live", 1), ("Agent: traffic", 1), ("Checks passed?", 1)])
+    blocked_branch(n, c, 5, "05 · Traffic", pos_y=460)
+    return upsert("05 · Traffic", n, c, ERR, executionTimeout=12000)
+
+
+METRICS_SQL = """SELECT e.id AS exp_id, e.title, e.prereg, e.test_started_at, e.landing_url,
+  EXISTS (SELECT 1 FROM decisions d WHERE d.exp_id = e.id AND d.gate = 'G2' AND d.decision = 'extend') AS extended,
+  (SELECT coalesce(sum(usd), 0) FROM costs c WHERE c.exp_id = e.id AND c.source NOT LIKE 'claude_%' AND c.ts >= e.test_started_at) AS spend
+FROM experiments e WHERE e.status = 'testing' AND e.test_started_at IS NOT NULL"""
+EVAL_JS = """// Decision by the pre-registered rule only (code, no LLM).
+return $input.all().map((it, k) => {
+  const x = $('Testing experiments').all()[k].json, s = it.json || {};
+  const p = x.prereg || {}, th = p.thresholds || {}, early = th.early_kill || {};
+  const t = s.total || {}, v = Number(t.visitors || 0), cta = Number(t.cta_visitors || 0), su = Number(t.signups || 0);
+  const mult = x.extended ? 1.5 : 1;
+  const days = (Date.now() - new Date(x.test_started_at).getTime()) / 86400000;
+  const sr = v ? su / v : 0, cr = v ? cta / v : 0;
+  let decision = null, reason = '';
+  if (v >= Number(early.after_visitors || 1e9) && cr < Number(early.cta_rate_below || 0)) { decision = 'kill'; reason = `ранняя остановка: ${v} посетителей, клики по цене ${(cr * 100).toFixed(1)}% < ${(early.cta_rate_below * 100).toFixed(1)}%`; }
+  else if (v >= Number(p.target_visitors || 1e9) * mult || days >= Number(p.duration_days || 1e9) * mult) {
+    if (sr >= Number((th.go || {}).signup_rate)) { decision = 'go'; reason = `заявки ${(sr * 100).toFixed(1)}% ≥ порога GO`; }
+    else if (sr <= Number((th.kill || {}).signup_rate)) { decision = 'kill'; reason = `заявки ${(sr * 100).toFixed(1)}% ≤ порога KILL`; }
+    else { decision = x.extended ? 'kill' : 'extend'; reason = x.extended ? 'после продления всё ещё между порогами' : 'между порогами — правило говорит продлить'; }
+    if (v < 30) reason += ` (мало трафика: ${v} посетителей)`;
+  }
+  return { json: { exp_id: x.exp_id, title: x.title, stats: s, visitors: v, cta, signups: su, signup_rate: sr, cta_rate: cr, days: Math.round(days * 10) / 10,
+                   spend: Number(x.spend), decision, reason } };
+});"""
+METRICS_SAVE_SQL = """WITH j AS (SELECT $1::jsonb AS j),
+m AS (INSERT INTO metrics (exp_id, day, visits, cta_visitors, signups, spend_usd)
+      SELECT j->>'exp_id', (d->>'day')::date, (d->>'visitors')::int, (d->>'cta_visitors')::int,
+             coalesce((SELECT (x->>'signups')::int FROM jsonb_array_elements(j->'stats'->'signups_by_day') x WHERE x->>'day' = d->>'day'), 0), NULL
+      FROM j, jsonb_array_elements(coalesce(j->'stats'->'days', '[]'::jsonb)) d
+      ON CONFLICT (exp_id, day) DO UPDATE SET visits = EXCLUDED.visits, cta_visitors = EXCLUDED.cta_visitors, signups = EXCLUDED.signups RETURNING 1),
+u AS (UPDATE experiments SET stage = 6, status = 'waiting_owner', updated_at = now()
+      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'testing' AND (SELECT j->>'decision' FROM j) IS NOT NULL RETURNING id),
+g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)
+      SELECT id, 'G2', 6, ARRAY(SELECT DISTINCT unnest(ARRAY[(SELECT j->>'decision' FROM j), 'kill'])) FROM u RETURNING token),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
+       SELECT id, 6, 'test_finished', 'n8n', 'Смоук-тест: ' || (SELECT j->>'decision' FROM j) || ' — ' || (SELECT j->>'reason' FROM j) FROM u RETURNING 1)
+SELECT (SELECT token FROM g) AS token, (SELECT count(*) FROM m) AS days_saved"""
+METRICS_MSG_JS = ESC_JS + f"""const x = $('Evaluate by the rule').item.json, t = $json.token;
+const pct = v => (v * 100).toFixed(1) + '%';
+const label = {{ go: '🟢 GO — строим MVP', kill: '🔴 KILL — закрываем', extend: '🟡 EXTEND — продлить тест' }};
+const links = [x.decision, 'kill'].filter((v, i, a) => a.indexOf(v) === i)
+  .map(c => `<a href="{BASE}/farm-gate?g=${{t}}&c=${{c}}">${{label[c]}}</a>`).join('\\n');
+return [{{ json: {{ text: `🧪 <b>${{esc(x.exp_id)}}: смоук-тест завершён</b>\\n${{esc(x.title)}}\\n\\n` +
+  `Посетителей ${{x.visitors}} · клики по цене ${{x.cta}} (${{pct(x.cta_rate)}}) · заявок ${{x.signups}} (${{pct(x.signup_rate)}}) · ${{x.days}} дн. · траты $${{x.spend}}\\n` +
+  `По правилу: <b>${{x.decision.toUpperCase()}}</b> — ${{esc(x.reason)}}\\n\\n${{links}}` }} }}];"""
+
+
+def build_metrics():
+    c, n = {}, []
+    n += [
+        sticky("## 05m · Smoke-test metrics\nКаждые 6 ч для экспериментов в статусе `testing`: статистика Worker'а (уникальные посетители без ботов, клики по цене, заявки) → таблица `metrics` → решение **кодом по правилу предрегистрации**: ранняя остановка, GO, KILL или EXTEND (один раз ×1,5).\nРешение → этап 06, тебе — цифры и ссылки GO / KILL.", [-80, -400], 560, 260),
+        schedule("Every 6 hours", "23 */6 * * *", [0, 0]),
+        sql("Testing experiments", METRICS_SQL, None, [240, 0]),
+        node("Landing stats", "n8n-nodes-base.httpRequest", 4.2,
+             {"method": "GET", "url": f"={LANDING_URL}/stats?exp={{{{ $json.exp_id }}}}", "authentication": "genericCredentialType",
+              "genericAuthType": "httpHeaderAuth", "options": {"timeout": 60000}}, [480, 0], LANDING),
+        code("Evaluate by the rule", EVAL_JS, [720, 0]),
+        sql("Save metrics, decide", METRICS_SAVE_SQL, "={{ [JSON.stringify($json)] }}", [960, 0]),
+        if_true("Decision made?", "={{ !!$json.token }}", [1200, 0]),
+        code("Compose result", METRICS_MSG_JS, [1440, -80]),
+        telegram("Tell owner", "={{ $json.text }}", [1680, -80]),
+    ]
+    for a, b in [("Every 6 hours", "Testing experiments"), ("Testing experiments", "Landing stats"), ("Landing stats", "Evaluate by the rule"),
+                 ("Evaluate by the rule", "Save metrics, decide"), ("Save metrics, decide", "Decision made?"), ("Compose result", "Tell owner")]:
+        link(c, a, b)
+    link(c, "Decision made?", "Compose result", 0)
+    return upsert("05m · Smoke-test metrics", n, c, ERR)
+
+
+STAGE_WF["startup:3"] = build_prereg()
+STAGE_WF["startup:4"] = build_landing()
+STAGE_WF["startup:5"] = build_traffic()
+METRICS = build_metrics()
+
 # ---------- stage skeletons 03–08 for both tracks ----------
 SKELETONS = {
     "startup": [
-        (3, "Pre-registration", "preregistration", "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
-         "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.", "Твой шаг: одобрить пороги."),
-        (4, "Landing", "landing", "Агент: лендинг → превью на Cloudflare Pages.",
-         "Guardrails: HTTP 200 · форма пишет в waitlist · аналитика · Terms и Privacy · цена как в брифе.", "Твой шаг: одобрить публикацию."),
-        (5, "Traffic and metrics", "traffic", "Агент: спецификация кампании, ежедневный сбор метрик в `metrics`.",
-         "Guardrails: трата ≤ budget_day_usd и ≤ бюджета теста · ранний KILL на 100 визитах.", "Твой шаг: одобрить деньги и запустить кампанию."),
         (6, "Decision", None, "Решение по правилу предрегистрации.",
          "Guardrails: GO / KILL / продление только по правилу; переопределение пишется в decisions.", "Твой шаг: G2 — подтвердить."),
         (7, "Build MVP", "builder", "Агент: MVP в песочнице (только после GO).",
@@ -718,7 +958,7 @@ WATCH = upsert("92 · Guardrail watchdog", n, c, ERR)
 
 # ---------- 95 Owner gates: one-time links, confirm page (GET) → apply (POST) ----------
 GATE_LOOKUP_SQL = """SELECT t.token, t.exp_id, t.gate, t.stage, t.choices, t.expires_at, t.used_at, t.choice,
-       e.status, e.stage AS exp_stage, e.briefs,
+       e.status, e.stage AS exp_stage, e.briefs, e.title, e.landing_url, e.prereg, e.campaign,
        (t.used_at IS NULL AND t.expires_at > now() AND e.status = 'waiting_owner' AND e.stage = t.stage AND $2 = ANY (t.choices)) AS valid
 FROM gate_tokens t JOIN experiments e ON e.id = t.exp_id WHERE t.token = $1"""
 PAGE_CSS = "body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}"
@@ -731,30 +971,48 @@ if (!r.valid) {{
   return [{{ json: {{ html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${{why}}</p>`) }} }}];
 }}
 const b = (r.briefs || []).find(x => x.slug === q.c) || {{ title: q.c }};
-const body = `<h1>${{esc(r.exp_id)}} · ${{esc(r.gate)}}</h1><div class="card"><p class="muted">Выбор идеи для смоук-теста</p><p><b>${{esc(b.title)}}</b></p><p class="muted">канал ${{esc(b.channel)}} · CPC ~$${{esc(b.cpc)}} · цена ${{esc(b.price)}}</p>
-<form method="post" action="{BASE}/farm-gate"><input type="hidden" name="g" value="${{esc(r.token)}}"><input type="hidden" name="c" value="${{esc(q.c)}}"><button type="submit">Подтвердить выбор</button></form></div>
-<p class="muted">Ссылка одноразовая. После подтверждения эксперимент перейдёт на этап ${{r.stage + 1}}.</p>`;
-return [{{ json: {{ html: page('Подтвердить выбор', body) }} }}];"""
+const p = r.prereg || {{}}, cmp = r.campaign || {{}};
+const what = {{
+  'G1': ['Выбор идеи для смоук-теста', `<p><b>${{esc(b.title)}}</b></p><p class="muted">канал ${{esc(b.channel)}} · цена ${{esc(b.price)}}</p>`, 'Подтвердить выбор', 'Агент напишет условия теста (без трат).'],
+  'G-prereg': ['Условия смоук-теста', `<p><b>${{esc(r.title)}}</b></p><p class="muted">бюджет $${{esc(p.budget_usd)}} · ${{esc(p.duration_days)}} дн. · ${{esc(p.channel)}}</p>`, 'Утверждаю условия', 'Условия фиксируются, агент делает лендинг.'],
+  'G-publish': ['Публикация лендинга', `<p><b>${{esc(r.title)}}</b></p><p class="muted">${{esc(r.landing_url)}}</p>`, 'Опубликовать', 'Лендинг откроется для всех, агент подготовит кампанию.'],
+  'G-launch': ['Запуск кампании', `<p><b>${{esc(r.title)}}</b></p><p class="muted">${{esc(cmp.channel)}} · бюджет $${{esc(cmp.budget_usd)}}</p>`, 'Я запустил кампанию', 'С этого момента считаем тест.'],
+  'G2': ['Решение по смоук-тесту', `<p><b>${{esc(r.title)}}</b></p><p>Выбор: <b>${{esc(q.c).toUpperCase()}}</b></p>`, 'Подтвердить решение', 'GO — дальше MVP, KILL — закрываем, EXTEND — тест продлевается.'],
+}}[r.gate] || ['Решение', '', 'Подтвердить', ''];
+const body = `<h1>${{esc(r.exp_id)}} · ${{esc(r.gate)}}</h1><div class="card"><p class="muted">${{what[0]}}</p>${{what[1]}}
+<form method="post" action="{BASE}/farm-gate"><input type="hidden" name="g" value="${{esc(r.token)}}"><input type="hidden" name="c" value="${{esc(q.c)}}"><button type="submit">${{what[2]}}</button></form></div>
+<p class="muted">Ссылка одноразовая. ${{what[3]}}</p>`;
+return [{{ json: {{ html: page(what[0], body) }} }}];"""
 GATE_APPLY_SQL = """WITH t AS (
   UPDATE gate_tokens g SET used_at = now(), choice = $2
   WHERE g.token = $1 AND g.used_at IS NULL AND g.expires_at > now() AND $2 = ANY (g.choices)
     AND EXISTS (SELECT 1 FROM experiments e WHERE e.id = g.exp_id AND e.status = 'waiting_owner' AND e.stage = g.stage)
   RETURNING g.exp_id, g.gate, g.stage),
 u AS (
-  UPDATE experiments e SET stage = least(e.stage + 1, 8), status = 'active',
+  UPDATE experiments e SET
+         stage = CASE WHEN t.gate = 'G-launch' OR (t.gate = 'G2' AND $2 = 'kill') THEN e.stage WHEN t.gate = 'G2' AND $2 = 'extend' THEN 5 ELSE least(e.stage + 1, 8) END,
+         status = CASE WHEN t.gate = 'G-launch' OR (t.gate = 'G2' AND $2 = 'extend') THEN 'testing' WHEN t.gate = 'G2' AND $2 = 'kill' THEN 'killed' ELSE 'active' END,
+         test_started_at = CASE WHEN t.gate = 'G-launch' THEN now() ELSE e.test_started_at END,
          chosen_brief = CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, updated_at = now()
-  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage),
-d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) SELECT exp_id, gate, 'approve', 'owner', $2 FROM t RETURNING 1),
-ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': выбран ' || $2 FROM t RETURNING 1)
-SELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage"""
+  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage, e.status, e.track, e.chosen_brief, e.prereg_hash),
+d AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, artifact_hash, note)
+      SELECT t.exp_id, t.gate, CASE WHEN $2 IN ('go', 'kill', 'extend') THEN $2 ELSE 'approve' END, 'owner',
+             CASE WHEN t.gate = 'G-prereg' THEN (SELECT prereg_hash FROM u) END, $2 FROM t RETURNING 1),
+h AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome)
+      SELECT e.id, e.track, e.round, CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, e.title,
+             CASE WHEN t.gate = 'G1' THEN 'chosen' WHEN $2 = 'go' THEN 'test_go' ELSE 'test_kill' END
+      FROM t JOIN experiments e ON e.id = t.exp_id WHERE t.gate = 'G1' OR (t.gate = 'G2' AND $2 IN ('go', 'kill')) RETURNING 1),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': ' || $2 FROM t RETURNING 1)
+SELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage,
+       (SELECT status FROM u) AS status, (SELECT track FROM u) AS track"""
 GATE_RESULT_JS = ESC_JS + f"""const r = $input.first().json || {{}};
 const ok = Number(r.applied) > 0;
 const title = ok ? 'Принято' : 'Не принято';
-const body = ok ? `<h1>Принято</h1><p>${{esc(r.exp_id)}} перешёл на этап ${{r.stage}}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';
-return [{{ json: {{ ok, exp_id: r.exp_id, stage: r.stage, html: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${{title}}</title><style>{PAGE_CSS}</style></head><body>${{body}}</body></html>` }} }}];"""
+const body = ok ? `<h1>Принято</h1><p>${{esc(r.exp_id)}}: этап ${{r.stage}}, статус ${{esc(r.status)}}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';
+return [{{ json: {{ ok, exp_id: r.exp_id, stage: r.stage, status: r.status, track: r.track, html: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${{title}}</title><style>{PAGE_CSS}</style></head><body>${{body}}</body></html>` }} }}];"""
 c = {}
 n = [
-    sticky("## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит на следующий этап. Повторный клик ничего не делает.\nСрок ссылки 72 ч. Таблица `gate_tokens`.", [-80, -380], 480, 270),
+    sticky("## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит дальше, следующий этап **стартует сразу**. Повторный клик ничего не делает.\nГейты: G1 идея (по PDF) → G-prereg условия теста (PDF) → G-publish лендинг → G-launch кампания запущена (статус testing) → G2 GO / KILL / EXTEND по правилу.\nСрок ссылки 72 ч. Таблица `gate_tokens`.", [-80, -380], 520, 300),
     webhook("Gate link", "farm-gate", "GET", [0, 0]),
     sql("Look up gate", GATE_LOOKUP_SQL, "={{ [$json.query.g || '', $json.query.c || ''] }}", [240, 0], extra={"alwaysOutputData": True}),
     code("Render confirm page", GATE_PAGE_JS, [480, 0]),
@@ -765,6 +1023,9 @@ n = [
     respond("Show result", "={{ $json.html }}", [720, 300], html=True),
     if_true("Accepted?", "={{ $('Render result').first().json.ok }}", [960, 300]),
     telegram("Confirm in Telegram", "=✅ <b>{{ $('Render result').first().json.exp_id }}</b>: решение принято, этап {{ $('Render result').first().json.stage }}.", [1200, 300]),
+    if_true("Next stage to run?", "={{ $('Render result').first().json.status === 'active' }}", [1440, 300]),
+    code("Pick stage workflow", "const r = $('Render result').first().json;\nconst map = " + json.dumps(STAGE_WF) + ";\nreturn [{ json: { exp_id: r.exp_id, workflow_id: map[(r.track || 'startup') + ':' + r.stage] } }];", [1680, 220]),
+    call("Start next stage", "={{ $json.workflow_id }}", [1920, 220], wait=False),
 ]
 link(c, "Gate link", "Look up gate")
 link(c, "Look up gate", "Render confirm page")
@@ -774,6 +1035,9 @@ link(c, "Apply decision", "Render result")
 link(c, "Render result", "Show result")
 link(c, "Show result", "Accepted?")
 link(c, "Accepted?", "Confirm in Telegram", 0)
+link(c, "Confirm in Telegram", "Next stage to run?")
+link(c, "Next stage to run?", "Pick stage workflow", 0)
+link(c, "Pick stage workflow", "Start next stage")
 GATES = upsert("95 · Owner gates", n, c, ERR, saveDataSuccessExecution="none")
 
 # ---------- 96 Read-only status API (Hermes) ----------

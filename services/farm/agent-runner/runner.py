@@ -16,6 +16,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import smoketest
 from panel import summarise_panel
 
 ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "reflector", "judges", "preregistration", "landing", "traffic", "builder", "analyst"}
@@ -92,6 +93,10 @@ def run(role, body):
                     v.pop("verdict", None)
                 (work / name).write_text(json.dumps(v, ensure_ascii=False, indent=2))
         (work / "panel.json").unlink(missing_ok=True)
+    elif role in smoketest.TEST_ROLES:
+        work, err = smoketest.prepare(exp, role, body)
+        if err:
+            return 404, {"ok": False, "error": err}
     elif role in DILIGENCE_ROLES:
         src_dir, in_name = DILIGENCE_ROLES[role]
         slug = body.get("slug", "")
@@ -535,6 +540,15 @@ def validate_game_diligence(exp, slug):
     return result
 
 
+def render_prereg(exp):
+    d = smoketest.test_dir(exp)
+    proc = subprocess.run(["python3", "/app/render_deck.py", "--prereg", str(d)], capture_output=True, text=True, timeout=300,
+                          preexec_fn=_drop_to_agent)
+    if proc.returncode != 0 or not (d / "test_plan.pdf").exists():
+        return 500, {"ok": False, "error": proc.stderr[-1500:]}
+    return 200, {"ok": True, "exp_id": exp, "pdf": "test/test_plan.pdf"}
+
+
 def render_diligence(exp, slug):
     d = Path("/work") / exp / "dd" / slug
     if not (d / "memo.json").exists():
@@ -598,6 +612,20 @@ class Handler(BaseHTTPRequestHandler):
         v = re.match(r"^/render/(?:game-)?diligence/((?:EXP|GAME)-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
         if v:
             return self._send(*render_diligence(v.group(1), v.group(2)))
+        t = re.match(r"^/(validate/prereg|qa/landing|publish/landing|validate/campaign|render/prereg)/((?:EXP|GAME)-\d{3})$", self.path)
+        if t:
+            length = int(self.headers.get("Content-Length", 0))
+            tbody = json.loads(self.rfile.read(length) or b"{}")
+            action, exp = t.group(1), t.group(2)
+            if action == "validate/prereg":
+                return self._send(200, smoketest.validate_prereg(exp, tbody))
+            if action == "qa/landing":
+                return self._send(200, smoketest.qa_landing(exp, tbody))
+            if action == "publish/landing":
+                return self._send(*smoketest.publish_landing(exp, tbody))
+            if action == "validate/campaign":
+                return self._send(200, smoketest.validate_campaign(exp, tbody))
+            return self._send(*render_prereg(exp))
         m = re.match(r"^/run/([a-z-]+)$", self.path)
         if not m or m.group(1) not in ROLES:
             return self._send(404, {"ok": False, "error": "unknown role"})

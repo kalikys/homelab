@@ -11,9 +11,9 @@
     -380
    ],
    "parameters": {
-    "content": "## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит на следующий этап. Повторный клик ничего не делает.\nСрок ссылки 72 ч. Таблица `gate_tokens`.",
-    "width": 480,
-    "height": 270,
+    "content": "## 95 · Гейты владельца\nОдноразовые ссылки из Telegram (без мастер-токена):\n1. **GET** — страница подтверждения, ничего не меняет (безопасно для предпросмотров).\n2. **POST** (кнопка) — решение: ссылка гаснет, эксперимент переходит дальше, следующий этап **стартует сразу**. Повторный клик ничего не делает.\nГейты: G1 идея (по PDF) → G-prereg условия теста (PDF) → G-publish лендинг → G-launch кампания запущена (статус testing) → G2 GO / KILL / EXTEND по правилу.\nСрок ссылки 72 ч. Таблица `gate_tokens`.",
+    "width": 520,
+    "height": 300,
     "color": 5
    }
   },
@@ -45,7 +45,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "SELECT t.token, t.exp_id, t.gate, t.stage, t.choices, t.expires_at, t.used_at, t.choice,\n       e.status, e.stage AS exp_stage, e.briefs,\n       (t.used_at IS NULL AND t.expires_at > now() AND e.status = 'waiting_owner' AND e.stage = t.stage AND $2 = ANY (t.choices)) AS valid\nFROM gate_tokens t JOIN experiments e ON e.id = t.exp_id WHERE t.token = $1",
+    "query": "SELECT t.token, t.exp_id, t.gate, t.stage, t.choices, t.expires_at, t.used_at, t.choice,\n       e.status, e.stage AS exp_stage, e.briefs, e.title, e.landing_url, e.prereg, e.campaign,\n       (t.used_at IS NULL AND t.expires_at > now() AND e.status = 'waiting_owner' AND e.stage = t.stage AND $2 = ANY (t.choices)) AS valid\nFROM gate_tokens t JOIN experiments e ON e.id = t.exp_id WHERE t.token = $1",
     "options": {
      "queryReplacement": "={{ [$json.query.g || '', $json.query.c || ''] }}"
     }
@@ -68,7 +68,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst q = $('Gate link').first().json.query || {};\nconst r = $input.first().json || {};\nconst page = (title, body) => `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${esc(title)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>`;\nif (!r.token) return [{ json: { html: page('Ссылка не найдена', '<h1>Ссылка не найдена</h1><p class=\"muted\">Возможно, она устарела или скопирована не полностью.</p>') } }];\nif (!r.valid) {\n  const why = r.used_at ? 'Решение по этой ссылке уже принято' + (r.choice ? ': ' + esc(r.choice) : '') + '.' : (new Date(r.expires_at) < new Date() ? 'Срок ссылки истёк.' : 'Эксперимент сейчас не ждёт этого решения (статус ' + esc(r.status) + ', этап ' + r.exp_stage + ').');\n  return [{ json: { html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${why}</p>`) } }];\n}\nconst b = (r.briefs || []).find(x => x.slug === q.c) || { title: q.c };\nconst body = `<h1>${esc(r.exp_id)} · ${esc(r.gate)}</h1><div class=\"card\"><p class=\"muted\">Выбор идеи для смоук-теста</p><p><b>${esc(b.title)}</b></p><p class=\"muted\">канал ${esc(b.channel)} · CPC ~$${esc(b.cpc)} · цена ${esc(b.price)}</p>\n<form method=\"post\" action=\"https://n8n.home.kalik8s.ru/webhook/farm-gate\"><input type=\"hidden\" name=\"g\" value=\"${esc(r.token)}\"><input type=\"hidden\" name=\"c\" value=\"${esc(q.c)}\"><button type=\"submit\">Подтвердить выбор</button></form></div>\n<p class=\"muted\">Ссылка одноразовая. После подтверждения эксперимент перейдёт на этап ${r.stage + 1}.</p>`;\nreturn [{ json: { html: page('Подтвердить выбор', body) } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst q = $('Gate link').first().json.query || {};\nconst r = $input.first().json || {};\nconst page = (title, body) => `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${esc(title)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>`;\nif (!r.token) return [{ json: { html: page('Ссылка не найдена', '<h1>Ссылка не найдена</h1><p class=\"muted\">Возможно, она устарела или скопирована не полностью.</p>') } }];\nif (!r.valid) {\n  const why = r.used_at ? 'Решение по этой ссылке уже принято' + (r.choice ? ': ' + esc(r.choice) : '') + '.' : (new Date(r.expires_at) < new Date() ? 'Срок ссылки истёк.' : 'Эксперимент сейчас не ждёт этого решения (статус ' + esc(r.status) + ', этап ' + r.exp_stage + ').');\n  return [{ json: { html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${why}</p>`) } }];\n}\nconst b = (r.briefs || []).find(x => x.slug === q.c) || { title: q.c };\nconst p = r.prereg || {}, cmp = r.campaign || {};\nconst what = {\n  'G1': ['Выбор идеи для смоук-теста', `<p><b>${esc(b.title)}</b></p><p class=\"muted\">канал ${esc(b.channel)} · цена ${esc(b.price)}</p>`, 'Подтвердить выбор', 'Агент напишет условия теста (без трат).'],\n  'G-prereg': ['Условия смоук-теста', `<p><b>${esc(r.title)}</b></p><p class=\"muted\">бюджет $${esc(p.budget_usd)} · ${esc(p.duration_days)} дн. · ${esc(p.channel)}</p>`, 'Утверждаю условия', 'Условия фиксируются, агент делает лендинг.'],\n  'G-publish': ['Публикация лендинга', `<p><b>${esc(r.title)}</b></p><p class=\"muted\">${esc(r.landing_url)}</p>`, 'Опубликовать', 'Лендинг откроется для всех, агент подготовит кампанию.'],\n  'G-launch': ['Запуск кампании', `<p><b>${esc(r.title)}</b></p><p class=\"muted\">${esc(cmp.channel)} · бюджет $${esc(cmp.budget_usd)}</p>`, 'Я запустил кампанию', 'С этого момента считаем тест.'],\n  'G2': ['Решение по смоук-тесту', `<p><b>${esc(r.title)}</b></p><p>Выбор: <b>${esc(q.c).toUpperCase()}</b></p>`, 'Подтвердить решение', 'GO — дальше MVP, KILL — закрываем, EXTEND — тест продлевается.'],\n}[r.gate] || ['Решение', '', 'Подтвердить', ''];\nconst body = `<h1>${esc(r.exp_id)} · ${esc(r.gate)}</h1><div class=\"card\"><p class=\"muted\">${what[0]}</p>${what[1]}\n<form method=\"post\" action=\"https://n8n.home.kalik8s.ru/webhook/farm-gate\"><input type=\"hidden\" name=\"g\" value=\"${esc(r.token)}\"><input type=\"hidden\" name=\"c\" value=\"${esc(q.c)}\"><button type=\"submit\">${what[2]}</button></form></div>\n<p class=\"muted\">Ссылка одноразовая. ${what[3]}</p>`;\nreturn [{ json: { html: page(what[0], body) } }];"
    }
   },
   {
@@ -123,7 +123,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH t AS (\n  UPDATE gate_tokens g SET used_at = now(), choice = $2\n  WHERE g.token = $1 AND g.used_at IS NULL AND g.expires_at > now() AND $2 = ANY (g.choices)\n    AND EXISTS (SELECT 1 FROM experiments e WHERE e.id = g.exp_id AND e.status = 'waiting_owner' AND e.stage = g.stage)\n  RETURNING g.exp_id, g.gate, g.stage),\nu AS (\n  UPDATE experiments e SET stage = least(e.stage + 1, 8), status = 'active',\n         chosen_brief = CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, updated_at = now()\n  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage),\nd AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, note) SELECT exp_id, gate, 'approve', 'owner', $2 FROM t RETURNING 1),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': выбран ' || $2 FROM t RETURNING 1)\nSELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage",
+    "query": "WITH t AS (\n  UPDATE gate_tokens g SET used_at = now(), choice = $2\n  WHERE g.token = $1 AND g.used_at IS NULL AND g.expires_at > now() AND $2 = ANY (g.choices)\n    AND EXISTS (SELECT 1 FROM experiments e WHERE e.id = g.exp_id AND e.status = 'waiting_owner' AND e.stage = g.stage)\n  RETURNING g.exp_id, g.gate, g.stage),\nu AS (\n  UPDATE experiments e SET\n         stage = CASE WHEN t.gate = 'G-launch' OR (t.gate = 'G2' AND $2 = 'kill') THEN e.stage WHEN t.gate = 'G2' AND $2 = 'extend' THEN 5 ELSE least(e.stage + 1, 8) END,\n         status = CASE WHEN t.gate = 'G-launch' OR (t.gate = 'G2' AND $2 = 'extend') THEN 'testing' WHEN t.gate = 'G2' AND $2 = 'kill' THEN 'killed' ELSE 'active' END,\n         test_started_at = CASE WHEN t.gate = 'G-launch' THEN now() ELSE e.test_started_at END,\n         chosen_brief = CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, updated_at = now()\n  FROM t WHERE e.id = t.exp_id RETURNING e.id, e.stage, e.status, e.track, e.chosen_brief, e.prereg_hash),\nd AS (INSERT INTO decisions (exp_id, gate, decision, decided_by, artifact_hash, note)\n      SELECT t.exp_id, t.gate, CASE WHEN $2 IN ('go', 'kill', 'extend') THEN $2 ELSE 'approve' END, 'owner',\n             CASE WHEN t.gate = 'G-prereg' THEN (SELECT prereg_hash FROM u) END, $2 FROM t RETURNING 1),\nh AS (INSERT INTO idea_history (exp_id, track, round, slug, title, outcome)\n      SELECT e.id, e.track, e.round, CASE WHEN t.gate = 'G1' THEN $2 ELSE e.chosen_brief END, e.title,\n             CASE WHEN t.gate = 'G1' THEN 'chosen' WHEN $2 = 'go' THEN 'test_go' ELSE 'test_kill' END\n      FROM t JOIN experiments e ON e.id = t.exp_id WHERE t.gate = 'G1' OR (t.gate = 'G2' AND $2 IN ('go', 'kill')) RETURNING 1),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT exp_id, stage, 'owner_decision', 'owner', gate || ': ' || $2 FROM t RETURNING 1)\nSELECT (SELECT count(*) FROM u) AS applied, (SELECT id FROM u) AS exp_id, (SELECT stage FROM u) AS stage,\n       (SELECT status FROM u) AS status, (SELECT track FROM u) AS track",
     "options": {
      "queryReplacement": "={{ [$json.body.g || '', $json.body.c || ''] }}"
     }
@@ -146,7 +146,7 @@
     300
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst r = $input.first().json || {};\nconst ok = Number(r.applied) > 0;\nconst title = ok ? 'Принято' : 'Не принято';\nconst body = ok ? `<h1>Принято</h1><p>${esc(r.exp_id)} перешёл на этап ${r.stage}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';\nreturn [{ json: { ok, exp_id: r.exp_id, stage: r.stage, html: `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${title}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>` } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst r = $input.first().json || {};\nconst ok = Number(r.applied) > 0;\nconst title = ok ? 'Принято' : 'Не принято';\nconst body = ok ? `<h1>Принято</h1><p>${esc(r.exp_id)}: этап ${r.stage}, статус ${esc(r.status)}.</p>` : '<h1>Не принято</h1><p>Ссылка уже использована, устарела, или эксперимент сейчас не ждёт этого решения.</p>';\nreturn [{ json: { ok, exp_id: r.exp_id, stage: r.stage, status: r.status, track: r.track, html: `<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>${title}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;color:#16201b;background:#f2f4f1}h1{font-size:22px}.card{background:#fff;border:1px solid #d6ddd7;border-radius:12px;padding:16px}button{font:inherit;padding:10px 18px;border-radius:8px;border:0;background:#2f6f4e;color:#fff;cursor:pointer}.muted{color:#5b6b62}</style></head><body>${body}</body></html>` } }];"
    }
   },
   {
@@ -235,6 +235,75 @@
    "maxTries": 3,
    "waitBetweenTries": 5000,
    "onError": "continueRegularOutput"
+  },
+  {
+   "id": "518b42b6-9be7-50d3-93a0-246ea4ee1204",
+   "name": "Next stage to run?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1440,
+    300
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "861547cb-c88b-5a3a-a171-b1cac0571d74",
+       "leftValue": "={{ $('Render result').first().json.status === 'active' }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "18fe69f4-05a7-5547-82ad-a1bebcaf2b9c",
+   "name": "Pick stage workflow",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1680,
+    220
+   ],
+   "parameters": {
+    "jsCode": "const r = $('Render result').first().json;\nconst map = {\"startup:2\": \"wQjtnUcUPODoPdBe\", \"startup:1\": \"WxGHGSCpfBMLfJmh\", \"game:2\": \"i0K2Wzi0SxW9P74G\", \"game:1\": \"hLE9J8RbmGweYqKz\", \"startup:3\": \"3SRcs8QNLS9PnkOT\", \"startup:4\": \"LjEaqT7XZBGv22TL\", \"startup:5\": \"4qHo6zTQwaTvn9rI\", \"startup:6\": \"TG0EROgHyhyybnHN\", \"startup:7\": \"GzEqdP0PI9RQRA5Q\", \"startup:8\": \"HPH3rJsMxE76igGQ\", \"game:3\": \"T315b1Lxgivds0xj\", \"game:4\": \"5SSsabNsv9uA6NPJ\", \"game:5\": \"laaUjATC4KoUMsxF\", \"game:6\": \"fXnaN9Bc0A5XGb5F\", \"game:7\": \"bvWbchxyamxwosfu\", \"game:8\": \"MVrV3asQZryHzRjr\"};\nreturn [{ json: { exp_id: r.exp_id, workflow_id: map[(r.track || 'startup') + ':' + r.stage] } }];"
+   }
+  },
+  {
+   "id": "2b828f7b-afc0-5e7a-9364-0e690a3ecc0c",
+   "name": "Start next stage",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    1920,
+    220
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "={{ $json.workflow_id }}",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
+   }
   }
  ],
  "connections": {
@@ -320,6 +389,39 @@
     [
      {
       "node": "Confirm in Telegram",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Confirm in Telegram": {
+   "main": [
+    [
+     {
+      "node": "Next stage to run?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Next stage to run?": {
+   "main": [
+    [
+     {
+      "node": "Pick stage workflow",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Pick stage workflow": {
+   "main": [
+    [
+     {
+      "node": "Start next stage",
       "type": "main",
       "index": 0
      }

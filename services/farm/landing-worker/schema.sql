@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, exp TEXT NOT NULL, vid TEXT, ev TEXT NOT NULL, plan TEXT, path TEXT, ref TEXT, src TEXT, campaign TEXT, country TEXT, bot INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS events_exp ON events (exp, ev);
+CREATE TABLE IF NOT EXISTS signups (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, exp TEXT NOT NULL, vid TEXT, email TEXT NOT NULL, plan TEXT, src TEXT, campaign TEXT, country TEXT, UNIQUE (exp, email));

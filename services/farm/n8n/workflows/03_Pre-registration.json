@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 03 · Pre-registration\nАгент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.\n\nGuardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.\n\nТвой шаг: одобрить пороги.\n\n_Агент ещё не подключён: узел выключен, этап проходит как каркас и снимает блокировку._",
+    "content": "## 03 · Pre-registration\nАгент пишет условия смоук-теста до любых трат: предложение и цена, канал, бюджет, n посетителей, пороги **GO / KILL** и раннюю остановку.\n\n**Guardrails (код):** бюджет ≤ `budget_test_usd` · цена как в меморандуме · порог GO не ниже конверсии из расчёта CAC · n ≥ 100 · 3–21 день.\n\n**Твой шаг:** PDF «Условия теста» → одноразовая ссылка «Утверждаю». После «да» условия фиксируются хэшем.",
     "width": 540,
     "height": 320,
     "color": 5
@@ -100,25 +100,48 @@
    }
   },
   {
+   "id": "8a4d580a-4adc-5a63-a16e-f4486292cb86",
+   "name": "Load context",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    720,
+    -120
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT e.id AS exp_id, e.chosen_brief AS slug, e.prereg, e.landing_url, e.title,\n  (SELECT value FROM settings WHERE key = 'budget_test_usd')::numeric AS budget_cap, (SELECT json_build_object(\n  'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)\n              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 40) l),\n  'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,\n                                                          'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)\n              FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))\n FROM (SELECT track FROM experiments WHERE id = $1) x) AS memory, ((SELECT coalesce(max(value) FILTER (WHERE key = 'api_budget_month_usd'), '0')::numeric FROM settings)\n  - (SELECT coalesce(sum(usd), 0) FROM costs WHERE source = 'claude_api' AND ts >= date_trunc('month', now())) > 5) AS use_api\nFROM experiments e WHERE e.id = $1",
+    "options": {
+     "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
    "id": "7c6ffdbd-685c-509c-9db9-4ea977e3855c",
    "name": "Agent: preregistration",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
-    720,
-    -100
+    960,
+    -120
    ],
    "parameters": {
     "method": "POST",
     "url": "http://172.30.0.10:8080/run/preregistration",
     "authentication": "genericCredentialType",
     "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 10800000
+    },
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $json.exp_id }}\", \"stage\": 3}",
-    "options": {
-     "timeout": 3600000
-    }
+    "jsonBody": "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 3, max_turns: 60, budget_usd: 3, timeout_s: 2400, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, memory: $('Load context').first().json.memory, input_budget_cap_usd: $('Load context').first().json.budget_cap, input: { note: \"Write prereg.json for the chosen idea\" } }) }}"
    },
    "credentials": {
     "httpHeaderAuth": {
@@ -126,36 +149,281 @@
      "name": "Agent runner token"
     }
    },
-   "disabled": true
+   "onError": "continueErrorOutput"
   },
   {
-   "id": "c67f63a1-885b-5893-8eef-4170d0f88240",
-   "name": "Validate output",
-   "type": "n8n-nodes-base.code",
-   "typeVersion": 2,
+   "id": "1e90ac24-7331-5641-b2f1-05a8cd66c150",
+   "name": "Agent succeeded?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
    "position": [
-    960,
-    -100
+    1200,
+    -120
    ],
    "parameters": {
-    "jsCode": "// Stage-specific checks run here once the agent is connected.\nreturn $input.all();"
-   },
-   "disabled": true
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "ac51c7a0-c262-5b00-8ce8-b9caef37117c",
+       "leftValue": "={{ $json.ok === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
   },
   {
-   "id": "e54a3af1-59d0-511c-b139-f33622dad4d5",
-   "name": "Release lock",
+   "id": "887041fa-f579-5cbd-ae09-25c93aca4c1d",
+   "name": "Validate pre-registration",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1440,
+    -200
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/validate/prereg/{{ $('Load context').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 600000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ budget_cap_usd: $('Load context').first().json.budget_cap }) }}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   }
+  },
+  {
+   "id": "ae8f304a-0dc1-59a7-b873-6609391d71ec",
+   "name": "Checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1680,
+    -200
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "1253ba70-3d60-59f9-9083-15e1842e5a0b",
+       "leftValue": "={{ $json.passed === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "f502cff5-2629-5a6d-b320-6e9bf4e90df3",
+   "name": "Save plan, open gate",
    "type": "n8n-nodes-base.postgres",
    "typeVersion": 2.5,
    "position": [
+    1920,
+    -280
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH u AS (UPDATE experiments SET prereg = $2::jsonb, prereg_hash = $3, status = 'waiting_owner', updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices) SELECT id, 'G-prereg', 3, ARRAY['approve']::text[] FROM u RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, 3, 'waiting_owner', 'n8n', 'Ждёт решения владельца: G-prereg' FROM u RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
+    "options": {
+     "queryReplacement": "={{ [$('Load context').first().json.exp_id, JSON.stringify($json.prereg), $json.hash] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "f766fb88-45f5-5873-9840-9993cdfb1e38",
+   "name": "Render test-plan PDF",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2160,
+    -280
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/render/prereg/{{ $('Load context').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 300000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   }
+  },
+  {
+   "id": "35ca3a38-046f-5ee2-ad68-be5ecd8ee2d0",
+   "name": "Download PDF",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2400,
+    -280
+   ],
+   "parameters": {
+    "method": "GET",
+    "url": "=http://172.30.0.10:8080/files/{{ $('Load context').first().json.exp_id }}/test/test_plan.pdf",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 120000,
+     "response": {
+      "response": {
+       "responseFormat": "file",
+       "outputPropertyName": "data"
+      }
+     }
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   }
+  },
+  {
+   "id": "eb31719b-22a5-557a-9655-6be751d62055",
+   "name": "Send PDF",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    2640,
+    -280
+   ],
+   "parameters": {
+    "operation": "sendDocument",
+    "chatId": "260160459",
+    "binaryData": true,
+    "binaryPropertyName": "data",
+    "additionalFields": {
+     "caption": "={{ '📋 ' + $('Load context').first().json.exp_id + ' · условия смоук-теста' }}",
+     "fileName": "={{ $('Load context').first().json.exp_id + '-test-plan.pdf' }}"
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000
+  },
+  {
+   "id": "fe68ce39-1f2a-531f-bbfe-02782c869d07",
+   "name": "Compose approval",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2880,
+    -280
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst x = $('Load context').first().json, p = $('Validate pre-registration').first().json.prereg || {};\nconst t = $('Save plan, open gate').first().json.token;\nconst pct = v => (Number(v) * 100).toFixed(1) + '%';\nconst th = p.thresholds || {};\nreturn [{ json: { text: `📋 <b>${esc(x.exp_id)}: условия смоук-теста</b> (PDF выше)\\n${esc(x.title)}\\n\\n` +\n  `Бюджет $${p.budget_usd} (≤ $${p.daily_cap_usd}/день) · ${p.duration_days} дн. · цель ${p.target_visitors} посетителей · канал ${esc(p.channel)}\\n` +\n  `GO: заявки ≥ ${pct((th.go || {}).signup_rate)} · KILL: ≤ ${pct((th.kill || {}).signup_rate)}\\n\\n` +\n  `<a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${t}&c=approve\">Утверждаю условия</a> — одноразовая ссылка, 72 ч. Не согласен — просто не нажимай и напиши, что поменять.` } }];"
+   }
+  },
+  {
+   "id": "6376d560-8a66-57ef-a03b-eb038442c051",
+   "name": "Ask owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    3120,
+    -280
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  },
+  {
+   "id": "d73a120d-fdc5-5cd8-8b1f-8a2c1730529d",
+   "name": "Stage failed",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
     1200,
-    -100
+    260
+   ],
+   "parameters": {
+    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst failed = (r.checks || []).filter(x => !x.passed).map(x => '✗ ' + x.detail).join('\\n');\nconst why = failed || r.error || r.result || 'нет ответа от агента';\nreturn [{ json: { exp_id: exp, stage: 3, kind: 'stage_failed', actor: 'n8n', message: '⛔ 03 · Pre-registration: ' + String(why).slice(0, 700), notify: true } }];"
+   }
+  },
+  {
+   "id": "581d016e-49ad-55ba-a1d5-6729539b0613",
+   "name": "Mark blocked",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1440,
+    260
    ],
    "parameters": {
     "operation": "executeQuery",
     "query": "UPDATE experiments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id, status",
     "options": {
-     "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id, 'active'] }}"
+     "queryReplacement": "={{ [$json.exp_id, 'blocked'] }}"
     }
    },
    "credentials": {
@@ -167,26 +435,26 @@
    "alwaysOutputData": true
   },
   {
-   "id": "3503f438-e394-5d48-afd2-0acb36ea2fb8",
-   "name": "Report",
+   "id": "63d0ec30-ffc6-515a-a9e5-b68511d60694",
+   "name": "Pass failure on",
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    1440,
-    -100
+    1680,
+    260
    ],
    "parameters": {
-    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id, stage: 3, kind: 'stage_skeleton_ran', actor: 'n8n', message: 'Этап 03 · Pre-registration: проверки пройдены, каркас отработал' + (true ? ' (агент ещё не подключён)' : ''), notify: false } }];"
+    "jsCode": "return [{ json: $('Stage failed').first().json }];"
    }
   },
   {
-   "id": "54aa6eb2-c1ee-53d7-bc40-90e196f01f0a",
-   "name": "Log event",
+   "id": "a2128518-af29-53d2-9657-700ba0bf0f37",
+   "name": "Log failure",
    "type": "n8n-nodes-base.executeWorkflow",
    "typeVersion": 1.2,
    "position": [
-    1680,
-    -100
+    1920,
+    260
    ],
    "parameters": {
     "source": "database",
@@ -208,7 +476,7 @@
    "typeVersion": 2,
    "position": [
     720,
-    160
+    460
    ],
    "parameters": {
     "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 3, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 03 · 03 · Pre-registration остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
@@ -221,7 +489,7 @@
    "typeVersion": 1.2,
    "position": [
     960,
-    160
+    460
    ],
    "parameters": {
     "source": "database",
@@ -275,7 +543,7 @@
    "main": [
     [
      {
-      "node": "Agent: preregistration",
+      "node": "Load context",
       "type": "main",
       "index": 0
      }
@@ -289,44 +557,164 @@
     ]
    ]
   },
+  "Load context": {
+   "main": [
+    [
+     {
+      "node": "Agent: preregistration",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
   "Agent: preregistration": {
    "main": [
     [
      {
-      "node": "Validate output",
+      "node": "Agent succeeded?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Validate output": {
+  "Agent succeeded?": {
    "main": [
     [
      {
-      "node": "Release lock",
+      "node": "Validate pre-registration",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Release lock": {
+  "Validate pre-registration": {
    "main": [
     [
      {
-      "node": "Report",
+      "node": "Checks passed?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Report": {
+  "Checks passed?": {
    "main": [
     [
      {
-      "node": "Log event",
+      "node": "Save plan, open gate",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Save plan, open gate": {
+   "main": [
+    [
+     {
+      "node": "Render test-plan PDF",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Render test-plan PDF": {
+   "main": [
+    [
+     {
+      "node": "Download PDF",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Download PDF": {
+   "main": [
+    [
+     {
+      "node": "Send PDF",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send PDF": {
+   "main": [
+    [
+     {
+      "node": "Compose approval",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Compose approval": {
+   "main": [
+    [
+     {
+      "node": "Ask owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Stage failed": {
+   "main": [
+    [
+     {
+      "node": "Mark blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Mark blocked": {
+   "main": [
+    [
+     {
+      "node": "Pass failure on",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Pass failure on": {
+   "main": [
+    [
+     {
+      "node": "Log failure",
       "type": "main",
       "index": 0
      }
@@ -351,7 +739,7 @@
   "saveDataSuccessExecution": "all",
   "saveDataErrorExecution": "all",
   "timezone": "Asia/Tbilisi",
-  "executionTimeout": 300,
+  "executionTimeout": 12000,
   "errorWorkflow": "5xAs9bkS68XauAQS"
  }
 }

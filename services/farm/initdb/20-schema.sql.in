@@ -161,3 +161,13 @@ INSERT INTO settings VALUES
   ('max_rounds', '3', 'automatic discovery rounds per experiment before telling the owner nothing qualified'),
   ('api_budget_month_usd', '250', 'Anthropic API (cloud agents) monthly cap; when spent, agents fall back to the subscription')
 ON CONFLICT (key) DO NOTHING;
+
+-- Stages 03-05 (smoke test): landing on the farm Worker, campaign spec, test start.
+ALTER TABLE experiments ADD COLUMN IF NOT EXISTS landing_url text;
+ALTER TABLE experiments ADD COLUMN IF NOT EXISTS campaign jsonb;
+ALTER TABLE experiments ADD COLUMN IF NOT EXISTS test_started_at timestamptz;
+ALTER TABLE metrics ADD COLUMN IF NOT EXISTS cta_visitors integer;
+ALTER TABLE experiments DROP CONSTRAINT IF EXISTS experiments_status_check;
+ALTER TABLE experiments ADD CONSTRAINT experiments_status_check CHECK (status = ANY (ARRAY['active','running','waiting_owner','blocked','testing','go','killed','paused']));
+ALTER TABLE idea_history DROP CONSTRAINT IF EXISTS idea_history_outcome_check;
+ALTER TABLE idea_history ADD CONSTRAINT idea_history_outcome_check CHECK (outcome IN ('rejected_by_checks','below_threshold','shown_to_owner','chosen','killed','test_go','test_kill'));

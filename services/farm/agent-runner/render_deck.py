@@ -257,6 +257,16 @@ def startup_slides(m, ver, v, rec, rec_color, rec_ru, ev, ue, mk, domains, check
     slides.append(slide("Проверка фермой", f"""<div class="cols"><div><table>{crow}</table></div>
       <div><p><b>Что не удалось прочитать</b></p><ul>{blocked or '<li>—</li>'}</ul></div></div>""", "Это проверил код, а не агент"))
 
+    budget = st.get("budget_usd") or 150
+    slides.append(slide("Что нужно от инвестора", f"""<div class="kpis">
+      <div><span>Деньги</span><b>${e(budget)}</b><em>реклама или рассылка, по твоему отдельному «да» перед запуском</em></div>
+      <div><span>Твоё время</span><b>≈ 30 мин</b><em>утвердить условия · утвердить лендинг · запустить кампанию</em></div>
+      <div><span>Срок</span><b>2–3 нед.</b><em>предрегистрация → лендинг → трафик → решение</em></div>
+    </div>
+    <p><b>Что получишь:</b> решение GO / KILL по правилу, записанному до теста: {e(st.get('success_threshold'))}.</p>
+    <p class="muted small">Каждый шаг с деньгами или публичной страницей требует твоего подтверждения одноразовой ссылкой. Без «да» ферма не тратит ни доллара.</p>""",
+        "Запрос на смоук-тест"))
+
     src = "".join(f'<li><b>{e(x.get("source_type"))}</b> · {e(x.get("url"))}</li>' for x in ev)
     slides.append(slide("Источники", f'<ol class="sources">{src}</ol>', "Всё, на чём стоит меморандум"))
 
@@ -296,6 +306,41 @@ def finish(d, slides):
     return d / "deck.pdf"
 
 
+def prereg_main(d):
+    """Two-slide «test conditions» PDF the owner approves before any money or public page."""
+    p = json.loads((d / "prereg.json").read_text())
+    m = json.loads((d / "memo.json").read_text())
+    o, th = p.get("offer") or {}, p.get("thresholds") or {}
+    go, kill, early = th.get("go") or {}, th.get("kill") or {}, th.get("early_kill") or {}
+    pct = lambda x: f"{float(x) * 100:.1f}%" if isinstance(x, (int, float)) else "—"
+    slides = [f"""<section class="slide title">
+      <div class="kicker">Ферма стартапов · условия смоук-теста · {e(m.get('slug'))}</div>
+      <h1>{e(m.get('title'))}</h1>
+      <p class="lead">{e(p.get('hypothesis'))}</p>
+      <div class="kpis">
+        <div><span>Бюджет</span><b>${e(p.get('budget_usd'))}</b><em>не больше ${e(p.get('daily_cap_usd'))} в день</em></div>
+        <div><span>Срок</span><b>{e(p.get('duration_days'))} дн.</b><em>цель — {e(p.get('target_visitors'))} посетителей</em></div>
+        <div><span>Канал</span><b style="font-size:13pt">{e(p.get('channel'))}</b><em>{e(', '.join((p.get('keywords_or_audience') or [])[:4]))}</em></div>
+      </div>
+      <p class="muted small">После твоего «да» условия фиксируются (хэш), менять их нельзя. Решение — только по правилу ниже.</p>
+    </section>""",
+        slide("Правило решения", f"""<div class="kpis">
+      <div style="border-color:{GOOD}"><span>GO</span><b style="color:{GOOD}">≥ {pct(go.get('signup_rate'))}</b><em>заявок от посетителей</em></div>
+      <div style="border-color:{BAD}"><span>KILL</span><b style="color:{BAD}">≤ {pct(kill.get('signup_rate'))}</b><em>заявок от посетителей</em></div>
+      <div style="border-color:{WARN}"><span>Ранняя остановка</span><b style="color:{WARN}">{e(early.get('after_visitors'))} визитов</b><em>если кликов по цене меньше {pct(early.get('cta_rate_below'))}</em></div>
+    </div>
+    <p><b>Предложение на лендинге:</b> {e(o.get('headline'))} — ${e(o.get('price_usd'))} / {e(o.get('billing'))}</p>
+    <p><b>Правило:</b> {e(p.get('decision_rule'))}</p>
+    <p><b>Что может исказить тест:</b></p><ul>{''.join(f'<li>{e(x)}</li>' for x in p.get('risks_to_validity', []))}</ul>""", "Что считаем успехом — заранее")]
+    html_doc = finish(d, slides)
+    (d / "deck.pdf").rename(d / "test_plan.pdf")
+    (d / "deck.html").rename(d / "test_plan.html")
+    return html_doc
+
+
 if __name__ == "__main__":
-    ver = json.loads(Path(sys.argv[2]).read_text()) if len(sys.argv) > 2 else None
-    print(main(Path(sys.argv[1]), ver))
+    if sys.argv[1] == "--prereg":
+        print(prereg_main(Path(sys.argv[2])))
+    else:
+        ver = json.loads(Path(sys.argv[2]).read_text()) if len(sys.argv) > 2 else None
+        print(main(Path(sys.argv[1]), ver))
