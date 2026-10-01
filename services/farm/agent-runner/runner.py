@@ -15,10 +15,12 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "reflector", "preregistration", "landing", "traffic", "builder", "analyst"}
+from panel import summarise_panel
+
+ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "reflector", "judges", "preregistration", "landing", "traffic", "builder", "analyst"}
 # Roles that run on the Anthropic API key (separate prepaid budget) instead of the Claude subscription.
 # n8n sends use_api=false once the month's API budget is spent; then the subscription is used.
-API_ROLES = {"discovery", "game-discovery", "diligence", "game-diligence", "reflector"}
+API_ROLES = {"discovery", "game-discovery", "diligence", "game-diligence", "reflector", "judges"}
 DILIGENCE_ROLES = {"diligence": ("briefs", "brief.json"), "game-diligence": ("concepts", "concept.json")}
 DISCOVERY_DIRS = {"discovery": "briefs", "game-discovery": "concepts"}
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,60}$")
@@ -28,6 +30,7 @@ TOOLS = {
     "game-discovery": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "game-diligence": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,Task,Bash(curl:*),Bash(jq:*),Bash(python3:*)",
     "reflector": "Read,Write,Edit,Glob,Grep",
+    "judges": "Read,Write,Glob,Grep,Task,Bash(curl:*),Bash(jq:*)",
     "preregistration": "Read,Write,Edit,Glob,Grep",
     "landing": "Read,Write,Edit,Glob,Grep,WebFetch",
     "traffic": "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
@@ -47,7 +50,16 @@ def run(role, body):
     if not skill.exists():
         return 404, {"ok": False, "error": f"no skill for role {role}"}
     work = Path("/work") / exp
-    if role in DILIGENCE_ROLES:
+    if role == "judges":
+        # Independent panel over an existing memo; the memo is never touched.
+        slug = body.get("slug", "")
+        if not SLUG_RE.match(slug) or not (work / "dd" / slug / "memo.json").exists():
+            return 404, {"ok": False, "error": "judges need an existing dd/<slug>/memo.json"}
+        if body.get("skip"):
+            return 200, {"ok": True, "role": role, "exp_id": exp, "slug": slug, "skipped": True, "panel": None}
+        work = work / "dd" / slug
+        (work / "panel.json").unlink(missing_ok=True)
+    elif role in DILIGENCE_ROLES:
         src_dir, in_name = DILIGENCE_ROLES[role]
         slug = body.get("slug", "")
         if not SLUG_RE.match(slug):
@@ -109,6 +121,14 @@ def run(role, body):
         "new_files": sorted(str(p.relative_to(work)) for p in after - before)[:50],
         "stderr_tail": proc.stderr[-2000:],
     }
+    if role == "judges":
+        try:
+            result["panel"] = summarise_panel(json.loads((work / "panel.json").read_text()))
+        except (OSError, ValueError):
+            result["panel"] = None
+        if not result["panel"]:
+            result["ok"] = False
+            result["error"] = "panel.json missing or fewer than 3 scored judges"
     (work / "runs" / f"{int(started)}-{role}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return 200, result
 
@@ -161,6 +181,42 @@ REQUIRED = ["slug", "title", "segment", "problem", "evidence", "competitors", "o
 CHANNELS = {"google_ads", "meta_ads", "chrome_web_store", "shopify", "wordpress", "apify", "directory", "seo_tool"}
 
 
+# Upper bounds for discovery-stage assumptions: optimistic inputs must not buy a pass.
+ECON_CAPS = {"landing_conversion": 0.15, "trial_to_paid": 0.6, "lifetime_months": 24, "gross_margin": 0.95}
+MIN_LTV_CAC = float(os.environ.get("MIN_LTV_CAC", "1.5"))
+
+
+def _brief_economics(e, cpc):
+    """Cheap unit-economics screen before due diligence: CAC from the CPC estimate and sourced conversion rates, LTV from price."""
+    fails = []
+    if not isinstance(e, dict):
+        return {"failures": ["no economics block (price, billing, conversions, lifetime) — unit economics cannot be screened"]}
+    try:
+        price, cpc = float(e.get("price_usd")), float(cpc)
+        conv, t2p = float(e.get("landing_conversion")), float(e.get("trial_to_paid"))
+        life, margin = float(e.get("lifetime_months")), float(e.get("gross_margin", 0.85))
+    except (TypeError, ValueError):
+        return {"failures": ["economics: price_usd, landing_conversion, trial_to_paid, lifetime_months must be numbers"]}
+    billing = e.get("billing")
+    if billing not in ("month", "year", "one_time"):
+        fails.append(f"economics: billing {billing!r} must be month, year or one_time")
+    for k, cap in ECON_CAPS.items():
+        v = {"landing_conversion": conv, "trial_to_paid": t2p, "lifetime_months": life, "gross_margin": margin}[k]
+        if not 0 < v <= cap:
+            fails.append(f"economics: {k} {v} outside (0, {cap}]")
+    if not str(e.get("conversion_source_url", "")).startswith("https://"):
+        fails.append("economics: conversion_source_url missing")
+    if fails or price <= 0 or cpc <= 0:
+        return {"failures": fails or ["economics: price and CPC must be positive"]}
+    monthly = {"month": price, "year": price / 12}.get(billing)
+    ltv = price * margin if billing == "one_time" else monthly * margin * life
+    cac = cpc / conv / t2p
+    ratio = ltv / cac
+    if ratio < MIN_LTV_CAC:
+        fails.append(f"unit economics: LTV ${ltv:.0f} / CAC ${cac:.0f} = {ratio:.2f} < {MIN_LTV_CAC} — paid traffic does not pay back")
+    return {"failures": fails, "cac_usd": round(cac, 1), "ltv_usd": round(ltv, 1), "ltv_to_cac": round(ratio, 2)}
+
+
 def validate_discovery(exp):
     """Deterministic checks of the briefs the discovery agent wrote. No LLM involved."""
     briefs_dir = Path("/work") / exp / "briefs"
@@ -185,6 +241,8 @@ def validate_discovery(exp):
             fails.append("CPC estimate is not a number")
         if b.get("channel") not in CHANNELS:
             fails.append(f"channel {b.get('channel')!r} is not allowed")
+        econ = _brief_economics(b.get("economics"), b.get("cpc_estimate_usd"))
+        fails += econ.pop("failures")
         ev = b.get("evidence") or []
         if len(ev) < 3:
             fails.append(f"only {len(ev)} evidence items, need 3")
@@ -207,7 +265,7 @@ def validate_discovery(exp):
         if verified < 3:
             fails.append(f"only {verified} quotes verified on their pages, need 3")
         reports.append({"file": f.name, "slug": b.get("slug"), "title": b.get("title"), "channel": b.get("channel"),
-                        "cpc": b.get("cpc_estimate_usd"), "price": b.get("price_hypothesis"),
+                        "cpc": b.get("cpc_estimate_usd"), "price": b.get("price_hypothesis"), "economics": econ,
                         "passed": not fails, "failures": fails, "evidence_checked": checked})
     return {"ok": True, "exp_id": exp, "briefs": reports, "passed_count": sum(r["passed"] for r in reports)}
 

@@ -190,12 +190,47 @@
    "onError": "continueRegularOutput"
   },
   {
+   "id": "f4b4688b-5132-5dd4-adfa-19ac8359e600",
+   "name": "Judges panel",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1440,
+    -120
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://172.30.0.10:8080/run/judges",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 10800000,
+     "batching": {
+      "batch": {
+       "batchSize": 1,
+       "batchInterval": 0
+      }
+     }
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={\"exp_id\": \"{{ $('To analyse').item.json.exp_id }}\", \"slug\": \"{{ $('To analyse').item.json.slug }}\", \"skip\": {{ $json.passed !== true }}, \"max_turns\": 60, \"budget_usd\": 2, \"timeout_s\": 2400, \"queue_timeout_s\": 10800, \"use_api\": {{ $('To analyse').item.json.use_api }}, \"input\": {\"note\": \"Run the three-judge panel on memo.json; write panel.json\"}}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueRegularOutput"
+  },
+  {
    "id": "421e5504-67cd-51cc-b274-2dccf0c22f73",
    "name": "Render PDF",
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
-    1440,
+    1680,
     -120
    ],
    "parameters": {
@@ -227,11 +262,11 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    1680,
+    1920,
     -120
    ],
    "parameters": {
-    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: game-diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {};\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id, billing: r.billing,\n           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {}).score_0_10 || 0),\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
+    "jsCode": "const items = $('To analyse').all().map(i => i.json);\nconst runs = $('Agent: game-diligence').all().map(i => i.json);\nconst vals = $('Validate memo (code, no LLM)').all().map(i => i.json);\nconst panels = $('Judges panel').all().map(i => i.json);\nconst out = items.map((it, k) => {\n  const r = runs[k] || {}, v = vals[k] || {}, jp = panels[k] || {};\n  const panel = jp.panel || null;\n  // The farm's score is the median of three independent judges; without a panel the memo cannot qualify.\n  const verdict = { ...(v.verdict || {}), author_score: (v.verdict || {}).score_0_10, recommendation: panel ? panel.recommendation : 'pass' };\n  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: (r.cost_usd || 0) + (jp.cost_usd || 0), turns: r.turns, session: r.session_id, billing: r.billing,\n           passed: v.passed === true && !!panel, verdict, score: panel ? panel.median : 0, panel_spread: panel ? panel.spread : null,\n           evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };\n});\nreturn [{ json: { exp_id: $('Expect this stage').first().json.exp_id, memos: out } }];"
    }
   },
   {
@@ -240,7 +275,7 @@
    "type": "n8n-nodes-base.postgres",
    "typeVersion": 2.5,
    "position": [
-    1920,
+    2160,
     -120
    ],
    "parameters": {
@@ -263,7 +298,7 @@
    "type": "n8n-nodes-base.if",
    "typeVersion": 2.2,
    "position": [
-    2160,
+    2400,
     -120
    ],
    "parameters": {
@@ -297,11 +332,11 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2400,
+    2640,
     -220
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nconst text = `📊 <b>${s.exp_id}: меморандумы по играм</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, оценка ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Делать эту игру</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\nreturn [{ json: { text } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Collect results').first().json;\nconst r = $input.first().json;\nconst shown = r.shown || [];\nconst rec = { invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' };\nconst best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);\nconst rest = s.memos.length - best.length;\nconst text = `📊 <b>${s.exp_id}: меморандумы по играм</b>\\nРазобрано ${s.memos.length}, тебе — лучшие ${best.length} (проверка кодом пройдена, медиана трёх независимых судей ≥ ${r.min_score}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +\n    best.map((m, i) => `${i+1}. <b>${esc(m.title)}</b>\\n   ${rec[(m.verdict || {}).recommendation] || '—'} · ${m.score}/10 · доказательств ${m.evidence ?? '—'}, цитат подтверждено ${m.verified ?? '—'}\\n   <a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${r.token}&c=${encodeURIComponent(m.slug)}\">Делать эту игру</a>`).join('\\n\\n') +\n    (rest ? `\\n\\nОтсеяно аналитикой: ${rest}` : '');\nreturn [{ json: { text } }];"
    }
   },
   {
@@ -310,7 +345,7 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
-    2640,
+    2880,
     -220
    ],
    "parameters": {
@@ -339,7 +374,7 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2400,
+    2640,
     -20
    ],
    "parameters": {
@@ -352,7 +387,7 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    2400,
+    2640,
     180
    ],
    "parameters": {
@@ -365,7 +400,7 @@
    "type": "n8n-nodes-base.executeWorkflow",
    "typeVersion": 1.2,
    "position": [
-    2640,
+    2880,
     180
    ],
    "parameters": {
@@ -387,7 +422,7 @@
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
-    2640,
+    2880,
     -20
    ],
    "parameters": {
@@ -419,7 +454,7 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
-    2880,
+    3120,
     -20
    ],
    "parameters": {
@@ -554,6 +589,17 @@
    ]
   },
   "Validate memo (code, no LLM)": {
+   "main": [
+    [
+     {
+      "node": "Judges panel",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Judges panel": {
    "main": [
     [
      {

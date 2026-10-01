@@ -390,10 +390,14 @@ LIMIT {cfg['pick_limit']}"""
     collect_js = f"""const items = $('To analyse').all().map(i => i.json);
 const runs = $('Agent: {role}').all().map(i => i.json);
 const vals = $('Validate memo (code, no LLM)').all().map(i => i.json);
+const panels = $('Judges panel').all().map(i => i.json);
 const out = items.map((it, k) => {{
-  const r = runs[k] || {{}}, v = vals[k] || {{}};
-  return {{ slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id, billing: r.billing,
-           passed: v.passed === true, verdict: v.verdict || null, score: Number((v.verdict || {{}}).score_0_10 || 0),
+  const r = runs[k] || {{}}, v = vals[k] || {{}}, jp = panels[k] || {{}};
+  const panel = jp.panel || null;
+  // The farm's score is the median of three independent judges; without a panel the memo cannot qualify.
+  const verdict = {{ ...(v.verdict || {{}}), author_score: (v.verdict || {{}}).score_0_10, recommendation: panel ? panel.recommendation : 'pass' }};
+  return {{ slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: (r.cost_usd || 0) + (jp.cost_usd || 0), turns: r.turns, session: r.session_id, billing: r.billing,
+           passed: v.passed === true && !!panel, verdict, score: panel ? panel.median : 0, panel_spread: panel ? panel.spread : null,
            evidence: v.evidence_count, verified: v.verified_quotes, failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) }};
 }});
 return [{{ json: {{ exp_id: $('Expect this stage').first().json.exp_id, memos: out }} }}];"""
@@ -427,7 +431,7 @@ const shown = r.shown || [];
 const rec = {{ invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' }};
 const best = shown.map(slug => s.memos.find(m => m.slug === slug)).filter(Boolean);
 const rest = s.memos.length - best.length;
-const text = `📊 <b>${{s.exp_id}}: {cfg['dd_title']}</b>\\nРазобрано ${{s.memos.length}}, тебе — лучшие ${{best.length}} (проверка кодом пройдена, оценка ≥ ${{r.min_score}}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +
+const text = `📊 <b>${{s.exp_id}}: {cfg['dd_title']}</b>\\nРазобрано ${{s.memos.length}}, тебе — лучшие ${{best.length}} (проверка кодом пройдена, медиана трёх независимых судей ≥ ${{r.min_score}}). PDF — следующими сообщениями. Ссылки одноразовые, 72 ч, дома или через Tailscale:\\n\\n` +
     best.map((m, i) => `${{i+1}}. <b>${{esc(m.title)}}</b>\\n   ${{rec[(m.verdict || {{}}).recommendation] || '—'}} · ${{m.score}}/10 · доказательств ${{m.evidence ?? '—'}}, цитат подтверждено ${{m.verified ?? '—'}}\\n   <a href="{BASE}/farm-gate?g=${{r.token}}&c=${{encodeURIComponent(m.slug)}}">{cfg['choice']}</a>`).join('\\n\\n') +
     (rest ? `\\n\\nОтсеяно аналитикой: ${{rest}}` : '');
 return [{{ json: {{ text }} }}];"""
@@ -442,7 +446,9 @@ return (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug
         (f"Agent: {role}", f"{RUNNER_URL}/run/{role}", 10800000,
          "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000, \"queue_timeout_s\": 10800, \"use_api\": {{ $json.use_api }}, \"memory\": {{ JSON.stringify($json.memory) }}}", [960, -120]),
         ("Validate memo (code, no LLM)", f"={RUNNER_URL}/validate/{cfg['dd_validate']}/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 600000, None, [1200, -120]),
-        ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 300000, None, [1440, -120]),
+        ("Judges panel", f"{RUNNER_URL}/run/judges", 10800000,
+         "={\"exp_id\": \"{{ $('To analyse').item.json.exp_id }}\", \"slug\": \"{{ $('To analyse').item.json.slug }}\", \"skip\": {{ $json.passed !== true }}, \"max_turns\": 60, \"budget_usd\": 2, \"timeout_s\": 2400, \"queue_timeout_s\": 10800, \"use_api\": {{ $('To analyse').item.json.use_api }}, \"input\": {\"note\": \"Run the three-judge panel on memo.json; write panel.json\"}}", [1440, -120]),
+        ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('To analyse').item.json.exp_id }}}}/{{{{ $('To analyse').item.json.slug }}}}", 300000, None, [1680, -120]),
     ]:
         params = {"method": "POST", "url": url, "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
                   "options": {"timeout": timeout, "batching": {"batch": {"batchSize": 1, "batchInterval": 0}}}}
@@ -451,34 +457,35 @@ return (r.shown || []).map(slug => { const m = s.memos.find(x => x.slug === slug
         n.append(node(name, "n8n-nodes-base.httpRequest", 4.2, params, pos, RUNNER, extra={"onError": "continueRegularOutput"}))
     link(c, "To analyse", f"Agent: {role}")
     link(c, f"Agent: {role}", "Validate memo (code, no LLM)")
-    link(c, "Validate memo (code, no LLM)", "Render PDF")
-    n.append(code("Collect results", collect_js, [1680, -120]))
+    link(c, "Validate memo (code, no LLM)", "Judges panel")
+    link(c, "Judges panel", "Render PDF")
+    n.append(code("Collect results", collect_js, [1920, -120]))
     link(c, "Render PDF", "Collect results")
-    n.append(sql("Record memos, cost, gate", record_sql, "={{ [JSON.stringify($json)] }}", [1920, -120]))
+    n.append(sql("Record memos, cost, gate", record_sql, "={{ [JSON.stringify($json)] }}", [2160, -120]))
     link(c, "Collect results", "Record memos, cost, gate")
-    n.append(if_true("Anything worth showing?", "={{ ($json.shown || []).length > 0 }}", [2160, -120]))
+    n.append(if_true("Anything worth showing?", "={{ ($json.shown || []).length > 0 }}", [2400, -120]))
     link(c, "Record memos, cost, gate", "Anything worth showing?")
-    n.append(code("Compose summary", message_js, [2400, -220]))
+    n.append(code("Compose summary", message_js, [2640, -220]))
     link(c, "Anything worth showing?", "Compose summary", 0)
-    n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2640, -220]))
+    n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2880, -220]))
     link(c, "Compose summary", "Send summary and choice links")
-    n.append(code("Best only", shown_items_js, [2400, -20]))
+    n.append(code("Best only", shown_items_js, [2640, -20]))
     link(c, "Anything worth showing?", "Best only", 0)
-    n.append(code("Retry input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2400, 180]))
+    n.append(code("Retry input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2640, 180]))
     link(c, "Anything worth showing?", "Retry input", 1)
-    n.append(call("Learn and retry", LEARN, [2640, 180], wait=False))
+    n.append(call("Learn and retry", LEARN, [2880, 180], wait=False))
     link(c, "Retry input", "Learn and retry")
     n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
                   {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $json.exp_id }}}}/dd/{{{{ $json.slug }}}}/deck.pdf",
                    "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
                    "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}},
-                  [2640, -20], RUNNER, extra={"onError": "continueRegularOutput"}))
+                  [2880, -20], RUNNER, extra={"onError": "continueRegularOutput"}))
     link(c, "Best only", "Download PDF")
     n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
                   {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
                    "additionalFields": {"caption": "={{ '📄 ' + $('Best only').item.json.exp_id + ' · ' + $('Best only').item.json.title + ' · ' + $('Best only').item.json.score + '/10' }}",
                                         "fileName": "={{ $('Best only').item.json.exp_id + '-' + $('Best only').item.json.slug + '.pdf' }}"}},
-                  [2880, -20], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
+                  [3120, -20], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
     link(c, "Download PDF", "Send PDF")
     blocked_branch(n, c, 2, cfg["dd_name"], pos_y=260)
     return upsert(cfg["dd_name"], n, c, ERR, executionTimeout=30000)
@@ -510,7 +517,7 @@ d AS (UPDATE lessons SET weight = weight - 1, active = weight > 1
       WHERE track = (SELECT track FROM e) AND id IN (SELECT jsonb_array_elements_text(coalesce(j->'out'->'contradicted_ids', '[]'::jsonb))::bigint FROM j)
       RETURNING 1),
 nx AS (UPDATE experiments SET round = round + 1, stage = 1, status = 'active', briefs = NULL, diligence = NULL, updated_at = now()
-       WHERE id = (SELECT id FROM e) AND status = 'blocked' AND round < (SELECT max_rounds FROM s) RETURNING id),
+       WHERE id = (SELECT id FROM e) AND status = 'blocked' AND round < coalesce((SELECT round_cap FROM e), (SELECT max_rounds FROM s)) RETURNING id),
 ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
        SELECT id, stage, 'lessons_learned', 'reflector',
               'Раунд ' || round || ': уроков новых ' || (SELECT count(*) FROM nl) || ', подтверждено ' || (SELECT count(*) FROM r) ||
@@ -526,7 +533,7 @@ return [{ json: { exp_id: $('Round and memory').first().json.exp_id, billing: ru
 DISC_WF = {t: wf_id(cfg["disc_name"]) for t, cfg in TRACKS.items()}
 LEARN_DONE_JS = ESC_JS + """const r = $input.first().json;
 return [{ json: { text: `🧪 <b>${esc(r.exp_id)}</b>: за ${r.round} раунд(а) ни одна идея не набрала проходной балл, поэтому ничего не присылаю. ` +
-  `Ферма записала уроков: ${r.lessons_total}. Новый поиск — командой run в панели.` } }];"""
+  `Ферма записала уроков: ${r.lessons_total}. Ещё раунды — командой retry в пульте.` } }];"""
 c, n = {}, []
 n += [
     sticky("## 93 · Learn and retry\nВызывается, когда раунд не дал ничего достойного (discovery без кандидатов или due diligence без оценок ≥ порога).\n\n1. Агент **reflector** читает меморандумы и отказы валидатора → `lessons.json`.\n2. Уроки пишутся в `lessons` (повтор → вес +1, опровергнут → вес −1).\n3. Если раундов меньше `max_rounds` — эксперимент снова на этапе 1, discovery стартует с памятью.\n4. Иначе — одна короткая строка владельцу, без отчётов.", [-80, -420], 560, 320),
@@ -825,11 +832,15 @@ if (a === 'run') {
   if (!q.exp) return [{ json: { ok: false, reply: 'run требует exp' } }];
   return [{ json: { ok: true, action: a, sql: "SELECT id AS exp_id, stage, track FROM experiments WHERE id = $1", params: [q.exp] } }];
 }
+if (a === 'retry') {
+  if (!q.exp) return [{ json: { ok: false, reply: 'retry требует exp' } }];
+  return [{ json: { ok: true, action: a, sql: "WITH s AS (SELECT coalesce(max(value) FILTER (WHERE key = 'max_rounds'), '3')::int AS m FROM settings), u AS (UPDATE experiments SET status = 'blocked', round_cap = round + (SELECT m FROM s), updated_at = now() WHERE id = $1 AND stage <= 2 AND status IN ('blocked', 'active', 'paused') RETURNING id AS exp_id, stage, track, round, round_cap), ev AS (INSERT INTO events (exp_id, kind, actor, message) SELECT exp_id, 'owner_decision', 'owner', 'Пульт: retry — рефлексия и новые раунды до ' || round_cap FROM u RETURNING 1) SELECT * FROM u", params: [q.exp] } }];
+}
 if (a === 'digest') return [{ json: { ok: true, action: a } }];
-return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide (kill/pause/resume), digest, run, cost, advance' } }];"""
+return [{ json: { ok: false, reply: 'Неизвестное действие. Есть: status, kill_on, kill_off, decide (kill/pause/resume), digest, run, retry, cost, advance' } }];"""
 c = {}
 n = [
-    sticky("## 99 · Пульт (администрирование)\n`https://n8n.home.kalik8s.ru/webhook/farm?t=<токен>&action=…`\n- `status` · `kill_on` / `kill_off` · `digest`\n- `run&exp=EXP-001` — запустить этап, ответ сразу («запущено»)\n- `decide&exp=…&decision=kill|pause|resume`\n- `cost&exp=…&usd=…&source=…` · `advance&exp=…&to=N`\n**Гейты (выбор брифа и т. п.) — только одноразовыми ссылками (95).** Успешные запуски пульта не сохраняются (токен в URL).", [-80, -400], 560, 300),
+    sticky("## 99 · Пульт (администрирование)\n`https://n8n.home.kalik8s.ru/webhook/farm?t=<токен>&action=…`\n- `status` · `kill_on` / `kill_off` · `digest`\n- `run&exp=EXP-001` — запустить этап, ответ сразу («запущено»)\n- `retry&exp=…` — рефлексия (уроки) и новые раунды поиска\n- `decide&exp=…&decision=kill|pause|resume`\n- `cost&exp=…&usd=…&source=…` · `advance&exp=…&to=N`\n**Гейты (выбор брифа и т. п.) — только одноразовыми ссылками (95).** Успешные запуски пульта не сохраняются (токен в URL).", [-80, -400], 560, 300),
     webhook("Control link", "farm", "GET", [0, 0]),
     sql("Read token", "SELECT value FROM settings WHERE key = 'control_token'", None, [240, 0]),
     code("Check token and plan", PLAN_JS, [480, 0]),
@@ -839,9 +850,9 @@ n = [
     if_true("Digest?", "={{ $json.action === 'digest' }}", [960, -80]),
     call("Run digest", DIG, [1200, -220]),
     sql("Apply action", "={{ $json.sql }}", "={{ $json.params }}", [1200, 40], extra={"alwaysOutputData": True}),
-    if_true("Run a stage?", "={{ $('Check token and plan').first().json.action === 'run' }}", [1440, 40]),
-    respond("Respond started", "={{ JSON.stringify({ ok: true, action: 'run', started: $input.all().map(i => i.json) }) }}", [1680, -40]),
-    code("Pick stage workflow", MAP_JS, [1920, -40]),
+    if_true("Run a stage?", "={{ ['run', 'retry'].includes($('Check token and plan').first().json.action) && $input.all().some(i => i.json.exp_id) }}", [1440, 40]),
+    respond("Respond started", "={{ JSON.stringify({ ok: true, action: $('Check token and plan').first().json.action, started: $input.all().map(i => i.json) }) }}", [1680, -40]),
+    code("Pick stage workflow", f"if ($('Check token and plan').first().json.action === 'retry') return $input.all().map(i => ({{ json: {{ exp_id: i.json.exp_id, workflow_id: '{LEARN}' }} }}));\n" + MAP_JS, [1920, -40]),
     call("Run stage", "={{ $json.workflow_id }}", [2160, -40], wait=False),
     code("Reply", "const a = $('Check token and plan').first().json.action;\nreturn [{ json: { ok: true, action: a, result: $input.all().map(i => i.json) } }];", [1680, 160]),
     respond("Respond result", "={{ JSON.stringify($json) }}", [1920, 160]),

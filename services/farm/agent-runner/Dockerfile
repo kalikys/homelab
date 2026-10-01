@@ -8,6 +8,6 @@ USER agent
 ARG CLAUDE_VERSION=2.1.286
 RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_VERSION}"
 ENV PATH=/home/agent/.local/bin:$PATH
-COPY --chown=agent:agent runner.py render_deck.py /app/
+COPY --chown=agent:agent runner.py render_deck.py panel.py /app/
 EXPOSE 8080
 CMD ["python3", "/app/runner.py"]

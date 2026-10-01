@@ -128,6 +128,7 @@ REVOKE ALL ON settings, gate_tokens FROM farm_ro;
 
 -- Farm memory: every idea ever considered (append-only) and lessons distilled by the reflector agent.
 ALTER TABLE experiments ADD COLUMN IF NOT EXISTS round int NOT NULL DEFAULT 1;
+ALTER TABLE experiments ADD COLUMN IF NOT EXISTS round_cap int;  -- set by the panel action retry: more rounds than max_rounds
 CREATE TABLE IF NOT EXISTS idea_history (
   id          bigserial PRIMARY KEY,
   ts          timestamptz NOT NULL DEFAULT now(),

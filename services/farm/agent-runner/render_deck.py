@@ -17,6 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from weasyprint import HTML  # noqa: E402
+from panel import summarise_panel  # noqa: E402
 
 INK, MUTED, ACCENT, GOOD, WARN, BAD, LINE, BG = "#16201b", "#5b6b62", "#2f6f4e", "#2f6f4e", "#b45309", "#b91c1c", "#d6ddd7", "#f6f8f5"
 
@@ -164,7 +165,30 @@ def main(d, verification=None):
     passed_checks = sum(1 for c in checks if c.get("passed"))
     if m.get("kind") != "game":
       slides += startup_slides(m, ver, v, rec, rec_color, rec_ru, ev, ue, mk, domains, checks, passed_checks)
+    panel = load_panel(d)
+    if panel:
+        slides.insert(1, panel_slide(panel, v))
     return finish(d, slides)
+
+
+def load_panel(d):
+    """Independent judges (role judges) and the median score the farm uses; None if the panel did not run."""
+    try:
+        return summarise_panel(json.loads((d / "panel.json").read_text()))
+    except (OSError, ValueError):
+        return None
+
+
+def panel_slide(panel, v):
+    names = {"vc": "Скептичный венчурный инвестор", "indie": "Инди-основатель без денег", "marketer": "Performance-маркетолог",
+             "curator": "Куратор игрового портала", "producer": "Продюсер казуальных игр", "monetization": "Монетизация и реклама"}
+    rows = "".join(f'<tr><td><b>{e(names.get(j.get("persona"), j.get("persona")))}</b></td><td><b>{e(j.get("score_0_10"))}</b></td><td>{e(j.get("recommendation"))}</td>'
+                   f'<td class="small">{"<br>".join(e(r) for r in (j.get("top_reasons") or [])[:3])}</td><td class="small">{e(j.get("would_invest_if"))}</td></tr>'
+                   for j in panel["judges"])
+    color = GOOD if panel["median"] >= 7 else (WARN if panel["median"] >= 6 else BAD)
+    return slide("Независимая панель", f"""<div class="kpis"><div style="border-color:{color}"><span>Медиана судей (это и есть оценка фермы)</span><b style="color:{color}">{panel['median']}/10</b><em>разброс {panel['spread']} · автор меморандума ставил {e(v.get('score_0_10'))}</em></div></div>
+      <table><tr><th>Судья</th><th>Оценка</th><th>Вердикт</th><th>Главные причины</th><th>Вложился бы, если</th></tr>{rows}</table>""",
+                 "Три судьи читали меморандум отдельно друг от друга")
 
 
 def startup_slides(m, ver, v, rec, rec_color, rec_ru, ev, ue, mk, domains, checks, passed_checks):
