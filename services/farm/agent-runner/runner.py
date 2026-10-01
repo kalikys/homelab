@@ -184,9 +184,22 @@ CHANNELS = {"google_ads", "meta_ads", "chrome_web_store", "shopify", "wordpress"
 # Upper bounds for discovery-stage assumptions: optimistic inputs must not buy a pass.
 ECON_CAPS = {"landing_conversion": 0.15, "trial_to_paid": 0.6, "lifetime_months": 24, "gross_margin": 0.95}
 MIN_LTV_CAC = float(os.environ.get("MIN_LTV_CAC", "1.5"))
+MIN_LTV_USD = float(os.environ.get("MIN_LTV_USD", "150"))
+PAID_CHANNELS = {"google_ads", "meta_ads"}
+MONEY_RE = re.compile(r"\$\s?(\d+(?:\.\d+)?)")
 
 
-def _brief_economics(e, cpc):
+def _verified_number_quote(url, quote):
+    """A quote with a number that the farm finds verbatim on the page; returns (ok, why)."""
+    if not str(url).startswith("https://") or not re.search(r"\d", str(quote or "")):
+        return False, "needs an https URL and a quote containing the number"
+    try:
+        return (True, "") if _quote_found(url, quote) else (False, "quote not found on the page")
+    except Exception as ex:
+        return False, f"fetch failed: {ex}"[:160]
+
+
+def _brief_economics(e, cpc, channel=None):
     """Cheap unit-economics screen before due diligence: CAC from the CPC estimate and sourced conversion rates, LTV from price."""
     fails = []
     if not isinstance(e, dict):
@@ -212,9 +225,28 @@ def _brief_economics(e, cpc):
     ltv = price * margin if billing == "one_time" else monthly * margin * life
     cac = cpc / conv / t2p
     ratio = ltv / cac
-    if ratio < MIN_LTV_CAC:
-        fails.append(f"unit economics: LTV ${ltv:.0f} / CAC ${cac:.0f} = {ratio:.2f} < {MIN_LTV_CAC} — paid traffic does not pay back")
-    return {"failures": fails, "cac_usd": round(cac, 1), "ltv_usd": round(ltv, 1), "ltv_to_cac": round(ratio, 2)}
+    out = {"cac_usd": round(cac, 1), "ltv_usd": round(ltv, 1), "ltv_to_cac": round(ratio, 2), "channel_kind": "paid" if channel in PAID_CHANNELS else "organic"}
+    # Calibration on 30 real products: low one-time prices fade after launch.
+    if ltv < MIN_LTV_USD:
+        fails.append(f"unit economics: LTV ${ltv:.0f} < ${MIN_LTV_USD:.0f} — price too low to build a business")
+    if channel in PAID_CHANNELS:
+        # Discovery used to assume $0.8 clicks that due diligence then found at $4-6: the CPC must come from a quoted benchmark.
+        ok, why = _verified_number_quote(e.get("cpc_source_url"), e.get("cpc_quote"))
+        if not ok:
+            fails.append(f"paid channel: CPC benchmark quote not verified ({why})")
+        else:
+            nums = [float(x) for x in MONEY_RE.findall(e.get("cpc_quote", ""))]
+            if nums and cpc < 0.8 * min(nums):
+                fails.append(f"paid channel: CPC ${cpc} is below the quoted benchmark ${min(nums)}")
+        if ratio < MIN_LTV_CAC:
+            fails.append(f"unit economics: LTV ${ltv:.0f} / CAC ${cac:.0f} = {ratio:.2f} < {MIN_LTV_CAC} — paid traffic does not pay back")
+    else:
+        # Organic channels (marketplace search, intent SEO): prove buyers already search there, with a number.
+        ok, why = _verified_number_quote(e.get("organic_evidence_url"), e.get("organic_evidence_quote"))
+        if not ok:
+            fails.append(f"organic channel: no verified demand number for the channel ({why})")
+    out["failures"] = fails
+    return out
 
 
 def validate_discovery(exp):
@@ -235,13 +267,13 @@ def validate_discovery(exp):
         if bad or len(cl) < 5:
             fails.append("checklist not all true: " + ", ".join(bad or ["fewer than 5 items"]))
         try:
-            if float(b.get("cpc_estimate_usd", 99)) > 1.0:
-                fails.append(f"CPC estimate {b.get('cpc_estimate_usd')} > $1")
+            if b.get("channel") in PAID_CHANNELS and float(b.get("cpc_estimate_usd", 99)) > 1.0:
+                fails.append(f"CPC estimate {b.get('cpc_estimate_usd')} > $1 for a paid channel")
         except (TypeError, ValueError):
             fails.append("CPC estimate is not a number")
         if b.get("channel") not in CHANNELS:
             fails.append(f"channel {b.get('channel')!r} is not allowed")
-        econ = _brief_economics(b.get("economics"), b.get("cpc_estimate_usd"))
+        econ = _brief_economics(b.get("economics"), b.get("cpc_estimate_usd"), b.get("channel"))
         fails += econ.pop("failures")
         ev = b.get("evidence") or []
         if len(ev) < 3:
