@@ -214,7 +214,7 @@
     },
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={\"exp_id\": \"{{ $('To analyse').item.json.exp_id }}\", \"slug\": \"{{ $('To analyse').item.json.slug }}\", \"skip\": {{ $json.passed !== true }}, \"max_turns\": 60, \"budget_usd\": 2, \"timeout_s\": 2400, \"queue_timeout_s\": 10800, \"use_api\": {{ $('To analyse').item.json.use_api }}, \"input\": {\"note\": \"Run the three-judge panel on memo.json; write panel.json\"}}"
+    "jsonBody": "={\"exp_id\": \"{{ $('To analyse').item.json.exp_id }}\", \"slug\": \"{{ $('To analyse').item.json.slug }}\", \"skip\": {{ $json.passed !== true }}, \"max_turns\": 60, \"budget_usd\": 2, \"timeout_s\": 2400, \"queue_timeout_s\": 10800, \"use_api\": {{ $('To analyse').item.json.use_api }}, \"memory\": {{ JSON.stringify($('To analyse').item.json.memory) }}, \"input\": {\"note\": \"Run the three-judge panel on memo.json; write panel.json\"}}"
    },
    "credentials": {
     "httpHeaderAuth": {
