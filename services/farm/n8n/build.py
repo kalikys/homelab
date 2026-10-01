@@ -268,6 +268,14 @@ def stage_head(n, c, num, about):
     link(c, "Guardrail preflight", "All checks passed?")
 
 
+# ---------- stage 02 id (discovery hands off to it) ----------
+STAGE2_NAME = "02 · Due diligence and pitch"
+if "02 · Brief choice" in existing and STAGE2_NAME not in existing:
+    existing[STAGE2_NAME] = existing.pop("02 · Brief choice")
+if STAGE2_NAME not in existing:
+    existing[STAGE2_NAME] = {"id": api("POST", "/workflows", {"name": STAGE2_NAME, "nodes": [sub_trigger([0, 0])], "connections": {}, "settings": BASE_SETTINGS})["id"]}
+STAGE2_ID = existing[STAGE2_NAME]["id"]
+
 # ---------- 01 Discovery ----------
 DISCOVERY_SUMMARY_JS = r"""const run = $('Agent: discovery').first().json;
 const val = $input.first().json;
@@ -282,33 +290,27 @@ DISCOVERY_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
 c AS (INSERT INTO costs (exp_id, source, usd, detail)
       SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),
 u AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,
-                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'waiting_owner' ELSE 'blocked' END,
+                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,
                              briefs = (SELECT j->'briefs' FROM j),
                              updated_at = now()
       WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),
-g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)
-      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE (j->>'passed')::int > 0
-      RETURNING token),
 ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
        SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',
               'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)
-SELECT (SELECT token FROM g) AS token"""
+SELECT (SELECT (j->>'passed')::int FROM j) AS passed"""
 
-DISCOVERY_MESSAGE_JS = ESC_JS + f"""const s = $('Summarise').first().json;
-const token = $input.first().json.token;
+DISCOVERY_MESSAGE_JS = ESC_JS + """const s = $('Summarise').first().json;
 const passed = s.briefs.filter(b => b.passed);
 const failed = s.briefs.filter(b => !b.passed);
 let text;
-if (passed.length && token) {{
-  const link = slug => `{BASE}/farm-gate?g=${{token}}&c=${{encodeURIComponent(slug)}}`;
-  text = `🧭 <b>${{s.exp_id}}: брифы готовы</b>, прошли проверку ${{passed.length}} из ${{s.total}}.\\nВыбери один (G1). Ссылки одноразовые, действуют 72 часа, открываются дома или через Tailscale:\\n\\n` +
-    passed.map((b, i) => `${{i+1}}. <b>${{esc(b.title)}}</b>\\n   канал ${{esc(b.channel)}} · CPC ~$${{b.cpc}} · цена ${{esc(b.price)}}\\n   <a href="${{link(b.slug)}}">Выбрать</a>`).join('\\n\\n') +
-    (failed.length ? `\\n\\nОтсеяно проверкой: ${{failed.length}}` : '');
-}} else {{
-  text = `⛔ <b>${{s.exp_id}}: ни один бриф не прошёл проверку</b> (${{failed.length}}). Этап заблокирован до разбора.\\n` +
-    failed.slice(0, 3).map(b => `• ${{esc(b.title || b.slug)}}: ${{esc((b.failures || []).join('; '))}}`).join('\\n');
-}}
-return [{{ json: {{ text }} }}];"""
+if (passed.length) {
+  text = `🧭 <b>${s.exp_id}: найдено ${passed.length} кандидатов</b> (проверку прошли ${passed.length} из ${s.total}).\nДальше аналитики делают due diligence по каждому и пришлют PDF-меморандумы:\n\n` +
+    passed.slice(0, 3).map((b, i) => `${i+1}. ${esc(b.title)}`).join('\n');
+} else {
+  text = `⛔ <b>${s.exp_id}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\n` +
+    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\n');
+}
+return [{ json: { text, passed: passed.length } }];"""
 
 AGENT_FAILED_JS = """const exp = $('Expect this stage').first().json.exp_id;
 const r = $input.first().json || {};
@@ -316,7 +318,7 @@ const why = r.error || r.result || (r.message ?? 'нет ответа от аг�
 return [{ json: { exp_id: exp, stage: 1, kind: 'agent_failed', actor: 'n8n', message: '⛔ Этап 01 · Discovery: агент не справился — ' + String(why).slice(0, 400), notify: true } }];"""
 
 c, n = {}, []
-stage_head(n, c, 1, "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\n**Твой шаг:** G1 — одноразовые ссылки «Выбрать» в Telegram.")
+stage_head(n, c, 1, "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\nУспех → этап 02 (due diligence) запускается сам.")
 n.append(node("Agent: discovery", "n8n-nodes-base.httpRequest", 4.2,
               {"method": "POST", "url": f"{RUNNER_URL}/run/discovery",
                "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
@@ -339,6 +341,12 @@ n.append(code("Compose message", DISCOVERY_MESSAGE_JS, [1920, -180]))
 link(c, "Record cost, briefs, stage, gate", "Compose message")
 n.append(telegram("Send briefs to owner", "={{ $json.text }}", [2160, -180]))
 link(c, "Compose message", "Send briefs to owner")
+n.append(if_true("Any candidates?", "={{ $('Compose message').first().json.passed > 0 }}", [2400, -180]))
+link(c, "Send briefs to owner", "Any candidates?")
+n.append(code("Next stage input", "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];", [2640, -260]))
+link(c, "Any candidates?", "Next stage input", 0)
+n.append(call("Start due diligence", STAGE2_ID, [2880, -260], wait=False))
+link(c, "Next stage input", "Start due diligence")
 n.append(code("Agent failed", AGENT_FAILED_JS, [1200, 20]))
 link(c, "Agent: discovery", "Agent failed", 1)
 link(c, "Agent succeeded?", "Agent failed", 1)
@@ -353,7 +361,6 @@ STAGE_WF = {1: upsert("01 · Discovery", n, c, ERR, executionTimeout=4000)}
 
 # ---------- stage skeletons 02–08 ----------
 STAGES = [
-    (2, "Brief choice", None, "Брифы уходят тебе.", "Guardrails: WIP = 1.", "Твой шаг: G1 — выбрать бриф (одноразовая ссылка)."),
     (3, "Pre-registration", "preregistration", "Агент: пороги — канал, бюджет, n = 150, GO / KILL, дата решения.",
      "Guardrails: все поля · бюджет ≤ budget_test_usd · после одобрения хэш, правки запрещены.", "Твой шаг: одобрить пороги."),
     (4, "Landing", "landing", "Агент: лендинг → превью на Cloudflare Pages.",
@@ -392,6 +399,89 @@ for num, title, role, agent_txt, guard_txt, owner_txt in STAGES:
     link(c, "Report", "Log event")
     blocked_branch(n, c, num, title)
     STAGE_WF[num] = upsert(f"{num:02d} · {title}", n, c, ERR)
+
+
+# ---------- 02 Due diligence and pitch ----------
+DD_PICK_SQL = """SELECT e.id AS exp_id, b->>'slug' AS slug, b->>'title' AS title
+FROM experiments e, jsonb_array_elements(coalesce(e.briefs, '[]'::jsonb)) b
+WHERE e.id = $1 AND (b->>'passed')::boolean IS TRUE
+LIMIT 3"""
+DD_COLLECT_JS = ESC_JS + r"""const items = $('Briefs to analyse').all().map(i => i.json);
+const runs = $('Agent: diligence').all().map(i => i.json);
+const vals = $('Validate memo (code, no LLM)').all().map(i => i.json);
+const out = items.map((it, k) => {
+  const r = runs[k] || {}, v = vals[k] || {};
+  return { slug: it.slug, title: v.title || it.title, agent_ok: r.ok === true, cost: r.cost_usd || 0, turns: r.turns, session: r.session_id,
+           passed: v.passed === true, verdict: v.verdict || null, evidence: v.evidence_count, verified: v.verified_quotes,
+           failed_checks: (v.checks || []).filter(c => !c.passed).map(c => c.detail) };
+});
+const exp = $('Expect this stage').first().json.exp_id;
+return [{ json: { exp_id: exp, memos: out, choices: out.filter(m => m.passed).map(m => m.slug), total_cost: out.reduce((a, m) => a + Number(m.cost || 0), 0) } }];"""
+DD_RECORD_SQL = """WITH j AS (SELECT $1::jsonb AS j),
+c AS (INSERT INTO costs (exp_id, source, usd, detail)
+      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((m->>'cost')::numeric, 0), 'diligence ' || (m->>'slug')
+      FROM j, jsonb_array_elements(j->'memos') m RETURNING 1),
+u AS (UPDATE experiments SET diligence = (SELECT j->'memos' FROM j),
+                             status = CASE WHEN jsonb_array_length((SELECT j->'choices' FROM j)) > 0 THEN 'waiting_owner' ELSE 'blocked' END,
+                             updated_at = now()
+      WHERE id = (SELECT j->>'exp_id' FROM j) AND status = 'running' RETURNING id),
+g AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)
+      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE jsonb_array_length(j->'choices') > 0
+      RETURNING token),
+ev AS (INSERT INTO events (exp_id, stage, kind, actor, message)
+       SELECT j->>'exp_id', 2, 'memos_ready', 'n8n', 'Due diligence: меморандумов прошло проверку ' || jsonb_array_length(j->'choices') || ' из ' || jsonb_array_length(j->'memos') FROM j RETURNING 1)
+SELECT (SELECT token FROM g) AS token"""
+DD_MESSAGE_JS = ESC_JS + f"""const s = $('Collect results').first().json;
+const token = $input.first().json.token;
+const rec = {{ invest: '🟢 инвестировать', maybe: '🟡 под вопросом', pass: '🔴 не инвестировать' }};
+const lines = s.memos.map((m, i) => {{
+  const v = m.verdict || {{}};
+  const head = `${{i+1}}. <b>${{esc(m.title)}}</b>\\n   ${{rec[v.recommendation] || '—'}} · ${{v.score_0_10 ?? '—'}}/10 · доказательств ${{m.evidence ?? '—'}}, подтверждено цитат ${{m.verified ?? '—'}}`;
+  if (m.passed && token) return head + `\\n   <a href="{BASE}/farm-gate?g=${{token}}&c=${{encodeURIComponent(m.slug)}}">Выбрать для теста</a>`;
+  return head + `\\n   ✗ не прошёл проверку: ${{esc((m.failed_checks || []).slice(0, 2).join('; ') || (m.agent_ok ? '' : 'агент не справился'))}}`;
+}});
+const text = `📊 <b>${{s.exp_id}}: инвестиционные меморандумы готовы</b>\\nPDF — выше. Выбери одну идею для смоук-теста за $150 (ссылки одноразовые, 72 ч, дома или через Tailscale):\\n\\n` + lines.join('\\n\\n');
+return [{{ json: {{ text }} }}];"""
+c, n = {}, []
+stage_head(n, c, 2, "## 02 · Due diligence and pitch\nКоманда аналитиков (Claude, изолированный контейнер) по каждому из ≤3 брифов: доказательства спроса из ≥4 типов источников, рынок TAM/SAM/SOM, конкуренты, юнит-экономика, план теста, red team → `memo.json`.\n\n**Guardrails (код, без LLM):** ≥8 доказательств, ≥5 доменов, цитаты найдены дословно, TAM ≥ SAM ≥ SOM, CAC и LTV пересчитаны, ≥4 конкурента с ценой из источника, ≥4 риска.\n\nPDF рисует код по шаблону и отправляет тебе в Telegram.\n\n**Твой шаг:** G1 — выбрать идею по PDF (одноразовые ссылки).")
+n.append(sql("Briefs to analyse", DD_PICK_SQL, "={{ [$('Expect this stage').first().json.exp_id] }}", [720, -120]))
+link(c, "All checks passed?", "Briefs to analyse", 0)
+for name, url, timeout, body, pos, extra in [
+    ("Agent: diligence", f"{RUNNER_URL}/run/diligence", 3300000,
+     "={\"exp_id\": \"{{ $json.exp_id }}\", \"slug\": \"{{ $json.slug }}\", \"max_turns\": 150, \"budget_usd\": 5, \"timeout_s\": 3000}", [960, -120], {"onError": "continueRegularOutput"}),
+    ("Validate memo (code, no LLM)", f"={RUNNER_URL}/validate/diligence/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/{{{{ $('Briefs to analyse').item.json.slug }}}}", 600000, None, [1200, -120], {"onError": "continueRegularOutput"}),
+    ("Render PDF", f"={RUNNER_URL}/render/diligence/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/{{{{ $('Briefs to analyse').item.json.slug }}}}", 300000, None, [1440, -120], {"onError": "continueRegularOutput"}),
+]:
+    params = {"method": "POST", "url": url, "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+              "options": {"timeout": timeout, "batching": {"batch": {"batchSize": 1, "batchInterval": 0}}}}
+    if body:
+        params.update({"sendBody": True, "specifyBody": "json", "jsonBody": body})
+    n.append(node(name, "n8n-nodes-base.httpRequest", 4.2, params, pos, RUNNER, extra=extra))
+link(c, "Briefs to analyse", "Agent: diligence")
+link(c, "Agent: diligence", "Validate memo (code, no LLM)")
+link(c, "Validate memo (code, no LLM)", "Render PDF")
+n.append(node("Download PDF", "n8n-nodes-base.httpRequest", 4.2,
+              {"method": "GET", "url": f"={RUNNER_URL}/files/{{{{ $('Briefs to analyse').item.json.exp_id }}}}/dd/{{{{ $('Briefs to analyse').item.json.slug }}}}/deck.pdf",
+               "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+               "options": {"timeout": 120000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "data"}}}},
+              [1680, -120], RUNNER, extra={"onError": "continueRegularOutput"}))
+link(c, "Render PDF", "Download PDF")
+n.append(node("Send PDF", "n8n-nodes-base.telegram", 1.2,
+              {"operation": "sendDocument", "chatId": CHAT, "binaryData": True, "binaryPropertyName": "data",
+               "additionalFields": {"caption": "={{ '📄 ' + $('Briefs to analyse').item.json.exp_id + ' · ' + ($('Validate memo (code, no LLM)').item.json.title || $('Briefs to analyse').item.json.title) + ($('Validate memo (code, no LLM)').item.json.passed ? '' : ' (не прошёл проверку)') }}",
+                                    "fileName": "={{ $('Briefs to analyse').item.json.exp_id + '-' + $('Briefs to analyse').item.json.slug + '.pdf' }}"}},
+              [1920, -120], TG, extra={"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000, "onError": "continueRegularOutput"}))
+link(c, "Download PDF", "Send PDF")
+n.append(code("Collect results", DD_COLLECT_JS, [2160, -120]))
+link(c, "Send PDF", "Collect results")
+n.append(sql("Record memos, cost, gate", DD_RECORD_SQL, "={{ [JSON.stringify($json)] }}", [2400, -120]))
+link(c, "Collect results", "Record memos, cost, gate")
+n.append(code("Compose summary", DD_MESSAGE_JS, [2640, -120]))
+link(c, "Record memos, cost, gate", "Compose summary")
+n.append(telegram("Send summary and choice links", "={{ $json.text }}", [2880, -120]))
+link(c, "Compose summary", "Send summary and choice links")
+blocked_branch(n, c, 2, "Due diligence", pos_y=220)
+STAGE_WF[2] = upsert(STAGE2_NAME, n, c, ERR, executionTimeout=12000)
 
 MAP_JS = f"const map = {json.dumps({str(k): v for k, v in STAGE_WF.items()})};\nreturn $input.all().map(i => ({{ json: {{ ...i.json, workflow_id: map[String(i.json.stage)] }} }}));"
 
@@ -447,13 +537,13 @@ upd AS (
   RETURNING 1),
 stuck AS (
   UPDATE experiments SET status = 'blocked', updated_at = now()
-  WHERE status = 'running' AND updated_at < now() - interval '2 hours'
+  WHERE status = 'running' AND updated_at < now() - interval '4 hours'
   RETURNING id, stage),
 ev AS (
   INSERT INTO events (kind, actor, message)
   SELECT 'kill_switch', 'watchdog', 'Месячный потолок трат достигнут — kill switch включён автоматически' FROM upd
   UNION ALL
-  SELECT 'stuck_run', 'watchdog', id || ': этап ' || stage || ' висел в running больше 2 часов — переведён в blocked' FROM stuck
+  SELECT 'stuck_run', 'watchdog', id || ': этап ' || stage || ' висел в running больше 4 часов — переведён в blocked' FROM stuck
   RETURNING 1)
 SELECT json_build_object(
   'budget_tripped', EXISTS (SELECT 1 FROM upd),
@@ -464,14 +554,14 @@ SELECT json_build_object(
 WATCH_JS = ESC_JS + r"""const d = $input.first().json.d;
 const lines = [];
 if (d.budget_tripped) lines.push(`🔴 Потолок трат за месяц достигнут ($${d.spent} из $${d.cap}). Kill switch включён, все этапы остановлены.`);
-for (const s of d.stuck || []) lines.push(`🧱 ${esc(s.id)}: этап ${s.stage} завис больше 2 часов, переведён в blocked.`);
+for (const s of d.stuck || []) lines.push(`🧱 ${esc(s.id)}: этап ${s.stage} завис больше 4 часов, переведён в blocked.`);
 for (const s of d.stale || []) lines.push(`⏳ ${esc(s.id)}: ждёт твоего решения на этапе ${s.stage} больше 48 часов.`);
 for (const g of d.guard_fail || []) lines.push(`⛔ ${esc(g.exp || 'ферма')} · этап ${g.stage}: ${esc(g.detail)}`);
 if (!lines.length) return [];
 return [{ json: { text: '🛡 <b>Ферма · guardrails</b>\n\n' + lines.join('\n') } }];"""
 c = {}
 n = [
-    sticky("## 92 · Сторож guardrails\nКаждый час:\n- траты ≥ потолка → **сам включает kill switch**\n- этап висит в `running` > 2 ч → `blocked` + алерт\n- решение ждёт тебя > 48 ч → напоминание\n- проваленные проверки за час → алерт\nМолчит, если всё в порядке.", [-80, -340], 440, 250),
+    sticky("## 92 · Сторож guardrails\nКаждый час:\n- траты ≥ потолка → **сам включает kill switch**\n- этап висит в `running` > 4 ч → `blocked` + алерт\n- решение ждёт тебя > 48 ч → напоминание\n- проваленные проверки за час → алерт\nМолчит, если всё в порядке.", [-80, -340], 440, 250),
     schedule("Every hour", "5 * * * *", [0, 0]),
     sql("Check budgets, stuck runs, stale gates", WATCH_SQL, None, [240, 0]),
     code("Anything to report?", WATCH_JS, [480, 0]),
@@ -497,7 +587,7 @@ if (!r.valid) {{
   return [{{ json: {{ html: page('Ссылка недействительна', `<h1>Ссылка недействительна</h1><p>${{why}}</p>`) }} }}];
 }}
 const b = (r.briefs || []).find(x => x.slug === q.c) || {{ title: q.c }};
-const body = `<h1>${{esc(r.exp_id)}} · ${{esc(r.gate)}}</h1><div class="card"><p class="muted">Выбор брифа</p><p><b>${{esc(b.title)}}</b></p><p class="muted">канал ${{esc(b.channel)}} · CPC ~$${{esc(b.cpc)}} · цена ${{esc(b.price)}}</p>
+const body = `<h1>${{esc(r.exp_id)}} · ${{esc(r.gate)}}</h1><div class="card"><p class="muted">Выбор идеи для смоук-теста</p><p><b>${{esc(b.title)}}</b></p><p class="muted">канал ${{esc(b.channel)}} · CPC ~$${{esc(b.cpc)}} · цена ${{esc(b.price)}}</p>
 <form method="post" action="{BASE}/farm-gate"><input type="hidden" name="g" value="${{esc(r.token)}}"><input type="hidden" name="c" value="${{esc(q.c)}}"><button type="submit">Подтвердить выбор</button></form></div>
 <p class="muted">Ссылка одноразовая. После подтверждения эксперимент перейдёт на этап ${{r.stage + 1}}.</p>`;
 return [{{ json: {{ html: page('Подтвердить выбор', body) }} }}];"""

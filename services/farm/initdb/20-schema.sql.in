@@ -18,7 +18,7 @@ CREATE TABLE stages (
   gate  text
 );
 INSERT INTO stages VALUES
-  (1,'Discovery',NULL),(2,'Brief choice','G1 owner'),(3,'Pre-registration','owner approves'),
+  (1,'Discovery',NULL),(2,'Due diligence and pitch','G1 owner, after PDF decks'),(3,'Pre-registration','owner approves'),
   (4,'Landing','owner approves publish'),(5,'Traffic and metrics','owner approves money'),
   (6,'Decision','G2 owner'),(7,'Build MVP','owner approves live payments'),(8,'Active users','G3 at day 30');
 
@@ -28,6 +28,8 @@ CREATE TABLE experiments (
   stage       int NOT NULL REFERENCES stages(stage),
   status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','running','waiting_owner','blocked','go','killed','paused')),
   chosen_brief text,
+  briefs      jsonb,
+  diligence   jsonb,
   issue_url   text,
   budget_usd  numeric(10,2) NOT NULL DEFAULT 150,
   prereg      jsonb,

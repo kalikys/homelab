@@ -287,7 +287,7 @@
     -40
    ],
    "parameters": {
-    "jsCode": "const map = {\"1\": \"WxGHGSCpfBMLfJmh\", \"2\": \"wQjtnUcUPODoPdBe\", \"3\": \"3SRcs8QNLS9PnkOT\", \"4\": \"LjEaqT7XZBGv22TL\", \"5\": \"JMjoxsmKLUNDf2z7\", \"6\": \"TG0EROgHyhyybnHN\", \"7\": \"GzEqdP0PI9RQRA5Q\", \"8\": \"HPH3rJsMxE76igGQ\"};\nreturn $input.all().map(i => ({ json: { ...i.json, workflow_id: map[String(i.json.stage)] } }));"
+    "jsCode": "const map = {\"1\": \"WxGHGSCpfBMLfJmh\", \"3\": \"3SRcs8QNLS9PnkOT\", \"4\": \"LjEaqT7XZBGv22TL\", \"5\": \"JMjoxsmKLUNDf2z7\", \"6\": \"TG0EROgHyhyybnHN\", \"7\": \"GzEqdP0PI9RQRA5Q\", \"8\": \"HPH3rJsMxE76igGQ\", \"2\": \"wQjtnUcUPODoPdBe\"};\nreturn $input.all().map(i => ({ json: { ...i.json, workflow_id: map[String(i.json.stage)] } }));"
    }
   },
   {

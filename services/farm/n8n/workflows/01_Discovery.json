@@ -11,7 +11,7 @@
     -420
    ],
    "parameters": {
-    "content": "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\n**Твой шаг:** G1 — одноразовые ссылки «Выбрать» в Telegram.",
+    "content": "## 01 · Discovery\nАгент (Claude Code, изолированный контейнер) ищет боли с доказательствами денег → 3–5 брифов.\n\n**Guardrails:** preflight · ошибка или отказ агента → этап блокируется, старые брифы не используются · проверка брифов **кодом** в runner: поля, чек-лист, CPC ≤ $1, канал, ≥3 цитаты, найденные дословно на страницах.\n\nУспех → этап 02 (due diligence) запускается сам.",
     "width": 540,
     "height": 320,
     "color": 5
@@ -211,7 +211,7 @@
    ],
    "parameters": {
     "operation": "executeQuery",
-    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'waiting_owner' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j),\n                             updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices)\n      SELECT j->>'exp_id', 'G1', 2, ARRAY(SELECT jsonb_array_elements_text(j->'choices')) FROM j WHERE (j->>'passed')::int > 0\n      RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
+    "query": "WITH j AS (SELECT $1::jsonb AS j),\nc AS (INSERT INTO costs (exp_id, source, usd, detail)\n      SELECT j->>'exp_id', 'claude_subscription_equiv', coalesce((j->>'cost')::numeric, 0), 'discovery session ' || coalesce(j->>'session','') FROM j RETURNING 1),\nu AS (UPDATE experiments SET stage  = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 2 ELSE stage END,\n                             status = CASE WHEN (SELECT (j->>'passed')::int FROM j) > 0 THEN 'active' ELSE 'blocked' END,\n                             briefs = (SELECT j->'briefs' FROM j),\n                             updated_at = now()\n      WHERE id = (SELECT j->>'exp_id' FROM j) RETURNING id),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message)\n       SELECT j->>'exp_id', 1, CASE WHEN (j->>'passed')::int > 0 THEN 'briefs_ready' ELSE 'briefs_rejected' END, 'n8n',\n              'Discovery: прошли проверку ' || (j->>'passed') || ' из ' || (j->>'total') || ' брифов, ходов агента ' || coalesce(j->>'turns','?') FROM j RETURNING 1)\nSELECT (SELECT (j->>'passed')::int FROM j) AS passed",
     "options": {
      "queryReplacement": "={{ [JSON.stringify($json)] }}"
     }
@@ -233,7 +233,7 @@
     -180
    ],
    "parameters": {
-    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst token = $input.first().json.token;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length && token) {\n  const link = slug => `https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${token}&c=${encodeURIComponent(slug)}`;\n  text = `🧭 <b>${s.exp_id}: брифы готовы</b>, прошли проверку ${passed.length} из ${s.total}.\\nВыбери один (G1). Ссылки одноразовые, действуют 72 часа, открываются дома или через Tailscale:\\n\\n` +\n    passed.map((b, i) => `${i+1}. <b>${esc(b.title)}</b>\\n   канал ${esc(b.channel)} · CPC ~$${b.cpc} · цена ${esc(b.price)}\\n   <a href=\"${link(b.slug)}\">Выбрать</a>`).join('\\n\\n') +\n    (failed.length ? `\\n\\nОтсеяно проверкой: ${failed.length}` : '');\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\\n');\n}\nreturn [{ json: { text } }];"
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst s = $('Summarise').first().json;\nconst passed = s.briefs.filter(b => b.passed);\nconst failed = s.briefs.filter(b => !b.passed);\nlet text;\nif (passed.length) {\n  text = `🧭 <b>${s.exp_id}: найдено ${passed.length} кандидатов</b> (проверку прошли ${passed.length} из ${s.total}).\nДальше аналитики делают due diligence по каждому и пришлют PDF-меморандумы:\n\n` +\n    passed.slice(0, 3).map((b, i) => `${i+1}. ${esc(b.title)}`).join('\n');\n} else {\n  text = `⛔ <b>${s.exp_id}: ни один бриф не прошёл проверку</b> (${failed.length}). Этап заблокирован до разбора.\n` +\n    failed.slice(0, 3).map(b => `• ${esc(b.title || b.slug)}: ${esc((b.failures || []).join('; '))}`).join('\n');\n}\nreturn [{ json: { text, passed: passed.length } }];"
    }
   },
   {
@@ -264,6 +264,75 @@
    "maxTries": 3,
    "waitBetweenTries": 5000,
    "onError": "continueRegularOutput"
+  },
+  {
+   "id": "8a212ca2-b935-59ff-8394-c20895ae26e0",
+   "name": "Any candidates?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    2400,
+    -180
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "ec06de14-7256-505a-8a95-109e3e46aea8",
+       "leftValue": "={{ $('Compose message').first().json.passed > 0 }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "4476ce23-6244-5740-8d1b-9059fdcb477e",
+   "name": "Next stage input",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2640,
+    -260
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: { exp_id: $('Expect this stage').first().json.exp_id } }];"
+   }
+  },
+  {
+   "id": "2b35c130-faed-5a79-8750-cf46f513d872",
+   "name": "Start due diligence",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    2880,
+    -260
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "wQjtnUcUPODoPdBe",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": false
+    }
+   }
   },
   {
    "id": "0bef4e3d-548b-58f7-ae2f-611ec55a0e29",
@@ -499,6 +568,39 @@
     [
      {
       "node": "Send briefs to owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send briefs to owner": {
+   "main": [
+    [
+     {
+      "node": "Any candidates?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Any candidates?": {
+   "main": [
+    [
+     {
+      "node": "Next stage input",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Next stage input": {
+   "main": [
+    [
+     {
+      "node": "Start due diligence",
       "type": "main",
       "index": 0
      }
