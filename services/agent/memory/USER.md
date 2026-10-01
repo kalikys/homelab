@@ -4,3 +4,4 @@ Job constraints: not Russia/Belarus; remote worldwide/EMEA-friendly, or relocati
 Source of truth for facts: /workspace/work/jobs/cv.md (never invent experience or numbers). Job search files: /workspace/work/jobs/ and /workspace/work/jobwatch/. Links: site https://kalik8s.com/ (add UTM, see jobs/search-profile.md), call https://cal.com/kalikys/intro.
 He applies himself: never log into or send anything on LinkedIn/hh/email on his behalf.
 Style: short, concrete, no filler; he likes step-by-step and exact commands.
+Also runs a startup farm (n8n on VM 230): questions about startups, ideas, briefs, EXP-xxx or farm bot messages → use the `farm` skill, not the job search.
