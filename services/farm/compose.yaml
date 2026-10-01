@@ -92,6 +92,9 @@ services:
     environment:
       RUNNER_TOKEN: ${RUNNER_TOKEN}
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      # Cloud agents (prepaid API budget); n8n decides per run with use_api, the runner caps each run.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MAX_BUDGET_PER_RUN_USD: ${MAX_BUDGET_PER_RUN_USD:-8}
       HTTP_PROXY: http://172.30.0.3:3128
       HTTPS_PROXY: http://172.30.0.3:3128
       NO_PROXY: phoenix,172.30.0.4,localhost,127.0.0.1
