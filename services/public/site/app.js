@@ -26,6 +26,12 @@
         uptime: "host uptime", guests: "guests running, LXC + VM", containers: "Docker containers",
         load: (n) => `load average, ${n} threads`, d: "d", h: "h",
       },
+      pulse: {
+        checks: (up, total) => `${up}/${total} health checks passing`,
+        host: (up, g, gt, c) => `host up ${up} · ${g}/${gt} guests running (LXC + VM) · ${c} Docker containers`,
+        ci: { success: "infra CI passing", failure: "infra CI failing" },
+        commit: (ago) => `last change ${ago}:`,
+      },
     },
     ru: {
       updated: "обновлён",
@@ -48,6 +54,12 @@
       stats: {
         uptime: "аптайм хоста", guests: "гостей запущено, LXC + ВМ", containers: "Docker-контейнеров",
         load: (n) => `load average, ${n} потоков`, d: "дн", h: "ч",
+      },
+      pulse: {
+        checks: (up, total) => `${up}/${total} проверок здоровья проходят`,
+        host: (up, g, gt, c) => `хост работает ${up} · запущено ${g}/${gt} гостей (LXC + ВМ) · ${c} Docker-контейнеров`,
+        ci: { success: "CI инфраструктуры проходит", failure: "CI инфраструктуры падает" },
+        commit: (ago) => `последнее изменение ${ago}:`,
       },
       roles: {
         adguard: "DNS и блокировка рекламы для LAN и VPN",
@@ -212,6 +224,7 @@
       lastStatus = null;
     }
     renderStatus(lastStatus);
+    renderPulse();
   }
 
   loadStatus();
@@ -294,7 +307,7 @@
   getJSON("/api/github/actions")
     .then((data) => { ciRun = (data.workflow_runs && data.workflow_runs[0]) || null; })
     .catch(() => { ciRun = null; })
-    .then(renderProjects);
+    .then(() => { renderProjects(); renderPulse(); });
 
   // ---- Homelab: recent commits and live stats ----
 
@@ -317,7 +330,7 @@
   getJSON("/api/github/commits")
     .then((data) => { commits = Array.isArray(data) ? data : null; })
     .catch(() => { commits = null; })
-    .then(renderCommits);
+    .then(() => { renderCommits(); renderPulse(); });
 
   function formatUptime(sec, t) {
     const days = Math.floor(sec / 86400);
@@ -348,11 +361,105 @@
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data) => { stats = data; })
       .catch(() => { stats = null; })
-      .then(renderStats);
+      .then(() => { renderStats(); renderPulse(); });
   }
 
   loadStats();
   setInterval(loadStats, 300000);
+
+  // ---- Hero: live log from the homelab (real data only; a line shows up once its source answers) ----
+
+  const pulseLines = new Map();
+
+  function pulseLine(key, level, parts) {
+    const log = document.getElementById("pulse-log");
+    let li = pulseLines.get(key);
+    if (!parts) { if (li) { li.remove(); pulseLines.delete(key); } return; }
+    if (!li) {
+      li = el("li", "pulse__line");
+      li.dataset.key = key;
+      pulseLines.set(key, li);
+      // Keep a fixed order no matter which source answers first.
+      const order = ["checks", "host", "ci", "commit"];
+      const next = Array.from(log.children).find((n) => order.indexOf(n.dataset.key) > order.indexOf(key));
+      log.insertBefore(li, next || null);
+    }
+    li.replaceChildren(el("span", `pulse__tag pulse__tag--${level.toLowerCase()}`, `[${level}]`), ...parts);
+  }
+
+  function renderPulse() {
+    const box = document.getElementById("pulse");
+    if (!box) return;
+    const t = UI[lang].pulse;
+
+    if (lastStatus) {
+      const last = lastStatus.map((ep) => ep.results && ep.results[ep.results.length - 1]).filter(Boolean);
+      const up = last.filter((r) => r.success).length;
+      const level = up === last.length ? "OK" : up >= last.length - 2 && up > 0 ? "WARN" : "FAIL";
+      pulseLine("checks", level, last.length ? [el("span", "", t.checks(up, last.length))] : null);
+      box.querySelector(".pulse__beat").className = `dot pulse__beat ${{ OK: "dot--ok", WARN: "dot--warn", FAIL: "dot--down" }[level]}`;
+    } else {
+      pulseLine("checks", "", null);
+    }
+
+    pulseLine("host", "OK", stats ? [el("span", "", t.host(formatUptime(stats.uptime_seconds, UI[lang].stats), stats.guests_running, stats.guests_total, stats.containers_running))] : null);
+
+    const ciState = ciRun && (ciRun.conclusion === "success" || ciRun.conclusion === "failure") ? ciRun.conclusion : null;
+    if (ciState) {
+      const a = el("a", "pulse__link", t.ci[ciState]);
+      a.href = ciRun.html_url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      pulseLine("ci", ciState === "success" ? "OK" : "FAIL", [a]);
+    } else {
+      pulseLine("ci", "", null);
+    }
+
+    const c = commits && commits[0];
+    if (c) {
+      const sha = el("a", "pulse__link", c.sha.slice(0, 7));
+      sha.href = c.html_url;
+      sha.target = "_blank";
+      sha.rel = "noopener";
+      pulseLine("commit", "INFO", [el("span", "", t.commit(relativeTime(c.commit.author.date))), sha, el("span", "pulse__msg", c.commit.message.split("\n")[0])]);
+    } else {
+      pulseLine("commit", "", null);
+    }
+
+    box.hidden = pulseLines.size === 0;
+  }
+
+  // ---- Impact: numbers count up once the block scrolls into view (the HTML keeps the real values) ----
+
+  function countUp(root) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) if (/\d/.test(walker.currentNode.nodeValue)) nodes.push([walker.currentNode, walker.currentNode.nodeValue]);
+    const start = performance.now();
+    const ms = 1100;
+    function frame(now) {
+      const k = Math.min(1, (now - start) / ms);
+      const ease = 1 - Math.pow(1 - k, 3);
+      nodes.forEach(([node, text]) => {
+        node.nodeValue = text.replace(/\d+/g, (d) => String(Math.round(Number(d) * ease)));
+      });
+      if (k < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const impact = document.querySelectorAll("#impact .metric__value");
+  if (impact.length && "IntersectionObserver" in window && !reduceMotion) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        io.unobserve(e.target);
+        countUp(e.target);
+      });
+    }, { threshold: 0.6 });
+    impact.forEach((v) => io.observe(v));
+  }
 
   // ---- Learning: live progress from the k8s-certs checklists (same parser as /lab/) ----
 
