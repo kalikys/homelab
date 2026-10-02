@@ -57,7 +57,9 @@ jobs:
           test -z "$(git status --porcelain -- services/public/site/ru/)"
 
       - name: app.js parses
-        run: node --check services/public/site/app.js
+        run: |
+          node --check services/public/site/app.js
+          node --check services/public/site/track-core.js
 
       - name: lab scripts parse
         run: |

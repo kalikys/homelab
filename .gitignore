@@ -26,3 +26,6 @@ secrets*
 
 # CV PDF has personal contacts: it lives only on the server
 services/public/site/*.pdf
+
+# Contact-click log written by nginx on the server
+services/public/logs/

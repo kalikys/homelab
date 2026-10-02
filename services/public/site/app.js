@@ -97,6 +97,19 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
   }
 
+  // Where this visit came from (UTM tags or referrer). Kept for the tab only, so it survives
+  // the language redirect below and the EN/RU switch; no cookies, nothing leaves the browser here.
+  function visitSource() {
+    try {
+      const kept = window.sessionStorage.getItem("src");
+      if (kept) return JSON.parse(kept);
+    } catch (e) { /* storage unavailable */ }
+    const c = TrackCore.campaign(window.location.search, document.referrer, window.location.hostname);
+    try { if (c) window.sessionStorage.setItem("src", JSON.stringify(c)); } catch (e) { /* storage unavailable */ }
+    return c;
+  }
+  const source = visitSource();
+
   // First visit from a Russian-language browser goes to /ru/; an explicit choice is remembered.
   // Crawlers are never redirected, so each URL is indexed in its own language.
   const saved = storageGet("lang");
@@ -119,6 +132,17 @@
     li.href = LINKEDIN_URL;
     li.hidden = false;
   }
+
+  // Booking links carry the visit source to cal.com. Each contact click is counted by nginx
+  // (/e/<event>, see nginx/default.conf): event, source, language and country, no IP and no cookies.
+  document.querySelectorAll("a[href]").forEach((a) => {
+    const event = TrackCore.eventFor(a.getAttribute("href"));
+    if (!event) return;
+    if (event === "call") a.href = TrackCore.calUrl(a.href, source);
+    a.addEventListener("click", () => {
+      if (navigator.sendBeacon) navigator.sendBeacon(TrackCore.eventPath(event, source, lang));
+    });
+  });
 
   const overallEl = document.getElementById("status-overall");
   const updatedEl = document.getElementById("status-updated");
