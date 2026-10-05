@@ -1,13 +1,14 @@
 # Startup farm: n8n skeleton (stages, guardrails, approvals), Postgres state, Claude agent runner. See Obsidian "Ферма — каркас на n8n".
 locals {
   farm = {
-    vm_id     = 230
-    ip        = "192.168.1.30"
-    mac       = "BC:24:11:4B:38:30"
-    cores     = 4
-    memory_mb = 8192
-    disk_gb   = 40
-    role      = "Startup farm: n8n workflows, Postgres, Claude agents, Phoenix tracing"
+    vm_id      = 230
+    ip         = "192.168.1.30"
+    mac        = "BC:24:11:4B:38:30"
+    cores      = 4
+    memory_mb  = 4096
+    balloon_mb = 2048
+    disk_gb    = 40
+    role       = "Startup farm: n8n workflows, Postgres, Claude agents, Phoenix tracing"
   }
 }
 
@@ -37,6 +38,7 @@ resource "proxmox_virtual_environment_vm" "farm" {
 
   memory {
     dedicated = local.farm.memory_mb
+    floating  = local.farm.balloon_mb
   }
 
   disk {

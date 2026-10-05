@@ -29,3 +29,8 @@ import {
   to = cloudflare_dns_record.tunnel["shell"]
   id = "${local.legacy_zone_id}/51d27437ec9b0020438747f7c938919e"
 }
+
+import {
+  to = proxmox_virtual_environment_vm.farm
+  id = "${var.proxmox_node}/${local.farm.vm_id}"
+}
