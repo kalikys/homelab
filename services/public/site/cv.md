@@ -1,17 +1,17 @@
-# Kalislav Smirnov, DevOps Engineer
+# Kalislav Smirnov, DevOps Engineer and Aerospace Engineer
 
-Updated: 2026-09-29 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/
+Updated: 2026-10-11 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
 
-DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. I live in Tbilisi, Georgia, and I am open to relocation or remote work.
+DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). I live in Tbilisi, Georgia, and I am relocating to Košice, Slovakia.
 
 ## Hiring details
 
 - Status: open to offers now, can start right away.
-- Location: Tbilisi, Georgia.
-- Relocation: the EU, the USA or Kazakhstan. Needs visa sponsorship or another work permit; no right to work outside Georgia yet.
+- Location: Tbilisi, Georgia. My family is moving to Košice, Slovakia; a job in Košice is my first choice.
+- Relocation: Košice first, also elsewhere in the EU. Needs a work permit such as the EU Blue Card; no right to work outside Georgia yet.
 - Remote: open to remote work for a company in any country.
 - Employment: full-time as an employee, B2B or contract.
-- Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines), especially in banking, fintech and government projects.
+- Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines), especially in banking, fintech and government projects. Also engineering roles where software meets physical systems: automotive, manufacturing, space.
 - Languages: English (B2), Russian.
 - Book a 20-minute intro call: https://cal.com/kalikys/intro
 - Contact: kalikys@outlook.com · Telegram @kalikys · LinkedIn https://www.linkedin.com/in/devops-kalislav-smirnov/ · GitHub https://github.com/kalikys
@@ -94,6 +94,7 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 - Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub, AppSec.Track, GPG, OSA Firewall
 - Observability: Prometheus, Grafana, Alertmanager, ELK
 - Data & messaging: PostgreSQL, ClickHouse, RabbitMQ, Airflow
+- Engineering: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink, strength analysis
 
 ## Learning
 
@@ -101,7 +102,11 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 
 ## Education
 
-- Master of Engineering, Aerospace, Aeronautical and Astronautical Engineering. Bauman Moscow State Technical University, 2020 - 2026.
+- Integrated Master's degree in Aerospace Engineering (Specialist, Engineer), Bauman Moscow State Technical University, 2020 - 2026. Full-time, 6-year programme, 360 ECTS, equivalent to a Bachelor's plus a Master's.
+- Field: Design, Production and Operation of Rockets and Rocket-Space Systems. Specialization: crewed and uncrewed spacecraft and systems.
+- Thesis: "Suborbital spaceplane for intercontinental commercial flights", graded excellent.
+- Coursework: 3D models and design drawings of spacecraft structures and assemblies; strength, vibration and dynamics calculations; aerodynamics and gas dynamics, flight theory and ballistics, propulsion; modelling of automatic control and spacecraft stabilization. Research work and a research-and-production internship, both graded excellent.
+- Tools: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink.
 
 ## Home lab
 

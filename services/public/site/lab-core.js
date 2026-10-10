@@ -89,7 +89,14 @@
     return many;
   }
 
-  const api = { parseChecklist, dayKey, activeDays, streak, heatmap, nextExam, ruPlural };
+  // Slovak: 1 deň, 2-4 dni, 0 and 5+ dní.
+  function skPlural(n, one, few, many) {
+    if (n === 1) return one;
+    if (n >= 2 && n <= 4) return few;
+    return many;
+  }
+
+  const api = { parseChecklist, dayKey, activeDays, streak, heatmap, nextExam, ruPlural, skPlural };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LabCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

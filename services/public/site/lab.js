@@ -1,9 +1,9 @@
 (function () {
   "use strict";
 
-  // /lab/ and /ru/lab/ are static pages (the Russian one is built by scripts/build-ru.py).
+  // /lab/, /ru/lab/ and /sk/lab/ are static pages (the translations are built by scripts/build-i18n.py).
   // This script only fills in the live blocks, in the page language.
-  const lang = document.documentElement.lang === "ru" ? "ru" : "en";
+  const lang = ["ru", "sk"].includes(document.documentElement.lang) ? document.documentElement.lang : "en";
   const Core = window.LabCore;
 
   const EXAMS = [
@@ -37,6 +37,18 @@
       d: "дн", h: "ч", m: "мин",
       live: { on: "Сейчас в эфире", off: "Сейчас не в эфире", none: "Трансляция ещё не настроена" },
     },
+    sk: {
+      error: "Údaje teraz nie sú dostupné.",
+      noCommits: "Zatiaľ žiadne commity.",
+      domains: (n) => `${n} ${Core.skPlural(n, "oblasť", "oblasti", "oblastí")} skúšky`,
+      countdown: (name, days) => (days === 0 ? `Skúška ${name} je dnes` : `Do skúšky ${name} ${Core.skPlural(days, "zostáva", "zostávajú", "zostáva")} ${days} ${Core.skPlural(days, "deň", "dni", "dní")}`),
+      status: { running: "beží", stopped: "vypnutý", other: "bez údajov" },
+      roles: { cp: "control plane", worker: "worker" },
+      up: "beží",
+      gb: "GB",
+      d: "d", h: "h", m: "min",
+      live: { on: "Práve vysielam", off: "Teraz nevysielam", none: "Vysielanie ešte nie je nastavené" },
+    },
   };
   const t = UI[lang];
 
@@ -50,17 +62,19 @@
   // Same language rule as the main page: a saved choice wins, then the browser language; crawlers stay put.
   const saved = storageGet("lang");
   const isBot = /bot|crawl|spider|slurp|preview/i.test(navigator.userAgent);
-  const preferred = saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
-  if (!isBot && preferred !== lang) {
-    window.location.replace((preferred === "ru" ? "/ru/lab/" : "/lab/") + window.location.search + window.location.hash);
+  const browser = (navigator.language || "").toLowerCase();
+  const preferred = saved || (browser.startsWith("ru") ? "ru" : /^(sk|cs)/.test(browser) ? "sk" : "en");
+  if (!isBot && preferred !== lang && ["en", "ru", "sk"].includes(preferred)) {
+    window.location.replace((preferred === "en" ? "/lab/" : `/${preferred}/lab/`) + window.location.search + window.location.hash);
     return;
   }
 
-  const toggle = document.getElementById("lang-toggle");
-  toggle.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    storageSet("lang", toggle.dataset.target);
-    window.location.assign(toggle.getAttribute("href") + window.location.hash);
+  document.querySelectorAll("#lang-switch a[data-lang]").forEach((a) => {
+    a.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      storageSet("lang", a.dataset.lang);
+      window.location.assign(a.getAttribute("href") + window.location.hash);
+    });
   });
 
   function el(tag, cls, text) {

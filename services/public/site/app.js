@@ -79,6 +79,52 @@
         dmz: "Изолированный мост без выхода наружу; до песочницы достаёт только публичный контейнер",
       },
     },
+    sk: {
+      updated: "aktualizované",
+      stars: "hviezd",
+      noDesc: "Zatiaľ bez popisu.",
+      reposError: "GitHub teraz neodpovedá.",
+      reposEmpty: "Zatiaľ žiadne verejné repozitáre.",
+      internet: "Internet",
+      tunnel: "Tunel",
+      tunnelLink: "tunel, iba odchádzajúce spojenie",
+      host: "Hostiteľ Proxmox VE",
+      zones: { lan: "Domáca sieť", dmz: "Izolovaná DMZ" },
+      bothNets: "LAN + DMZ",
+      mb: "MB",
+      gb: "GB",
+      restart: "Reštartovať reláciu",
+      ci: { label: "kontroly infraštruktúry", success: "prechádzajú", failure: "padajú", other: "bez údajov" },
+      archBelow: "architektúra nižšie ↓",
+      commitsError: "Commity teraz nie sú dostupné.",
+      stats: {
+        uptime: "uptime hostiteľa", guests: "spustených hostí, LXC + VM", containers: "Docker kontajnerov",
+        load: (n) => `load average, ${n} vlákien`, d: "d", h: "h",
+      },
+      pulse: {
+        checks: (up, total) => `${up}/${total} kontrol stavu prechádza`,
+        host: (up, g, gt, c) => `hostiteľ beží ${up} · spustených ${g}/${gt} hostí (LXC + VM) · ${c} Docker kontajnerov`,
+        ci: { success: "CI infraštruktúry prechádza", failure: "CI infraštruktúry padá" },
+        commit: (ago) => `posledná zmena ${ago}:`,
+      },
+      roles: {
+        adguard: "DNS a blokovanie reklám pre LAN a VPN",
+        tailscale: "VPN: smerovač podsiete a exit node",
+        npm: "Reverzné proxy s wildcard TLS",
+        apps: "Domáce služby v Dockeri",
+        public: "Verejný uzol: životopis, stavová stránka, Cloudflare Tunnel",
+        sandbox: "Verejný webový terminál, izolovaná sieť, reset každých 30 minút",
+        agent: "AI agent na prevádzku (Telegram), iba na čítanie",
+        farm: "Farma startupov: n8n, Postgres, agenti Claude, trasy Phoenix",
+        "k8s-cp": "Kubernetes lab: control plane",
+        "k8s-w1": "Kubernetes lab: worker",
+        "k8s-w2": "Kubernetes lab: worker",
+      },
+      networks: {
+        lan: "Domáca sieť za dvojitým NAT, bez prichádzajúcich portov",
+        dmz: "Izolovaný most bez prístupu von; k sandboxu sa dostane iba verejný kontajner",
+      },
+    },
   };
 
   const LANG_COLORS = {
@@ -89,11 +135,12 @@
   const STATUS_TEXT = {
     en: { ok: "All systems operational", partial: "Partial outage", down: "Major outage", error: "Status unavailable", checked: "checked", ago: "ago", s: "s", m: "min" },
     ru: { ok: "Все системы работают", partial: "Частичный сбой", down: "Серьёзный сбой", error: "Статус недоступен", checked: "проверено", ago: "назад", s: "с", m: "мин" },
+    sk: { ok: "Všetky systémy fungujú", partial: "Čiastočný výpadok", down: "Vážny výpadok", error: "Stav nie je dostupný", checked: "skontrolované", ago: "pred", s: "s", m: "min" },
   };
 
-  // Each language is its own static page (/ and /ru/, built by scripts/build-ru.py).
+  // Each language is its own static page (/, /ru/ and /sk/, built by scripts/build-i18n.py).
   // JS only renders the live blocks in the page language.
-  const lang = document.documentElement.lang === "ru" ? "ru" : "en";
+  const lang = ["ru", "sk"].includes(document.documentElement.lang) ? document.documentElement.lang : "en";
   let lastStatus = null;
   let repos;      // undefined: loading, null: failed, array: loaded
   let inventory;  // undefined: loading, null: failed, object: loaded
@@ -122,21 +169,24 @@
   }
   const source = visitSource();
 
-  // First visit from a Russian-language browser goes to /ru/; an explicit choice is remembered.
+  // First visit from a Russian-language browser goes to /ru/, a Slovak or Czech one to /sk/;
+  // an explicit choice is remembered.
   // Crawlers are never redirected, so each URL is indexed in its own language.
   const saved = storageGet("lang");
   const isBot = /bot|crawl|spider|slurp|preview/i.test(navigator.userAgent);
-  const preferred = saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
-  if (!isBot && preferred !== lang) {
-    window.location.replace((preferred === "ru" ? "/ru/" : "/") + window.location.search + window.location.hash);
+  const browser = (navigator.language || "").toLowerCase();
+  const preferred = saved || (browser.startsWith("ru") ? "ru" : /^(sk|cs)/.test(browser) ? "sk" : "en");
+  if (!isBot && preferred !== lang && ["en", "ru", "sk"].includes(preferred)) {
+    window.location.replace((preferred === "en" ? "/" : `/${preferred}/`) + window.location.search + window.location.hash);
     return;
   }
 
-  const toggle = document.getElementById("lang-toggle");
-  toggle.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    storageSet("lang", toggle.dataset.target);
-    window.location.assign(toggle.getAttribute("href") + window.location.hash);
+  document.querySelectorAll("#lang-switch a[data-lang]").forEach((a) => {
+    a.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      storageSet("lang", a.dataset.lang);
+      window.location.assign(a.getAttribute("href") + window.location.hash);
+    });
   });
 
   if (LINKEDIN_URL) {
@@ -200,7 +250,7 @@
     if (newest) {
       const sec = Math.max(0, Math.round((Date.now() - newest) / 1000));
       const age = sec < 60 ? `${sec} ${t.s}` : `${Math.round(sec / 60)} ${t.m}`;
-      updatedEl.textContent = `${t.checked} ${age} ${t.ago}`;
+      updatedEl.textContent = lang === "sk" ? `${t.checked} ${t.ago} ${age}` : `${t.checked} ${age} ${t.ago}`;
     }
 
     const ORDER = ["Network", "Compute", "Edge", "Apps"];

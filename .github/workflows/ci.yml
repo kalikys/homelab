@@ -50,16 +50,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Russian pages are up to date
+      - name: Translated pages are up to date
         run: |
-          python3 scripts/build-ru.py
-          git diff --exit-code -- services/public/site/ru/
-          test -z "$(git status --porcelain -- services/public/site/ru/)"
+          python3 scripts/build-i18n.py
+          git diff --exit-code -- services/public/site/ru/ services/public/site/sk/
+          test -z "$(git status --porcelain -- services/public/site/ru/ services/public/site/sk/)"
 
       - name: app.js parses
         run: |
           node --check services/public/site/app.js
           node --check services/public/site/track-core.js
+          node --check services/public/site/aero.js
 
       - name: lab scripts parse
         run: |

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laboratórium certifikácií Kubernetes, Kalislav Smirnov</title>
+  <meta name="description" content="Živý postup prípravy na CKA, CKAD a CKS: checklisty, aktivita, VM laboratória a terminál naživo.">
+  <meta property="og:title" content="Laboratórium certifikácií Kubernetes, Kalislav Smirnov">
+  <meta property="og:description" content="Živý postup prípravy na CKA, CKAD a CKS: checklisty, aktivita, VM laboratória a terminál naživo.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="sk_SK">
+  <meta property="og:url" content="https://kalik8s.com/sk/lab/">
+  <meta property="og:image" content="https://kalik8s.com/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Laboratórium certifikácií Kubernetes, Kalislav Smirnov">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://kalik8s.com/og.jpg">
+  <link rel="canonical" href="https://kalik8s.com/sk/lab/">
+  <link rel="alternate" hreflang="en" href="https://kalik8s.com/lab/">
+  <link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/lab/">
+  <link rel="alternate" hreflang="sk" href="https://kalik8s.com/sk/lab/">
+  <link rel="alternate" hreflang="x-default" href="https://kalik8s.com/lab/">
+  <meta name="theme-color" content="#0a0d14">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202610111200">
+  <link rel="stylesheet" href="/vendor/asciinema-player/asciinema-player.css?v=3.17.0">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="/sk/" aria-label="Kalislav Smirnov">
+        <span class="brand__mark">ks</span><span class="brand__cursor" aria-hidden="true"></span>
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#progress" data-i18n="certlab.nav.progress">Postup</a>
+        <a href="#activity" data-i18n="certlab.nav.activity">Aktivita</a>
+        <a href="#machines" data-i18n="certlab.nav.machines">Lab</a>
+        <a href="#live" data-i18n="certlab.nav.live">Naživo</a>
+      </nav>
+      <nav class="lang" id="lang-switch" aria-label="Language">
+        <a href="/lab/" hreflang="en" lang="en" data-lang="en">EN</a><span class="lang__sep" aria-hidden="true">/</span><a href="/ru/lab/" hreflang="ru" lang="ru" data-lang="ru">RU</a><span class="lang__sep" aria-hidden="true">/</span><a href="/sk/lab/" hreflang="sk" lang="sk" data-lang="sk" class="is-active" aria-current="page">SK</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap lab-hero">
+      <p class="prompt"><span class="prompt__path">~/lab</span> <span class="prompt__sign">$</span> kubectl get certifications</p>
+      <h1 class="hero__name" data-i18n="certlab.title">Laboratórium certifikácií Kubernetes</h1>
+      <p class="hero__lead" data-i18n="certlab.lead">Pripravujem sa na CKA, potom na CKAD a CKS, na vlastnom trojuzlovom kubeadm klastri doma. Postup sa berie z checklistov vo verejnom repozitári a terminál vysiela naživo, keď trénujem.</p>
+      <p class="lab-countdown" id="lab-countdown" hidden></p>
+      <p class="lab-hero__links">
+        <a class="back" href="/sk/" data-i18n="certlab.back">← Späť na životopis</a>
+        <a class="status__link" href="https://github.com/kalikys/k8s-certs" target="_blank" rel="noopener">github.com/kalikys/k8s-certs</a>
+      </p>
+    </section>
+
+    <section class="section wrap" id="progress" aria-labelledby="progress-title">
+      <h2 class="section__title" id="progress-title"><span class="section__num">01</span><span data-i18n="certlab.progress.title">Postup</span></h2>
+      <div class="lab-certs" id="lab-certs"><p class="lab-empty" data-i18n="certlab.loading">Načítavam…</p></div>
+    </section>
+
+    <section class="section wrap" id="activity" aria-labelledby="activity-title">
+      <h2 class="section__title" id="activity-title"><span class="section__num">02</span><span data-i18n="certlab.activity.title">Aktivita</span></h2>
+      <div class="lab-activity">
+        <div class="metric metric--live">
+          <p class="metric__value" id="lab-streak">–</p>
+          <p class="metric__label" data-i18n="certlab.activity.streak">dní po sebe s commitmi</p>
+        </div>
+        <div class="lab-heatmap" id="lab-heatmap" aria-hidden="true"></div>
+      </div>
+      <div class="commits">
+        <div class="commits__head">
+          <h3 data-i18n="certlab.activity.commits">Posledné commity</h3>
+          <a class="commits__all" href="https://github.com/kalikys/k8s-certs/commits/main" target="_blank" rel="noopener" data-i18n="certlab.activity.all">Všetky commity →</a>
+        </div>
+        <ol class="commits__list" id="lab-commits"></ol>
+      </div>
+    </section>
+
+    <section class="section wrap" id="machines" aria-labelledby="machines-title">
+      <h2 class="section__title" id="machines-title"><span class="section__num">03</span><span data-i18n="certlab.machines.title">Stroje laboratória</span></h2>
+      <p class="lab-note" data-i18n="certlab.machines.note">Tri VM s Ubuntu 24.04 na mojom Proxmox hostiteľovi: jeden control plane a dva workery. Bežia, iba keď trénujem.</p>
+      <div class="lab-vms" id="lab-vms"></div>
+    </section>
+
+    <section class="section wrap section--last" id="live" aria-labelledby="live-title">
+      <h2 class="section__title" id="live-title"><span class="section__num">04</span><span data-i18n="certlab.live.title">Terminál naživo</span></h2>
+      <div class="lab-live">
+        <div class="lab-live__head">
+          <span class="chip" id="lab-live-state"><span class="dot dot--pending" aria-hidden="true"></span><span data-i18n="certlab.live.checking">Kontrolujem…</span></span>
+          <button class="btn btn--primary" type="button" id="lab-live-watch" hidden data-i18n="certlab.live.watch">Sledovať</button>
+          <a class="status__link" id="lab-live-link" href="https://asciinema.org/" target="_blank" rel="noopener" hidden data-i18n="certlab.live.open">Otvoriť na asciinema.org</a>
+        </div>
+        <p class="lab-note" data-i18n="certlab.live.note">Prenos môjho terminálu iba na čítanie, keď trénujem. Posiela len výstup: nič, čo tu napíšete, sa do laboratória nedostane.</p>
+        <div class="lab-live__screen" id="lab-live-screen"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Aktualizované</span> <time datetime="2026-09-30">2026-09-30</time></span>
+      <span class="footer__mono" data-i18n="footer.served">hostované doma, publikované cez Cloudflare Tunnel</span>
+    </div>
+  </footer>
+
+  <script src="/lab-core.js?v=202610111200" defer></script>
+  <script src="/vendor/asciinema-player/asciinema-player.min.js?v=3.17.0" defer></script>
+  <script src="/lab.js?v=202610111200" defer></script>
+  <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
+</body>
+</html>
