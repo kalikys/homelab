@@ -671,7 +671,7 @@ button.btn { font-family: inherit; cursor: pointer; }
 @keyframes star-blink { 50% { opacity: 0.25; } }
 @keyframes plume { 50% { transform: scaleX(0.7); } }
 
-.aero { display: grid; grid-template-columns: 1.15fr 1fr 0.85fr; gap: 14px; margin-top: 14px; }
+.aero { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
 .aero__card {
   padding: 22px 22px 20px;
   border: 1px solid var(--border);
@@ -689,8 +689,7 @@ button.btn { font-family: inherit; cursor: pointer; }
 .aero__points li::marker { color: var(--faint); }
 
 @media (max-width: 900px) {
-  .aero { grid-template-columns: 1fr 1fr; }
-  .aero__card--thesis { grid-column: 1 / -1; }
+  .aero { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .aero { grid-template-columns: 1fr; }

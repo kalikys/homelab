@@ -1,6 +1,6 @@
 {
-  "meta.title": "Kalislav Smirnov, DevOps inžinier a inžinier kozmickej techniky",
-  "meta.description": "DevOps inžinier so 4,5 rokmi praxe (Kubernetes, GitLab CI/CD, Ansible, Terraform), vzdelaním inžinier kozmickej techniky. Tbilisi, sťahujem sa do Košíc.",
+  "meta.title": "Kalislav Smirnov | DevOps inžinier, hľadám prácu v Košiciach",
+  "meta.description": "DevOps inžinier, sťahujem sa do Košíc: 4,5 roka Kubernetes, Linux, GitLab CI/CD, Ansible a Terraform pre banky, k tomu inžiniersky titul z kozmickej techniky (SolidWorks, ANSYS, MATLAB). Práca v Košiciach a okolí.",
   "meta.ogAlt": "Kalislav Smirnov, DevOps inžinier: Kubernetes, GitLab CI/CD, Terraform, Ansible",
   "nav.experience": "Prax",
   "nav.skills": "Zručnosti",
@@ -160,7 +160,7 @@
   "skills.engineering": "Inžinierstvo",
   "aero.title": "Kozmická technika",
   "aero.lead": "V rokoch 2020 až 2026 som študoval kozmickú techniku na Moskovskej štátnej technickej univerzite N. E. Baumana, popri práci v DevOps.",
-  "aero.viz": "Moja diplomová práca: suborbitálny raketoplán na medzikontinentálne lety. Tu je tá istá myšlienka na krátkej trase: balistický oblúk z Tbilisi (TBS) do Košíc (KSC), 2 005 km. Bez atmosféry, Zem sa neotáča, trajektória sa počíta priamo vo vašom prehliadači.",
+  "aero.viz": "Moja diplomová práca: suborbitálny raketoplán na medzikontinentálne lety.",
   "aero.thesis.label": "Diplomová práca · výborne",
   "aero.thesis.title": "Suborbitálny raketoplán na medzikontinentálne komerčné lety",
   "aero.degree": "Integrovaný inžiniersky titul (špecialista, inžinier): 6-ročný program, 360 ECTS, zodpovedá bakalárskemu a magisterskému štúdiu spolu.",
@@ -171,7 +171,5 @@
   "aero.did.p3": "Aerodynamika a dynamika plynov, teória letu a balistika, pohonné jednotky.",
   "aero.did.p4": "Modelovanie automatického riadenia a stabilizácie kozmických lodí.",
   "aero.did.p5": "Výskumná práca a výskumno-výrobná prax, obe hodnotené výborne.",
-  "aero.why.title": "Prečo to pomáha v DevOps",
-  "aero.why.text": "Projektovanie kozmických lodí je plánovanie porúch: redundancia, bezpečnostné rezervy a testy na zemi skôr, než čokoľvek vzlietne. Rovnaké návyky prenášam do infraštruktúry.",
   "aero.karman": "100 km · Kármánova hranica"
 }

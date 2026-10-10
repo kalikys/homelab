@@ -75,6 +75,10 @@ def build(lang, src, path, meta, extra):
     swap(f'<meta property="og:description" content="{en_desc}">', f'<meta property="og:description" content="{attr(ru[meta + ".description"])}">')
     swap(f'<meta property="og:image:alt" content="{en_alt}">', f'<meta property="og:image:alt" content="{attr(ru[meta + ".ogAlt"])}">')
     swap('<meta property="og:locale" content="en_US">', f'<meta property="og:locale" content="{LANGS[lang]}">')
+    if '<meta property="og:locale:alternate"' in page:
+        others = ["en_US"] + [loc for code, loc in LANGS.items() if code != lang]
+        page = re.sub(r'(  <meta property="og:locale:alternate" content="[^"]+">\n)+',
+                      "".join(f'  <meta property="og:locale:alternate" content="{loc}">\n' for loc in others), page, count=1)
     swap(f'<meta property="og:url" content="{en_url}">', f'<meta property="og:url" content="{ru_url}">')
     swap(f'<link rel="canonical" href="{en_url}">', f'<link rel="canonical" href="{ru_url}">')
 
