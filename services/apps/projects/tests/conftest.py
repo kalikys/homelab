@@ -52,5 +52,6 @@ def pj_env(tmp_path, monkeypatch, live_url):
     monkeypatch.setenv("PJ_URL", live_url)
     monkeypatch.setenv("PJ_CLAUDE_PROJECTS", str(tmp_path / "claude-projects"))
     monkeypatch.delenv("PJ_SESSION", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     import pj
     return pj, home, live_url

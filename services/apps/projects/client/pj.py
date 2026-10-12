@@ -139,7 +139,8 @@ def guess_session(cwd: str) -> str | None:
 
 
 def current_session() -> str | None:
-    return os.environ.get("PJ_SESSION") or guess_session(os.getcwd())
+    # Claude Code exports its session id to tool subprocesses; the transcript guess is the fallback.
+    return os.environ.get("PJ_SESSION") or os.environ.get("CLAUDE_CODE_SESSION_ID") or guess_session(os.getcwd())
 
 
 def project_slug(cfg: dict, args) -> str:

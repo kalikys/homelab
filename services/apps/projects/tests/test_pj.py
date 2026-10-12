@@ -171,3 +171,11 @@ def test_seed(pj_env, tmp_path, capsys):
     assert by_title(url, "nodesize", "Сайт")["location_kind"] == "url"
     assert by_title(url, "nodesize", "сайт")["created_at"] == "2026-10-11T12:00:00Z"
     assert get(url, "/api/resolve?cwd=" + str(tmp_path.resolve()))["project"] == "nodesize"
+
+
+def test_claude_code_session_id_wins_over_guess(pj_env, monkeypatch):
+    pj, home, url = pj_env
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "cc-session-7")
+    assert pj.current_session() == "cc-session-7"
+    monkeypatch.setenv("PJ_SESSION", "explicit")
+    assert pj.current_session() == "explicit"
