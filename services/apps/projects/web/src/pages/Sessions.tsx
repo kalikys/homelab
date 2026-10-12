@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type Project, type Session } from "../api";
 import { ago, resume } from "../format";
-import { Card, CopyButton, Empty } from "../ui";
+import { Card, CopyButton, Empty, ErrorBox, Skeleton } from "../ui";
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [remember, setRemember] = useState(false);
-  const load = () => api.unsorted().then(setSessions);
+  const [error, setError] = useState("");
+  const load = () => api.unsorted().then(setSessions).catch((e) => setError(String(e)));
   useEffect(() => { load(); api.projects().then(setProjects); }, []);
 
   async function attach(s: Session, slug: string) {
@@ -17,11 +18,12 @@ export default function Sessions() {
     load();
   }
 
-  if (!sessions) return <Empty>Загрузка…</Empty>;
+  if (error) return <ErrorBox error={error} />;
+  if (!sessions) return <Skeleton />;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Неразобранные чаты</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Неразобранные чаты</h1>
         <label className="flex items-center gap-1.5 text-sm text-muted">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> запомнить папку за проектом
         </label>

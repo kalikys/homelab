@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { api, type Card as CardT, type Item } from "../api";
 import { AREAS, ago, day, resume } from "../format";
 import { ItemList, Location } from "../items";
 import { STATUS, TYPE, isOpen, tone, type ItemType } from "../types";
-import { Badge, Card, CopyButton, Empty, Progress, Section, Tabs } from "../ui";
+import { AreaDot, Badge, Card, CopyButton, Empty, ErrorBox, Progress, Section, Skeleton, Tabs } from "../ui";
 
 export default function Project() {
   const { slug = "" } = useParams();
@@ -15,8 +16,8 @@ export default function Project() {
   const load = useCallback(() => api.project(slug).then(setP).catch((e) => setError(String(e))), [slug]);
   useEffect(() => { load(); }, [load]);
 
-  if (error) return <Card className="text-sm text-amber-fg">{error}</Card>;
-  if (!p) return <Empty>Загрузка…</Empty>;
+  if (error) return <ErrorBox error={error} />;
+  if (!p) return <Skeleton rows={6} />;
 
   const of = (t: ItemType) => p.items.filter((i) => i.type === t);
   const todos = of("todo");
@@ -35,21 +36,27 @@ export default function Project() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold">{p.title}</h1>
-          <Badge>{AREAS[p.area] ?? p.area}</Badge>
-          {p.status !== "active" && <Badge>{p.status}</Badge>}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <AreaDot area={p.area} />{AREAS[p.area] ?? p.area}
+          {p.status !== "active" && <Badge>{p.status === "paused" ? "на паузе" : p.status === "done" ? "завершён" : p.status}</Badge>}
+          <span>· обновлён {ago(p.updated_at)}</span>
         </div>
-        <Progress value={p.progress} />
-        {p.next_step && <p className="text-lg"><span className="text-muted">Дальше: </span>{p.next_step}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight">{p.title}</h1>
         {p.summary && <p className="text-sm text-muted">{p.summary}</p>}
+        <Progress value={p.progress} />
+        {p.next_step && (
+          <div className="flex items-start gap-3 rounded-2xl bg-accent/8 px-4 py-3 ring-1 ring-accent/20">
+            <ArrowRight size={18} className="mt-0.5 shrink-0 text-accent" />
+            <div><div className="text-xs font-medium text-accent">Следующий шаг</div><div className="text-[15px]">{p.next_step}</div></div>
+          </div>
+        )}
       </div>
 
       {userTodos.length > 0 && (
         <Card className="space-y-1 border-transparent bg-amber-bg text-amber-fg">
           <h2 className="text-sm font-medium">Ждёт тебя</h2>
-          <ItemList items={userTodos} onChange={load} />
+          <ItemList items={userTodos} onChange={load} hideOwner />
         </Card>
       )}
 

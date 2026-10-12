@@ -1,17 +1,22 @@
 import { useEffect, useState } from "react";
 import { api, type Item } from "../api";
 import { ItemList } from "../items";
-import { Empty } from "../ui";
+import { Card, ErrorBox, Skeleton } from "../ui";
 
 export default function Waits() {
   const [todos, setTodos] = useState<Item[] | null>(null);
-  const load = () => api.userTodos().then(setTodos);
+  const [error, setError] = useState("");
+  const load = () => api.userTodos().then(setTodos).catch((e) => setError(String(e)));
   useEffect(() => { load(); }, []);
-  if (!todos) return <Empty>Загрузка…</Empty>;
+  if (error) return <ErrorBox error={error} />;
+  if (!todos) return <Skeleton />;
   return (
-    <div className="space-y-3">
-      <h1 className="text-xl font-semibold">Ждёт тебя</h1>
-      <ItemList items={todos} onChange={load} withProject empty="Ничего не ждёт." />
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Ждёт тебя</h1>
+        <p className="mt-1 text-sm text-muted">То, что могу сделать только ты: одобрить, зарегистрировать, оплатить, нажать.</p>
+      </header>
+      <Card className="py-2"><ItemList items={todos} onChange={load} withProject empty="Ничего не ждёт." /></Card>
     </div>
   );
 }

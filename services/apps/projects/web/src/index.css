@@ -1,18 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #fafaf9; --card: #ffffff; --fg: #1c1917; --muted: #78716c; --line: #e7e5e4;
-  --accent: #2563eb; --amber-bg: #fef3c7; --amber-fg: #92400e; --ok: #16a34a;
+  --bg: #f7f7f5; --panel: #fbfbfa; --card: #ffffff; --fg: #1d1d1b; --muted: #77756f; --line: #e8e6e1; --hover: #f0efeb;
+  --accent: #4f6ef7; --amber-bg: #fdf3dc; --amber-fg: #8a5a00; --ok: #2f9e61;
+  --a-youtube: #e5484d; --a-sites: #3e7bfa; --a-infra: #6e7b8b; --a-jobs: #2f9e61; --a-crypto: #e8a317; --a-research: #8e5cf7; --a-other: #a29f97;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0c0a09; --card: #1c1917; --fg: #f5f5f4; --muted: #a8a29e; --line: #292524;
-    --accent: #60a5fa; --amber-bg: #422006; --amber-fg: #fcd34d; --ok: #4ade80;
+    --bg: #111110; --panel: #161615; --card: #1b1b1a; --fg: #ededec; --muted: #9a9892; --line: #2a2a28; --hover: #222220;
+    --accent: #7c93ff; --amber-bg: #3a2c0d; --amber-fg: #f5c35b; --ok: #4cc38a;
+    color-scheme: dark;
   }
 }
 @theme inline {
-  --color-bg: var(--bg); --color-card: var(--card); --color-fg: var(--fg); --color-muted: var(--muted);
-  --color-line: var(--line); --color-accent: var(--accent); --color-amber-bg: var(--amber-bg);
+  --color-bg: var(--bg); --color-panel: var(--panel); --color-card: var(--card); --color-fg: var(--fg); --color-muted: var(--muted);
+  --color-line: var(--line); --color-hover: var(--hover); --color-accent: var(--accent); --color-amber-bg: var(--amber-bg);
   --color-amber-fg: var(--amber-fg); --color-ok: var(--ok);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, sans-serif; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+input[type="checkbox"] { accent-color: var(--accent); }

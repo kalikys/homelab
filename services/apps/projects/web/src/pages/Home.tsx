@@ -1,99 +1,117 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Project, type SearchGroup } from "../api";
-import { AREAS, ago, isStale } from "../format";
-import { TYPE, type ItemType } from "../types";
-import { Badge, Card, Empty, Input, Progress } from "../ui";
+import { ArrowRight, Play } from "lucide-react";
+import { motion } from "motion/react";
+import { api, type Card as CardT, type Item, type Project } from "../api";
+import { ago, agoShort, isStale, resume } from "../format";
+import { ItemList } from "../items";
+import { AreaDot, Badge, Card, CopyButton, Empty, ErrorBox, Ring, Section, Skeleton } from "../ui";
 
-export default function Home() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [waits, setWaits] = useState(0);
-  const [unsorted, setUnsorted] = useState(0);
-  const [area, setArea] = useState("all");
-  const [showClosed, setShowClosed] = useState(false);
-  const [q, setQ] = useState("");
-  const [hits, setHits] = useState<SearchGroup[] | null>(null);
+function ProjectRow({ p }: { p: Project }) {
+  return (
+    <Link to={`/p/${p.slug}`}
+      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-hover ${isStale(p) ? "opacity-60" : ""}`}>
+      <AreaDot area={p.area} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium">{p.title}</span>
+          {p.open_user_todos > 0 && <span title="ждёт тебя"><Badge tone="amber">{p.open_user_todos}</Badge></span>}
+          {isStale(p) && <Badge>давно не трогали</Badge>}
+        </div>
+        {p.next_step && <div className="truncate text-xs text-muted">{p.next_step}</div>}
+      </div>
+      <Ring value={p.progress} />
+      <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums text-muted sm:block">{agoShort(p.updated_at)}</span>
+    </Link>
+  );
+}
+
+function ContinueCard({ p }: { p: CardT }) {
+  const chat = p.sessions[0];
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="flex h-full flex-col gap-3 transition hover:border-accent/40">
+        <Link to={`/p/${p.slug}`} className="flex items-center gap-2">
+          <AreaDot area={p.area} />
+          <span className="flex-1 font-medium leading-snug">{p.title}</span>
+          <Ring value={p.progress} size={22} />
+        </Link>
+        <p className="line-clamp-2 flex-1 text-sm text-muted">{p.next_step || "Следующий шаг не записан"}</p>
+        <div className="flex items-center justify-between gap-2 text-xs text-muted">
+          <span>{ago(p.updated_at)}</span>
+          {chat && <span className="whitespace-nowrap"><CopyButton text={resume(chat)} label="Чат" title={`claude --resume: ${chat.title || chat.id}`} /></span>}
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
+export default function Home({ projects }: { projects: Project[] }) {
+  const [waits, setWaits] = useState<Item[] | null>(null);
+  const [recent, setRecent] = useState<CardT[]>([]);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    Promise.all([api.projects(), api.userTodos(), api.unsorted()])
-      .then(([p, w, s]) => { setProjects(p); setWaits(w.length); setUnsorted(s.length); })
-      .catch((e) => setError(String(e)));
-  }, []);
+  const loadWaits = useCallback(() => api.userTodos().then(setWaits).catch((e) => setError(String(e))), []);
+  useEffect(() => { loadWaits(); }, [loadWaits]);
+
+  const active = useMemo(() => projects.filter((p) => p.status === "active"), [projects]);
+  const paused = useMemo(() => projects.filter((p) => p.status === "paused"), [projects]);
+  const closed = useMemo(() => projects.filter((p) => p.status === "done" || p.status === "dropped"), [projects]);
 
   useEffect(() => {
-    if (!q.trim()) { setHits(null); return; }
-    const t = setTimeout(() => api.search(q).then(setHits), 250);
-    return () => clearTimeout(t);
-  }, [q]);
+    const top = active.slice(0, 3);
+    if (!top.length) return;
+    Promise.all(top.map((p) => api.project(p.slug))).then(setRecent).catch(() => {});
+  }, [active]);
 
-  const shown = useMemo(() => projects.filter((p) =>
-    (area === "all" || p.area === area) && (showClosed || p.status === "active" || p.status === "paused")), [projects, area, showClosed]);
-  const areas = useMemo(() => [...new Set(projects.map((p) => p.area))], [projects]);
+  const today = new Date().toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="space-y-5">
-      {error && <Card className="text-sm text-amber-fg">Сервис недоступен: {error}</Card>}
-      {(waits > 0 || unsorted > 0) && (
-        <div className="flex flex-wrap gap-2 text-sm">
-          {waits > 0 && <Link to="/waits"><Badge tone="amber">Ждёт тебя: {waits}</Badge></Link>}
-          {unsorted > 0 && <Link to="/sessions"><Badge>Неразобранные чаты: {unsorted}</Badge></Link>}
-        </div>
-      )}
-      <Input placeholder="Поиск по решениям, находкам, файлам…" value={q} onChange={(e) => setQ(e.target.value)} />
+    <div className="space-y-9">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Сегодня</h1>
+        <p className="mt-1 text-sm text-muted first-letter:uppercase">
+          {today} · {active.length} в работе{waits && waits.length > 0 ? ` · ${waits.length} ждут тебя` : ""}
+        </p>
+      </header>
 
-      {hits ? (
-        <div className="space-y-3">
-          {hits.length === 0 && <Empty>Ничего не нашлось.</Empty>}
-          {hits.map((g) => (
-            <Card key={g.project}>
-              <Link to={`/p/${g.project}`} className="font-medium hover:text-accent">{g.title}</Link>
-              <ul className="mt-2 space-y-1 text-sm">
-                {g.hits.slice(0, 6).map((h) => (
-                  <li key={`${h.type}-${h.id}`} className="truncate">
-                    <span className="text-muted">{TYPE[h.type as ItemType]?.label ?? "Проект"}: </span>
-                    {h.type === "project" ? h.text : <Link to={`/i/${h.id}`} className="hover:text-accent">{h.text}</Link>}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            {["all", ...areas].map((a) => (
-              <button key={a} onClick={() => setArea(a)}
-                className={`rounded-full px-3 py-1 ${area === a ? "bg-fg text-bg" : "text-muted hover:text-fg"}`}>
-                {a === "all" ? "Все" : AREAS[a] ?? a}
-              </button>
-            ))}
-            <label className="ml-auto flex items-center gap-1.5 text-muted">
-              <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> завершённые
-            </label>
-          </div>
-          {shown.length === 0 && !error && <Empty>Проектов пока нет — их создаёт Claude через pj.</Empty>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {shown.map((p) => (
-              <Link key={p.slug} to={`/p/${p.slug}`}>
-                <Card className={`h-full space-y-2 transition hover:border-accent/50 ${isStale(p) ? "opacity-60" : ""}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <h2 className="font-medium leading-snug">{p.title}</h2>
-                    <span className="shrink-0 text-xs text-muted">{ago(p.updated_at)}</span>
-                  </div>
-                  <Progress value={p.progress} />
-                  {p.next_step && <p className="text-sm"><span className="text-muted">Дальше: </span>{p.next_step}</p>}
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge>{AREAS[p.area] ?? p.area}</Badge>
-                    {p.status === "paused" && <Badge>на паузе</Badge>}
-                    {isStale(p) && <Badge>заброшен</Badge>}
-                    {p.open_user_todos > 0 && <Badge tone="amber">ждёт тебя: {p.open_user_todos}</Badge>}
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </>
+      {error && <ErrorBox error={error} />}
+
+      <Section title="Ждёт тебя" action={waits && waits.length > 5 && (
+        <Link to="/waits" className="flex items-center gap-1 text-xs text-accent hover:underline">все {waits.length}<ArrowRight size={12} /></Link>
+      )}>
+        {waits === null ? <Skeleton rows={3} /> : waits.length === 0 ? (
+          <Card><Empty>Ничего не ждёт — можно работать.</Empty></Card>
+        ) : (
+          <Card className="border-l-4 border-l-amber-fg/60 py-2"><ItemList items={waits.slice(0, 5)} onChange={loadWaits} withProject /></Card>
+        )}
+      </Section>
+
+      {recent.length > 0 && (
+        <Section title="Продолжить">
+          <div className="grid gap-3 sm:grid-cols-3">{recent.map((p) => <ContinueCard key={p.slug} p={p} />)}</div>
+        </Section>
+      )}
+
+      <Section title={`В работе · ${active.length}`}>
+        {projects.length === 0 && !error ? <Skeleton /> : (
+          <Card className="p-1.5">{active.map((p) => <ProjectRow key={p.slug} p={p} />)}</Card>
+        )}
+      </Section>
+
+      {paused.length > 0 && (
+        <Section title={`На паузе · ${paused.length}`}>
+          <Card className="p-1.5">{paused.map((p) => <ProjectRow key={p.slug} p={p} />)}</Card>
+        </Section>
+      )}
+
+      {closed.length > 0 && (
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+            <Play size={10} className="transition group-open:rotate-90" />Завершённые · {closed.length}
+          </summary>
+          <Card className="mt-2 p-1.5">{closed.map((p) => <ProjectRow key={p.slug} p={p} />)}</Card>
+        </details>
       )}
     </div>
   );
