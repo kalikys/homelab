@@ -290,9 +290,7 @@ def cmd_item(cfg, a):
     print("\n".join(out))
 
 
-def cmd_show(cfg, a):
-    slug = project_slug(cfg, a)
-    p = read(cfg, f"/api/projects/{slug}")
+def show_text(p: dict) -> str:
     items = p["items"]
     of = lambda t: [i for i in items if i["type"] == t]
     is_open = lambda i: i["status"] not in ("done", "dropped")
@@ -328,7 +326,12 @@ def cmd_show(cfg, a):
     if p["sessions"]:
         s = p["sessions"][0]
         out.append(f"Chats: {len(p['sessions'])} (last: {s['title'] or s['id']}, claude --resume {s['id']})")
-    print("\n".join(out))
+    return "\n".join(out)
+
+
+def cmd_show(cfg, a):
+    slug = project_slug(cfg, a)
+    print(show_text(read(cfg, f"/api/projects/{slug}")))
 
 
 EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
@@ -451,6 +454,33 @@ def cmd_seed(cfg, a):
         print(f"seeded {slug}: {len(ids)} items")
 
 
+RULE = ("Projects dashboard (http://192.168.1.10:8790): for long-running work use the project-log skill — record results as "
+        "artifacts, decisions with the reason, findings with the source, work as todos/features, anything the user must do as "
+        "`pj add todo ... -o user`, and `pj next` before the session ends. Skip one-off questions.")
+
+
+def cmd_context(cfg, a):
+    """SessionStart hook: hand Claude the project state for this folder. Never fails, stays fast."""
+    try:
+        hook = json.loads(sys.stdin.read() or "{}")
+    except json.JSONDecodeError:
+        hook = {}
+    cwd = hook.get("cwd") or os.getcwd()
+    parts = [RULE]
+    try:
+        slug = http(cfg, "GET", "/api/resolve?cwd=" + urllib.parse.quote(cwd), timeout=3)["project"]
+        if slug:
+            parts.append(show_text(http(cfg, "GET", f"/api/projects/{slug}", timeout=3)))
+        else:
+            rows = [p for p in http(cfg, "GET", "/api/projects", timeout=3) if p["status"] == "active"][:12]
+            parts.append("This folder is not mapped to a project; pass -p <slug>. Active projects:\n" + "\n".join(
+                f"  {p['slug']} — {p['title']}: {p['next_step'][:80]}" for p in rows))
+    except (Offline, ApiError) as e:
+        parts.append(f"(dashboard unreachable: {e}; pj will queue writes)")
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                             "additionalContext": "\n\n".join(parts)}}, ensure_ascii=False))
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="pj", description="projects dashboard client")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -487,6 +517,7 @@ def build_parser() -> argparse.ArgumentParser:
     add("session-end", cmd_session_end, project=False)
     add("backfill", cmd_backfill, project=False).add_argument("--root")
     add("seed", cmd_seed, project=False).add_argument("file")
+    add("context", cmd_context, project=False)
     return ap
 
 
@@ -496,7 +527,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config()
     except Exception as e:
         print(f"pj: bad config {home() / 'config.toml'}: {e}", file=sys.stderr)
-        return 0 if args.cmd == "session-end" else 1
+        return 0 if args.cmd in ("session-end", "context") else 1
     try:
         args.fn(cfg, args)
     except Die as e:

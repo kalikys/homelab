@@ -10,6 +10,8 @@ Every `pj` write is linked to this chat automatically.
 
 ## Start of work on a project
 
+A SessionStart hook (`pj context`) already puts the project state, or the list of active projects, into context; read it before asking where we stopped. Chats are recorded automatically by the Stop/SessionEnd hooks.
+
 1. `pj show` (inside the project folder) or `pj show -p <slug>`; `pj list` shows all slugs.
 2. Use the output as context: next step, what waits on the user, open todos, last decisions.
 3. No project for this folder and the work is clearly long-running → propose it to the user, then:

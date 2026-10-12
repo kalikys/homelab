@@ -246,3 +246,38 @@ def test_seed_keeps_last_activity_date(pj_env, tmp_path):
         {"type": "todo", "title": "без даты"}]}]}, ensure_ascii=False))
     pj.main(["seed", str(seed)])
     assert get(url, "/api/projects/old")["updated_at"] == "2026-09-03T12:00:00Z"
+
+
+def _context(pj, monkeypatch, capsys, cwd):
+    import io
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"session_id": "s", "cwd": str(cwd), "hook_event_name": "SessionStart"})))
+    assert pj.main(["context"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+    return out["hookSpecificOutput"]["additionalContext"]
+
+
+def test_context_for_mapped_folder_shows_project(pj_env, tmp_path, monkeypatch, capsys):
+    pj, home, url = pj_env
+    d = tmp_path / "site"
+    d.mkdir()
+    pj.main(["new", "site", "Сайт", "--path", str(d)])
+    pj.main(["next", "-p", "site", "задеплоить"])
+    capsys.readouterr()
+    ctx = _context(pj, monkeypatch, capsys, d)
+    assert "Сайт" in ctx and "задеплоить" in ctx and "project-log" in ctx
+
+
+def test_context_for_unmapped_folder_lists_projects(pj_env, tmp_path, monkeypatch, capsys):
+    pj, home, url = pj_env
+    pj.main(["new", "a", "Проект А"])
+    capsys.readouterr()
+    ctx = _context(pj, monkeypatch, capsys, tmp_path)
+    assert "a" in ctx and "Проект А" in ctx and "-p <slug>" in ctx
+
+
+def test_context_offline_still_reminds(pj_env, tmp_path, monkeypatch, capsys):
+    pj, home, url = pj_env
+    monkeypatch.setenv("PJ_URL", "http://127.0.0.1:9")
+    ctx = _context(pj, monkeypatch, capsys, tmp_path)
+    assert "project-log" in ctx
