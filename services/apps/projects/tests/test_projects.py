@@ -50,3 +50,22 @@ def test_list_sorted_by_activity(client):
 def test_delete(client, project):
     assert client.delete("/api/projects/video02").status_code == 204
     assert client.get("/api/projects/video02").status_code == 404
+
+
+def test_connection_usable_from_another_thread(tmp_path):
+    # FastAPI may open the request's connection in one threadpool thread and run the endpoint in another.
+    import threading
+    from projects_api import db
+    db.init(str(tmp_path / "x.db"))
+    conn = db.connect(str(tmp_path / "x.db"))
+    errors = []
+    t = threading.Thread(target=lambda: _try(conn, errors))
+    t.start(); t.join()
+    assert errors == []
+
+
+def _try(conn, errors):
+    try:
+        conn.execute("SELECT 1").fetchone()
+    except Exception as e:
+        errors.append(e)
