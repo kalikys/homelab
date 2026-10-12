@@ -146,3 +146,28 @@ def test_session_guessed_and_linked(pj_env, tmp_path, monkeypatch):
     monkeypatch.setenv("PJ_SESSION", "override-1")
     pj.main(["done", str(nid)])
     assert {s["id"] for s in get(url, f"/api/items/{nid}")["sessions"]} == {"abc-123", "override-1"}
+
+
+def test_seed(pj_env, tmp_path, capsys):
+    pj, home, url = pj_env
+    seed = tmp_path / "seed.json"
+    seed.write_text(json.dumps({"projects": [{
+        "slug": "nodesize", "title": "NodeSize", "area": "sites", "summary": "калькулятор", "next_step": "AdSense",
+        "paths": [str(tmp_path)],
+        "items": [
+            {"type": "milestone", "title": "сайт", "status": "done", "ts": "2026-10-11T12:00:00Z"},
+            {"type": "milestone", "title": "AdSense"},
+            {"type": "feature", "title": "HPA"},
+            {"type": "todo", "title": "запросить ревью AdSense", "owner": "user", "parent": "HPA"},
+            {"type": "artifact", "title": "Сайт", "location": "https://nodesize.kalik8s.com", "status": "published"},
+        ],
+    }]}, ensure_ascii=False))
+    assert pj.main(["seed", str(seed)]) == 0
+    assert pj.main(["seed", str(seed)]) == 0
+    assert "skip nodesize" in capsys.readouterr().out
+    card = get(url, "/api/projects/nodesize")
+    assert card["progress"] == 50 and card["open_user_todos"] == 1
+    assert by_title(url, "nodesize", "запросить ревью AdSense")["parent_id"] == by_title(url, "nodesize", "HPA")["id"]
+    assert by_title(url, "nodesize", "Сайт")["location_kind"] == "url"
+    assert by_title(url, "nodesize", "сайт")["created_at"] == "2026-10-11T12:00:00Z"
+    assert get(url, "/api/resolve?cwd=" + str(tmp_path.resolve()))["project"] == "nodesize"

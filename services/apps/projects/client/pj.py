@@ -391,6 +391,34 @@ def cmd_backfill(cfg, a):
     print(f"backfilled {sent} sessions")
 
 
+def cmd_seed(cfg, a):
+    # Interactive one-off import: goes straight through http() so failures are loud.
+    data = json.loads(Path(a.file).expanduser().read_text())
+    existing = {p["slug"] for p in read(cfg, "/api/projects")}
+    for p in data["projects"]:
+        slug = p["slug"]
+        if slug in existing:
+            print(f"skip {slug}")
+            continue
+        http(cfg, "POST", "/api/projects", {"slug": slug, "title": p["title"], "area": p.get("area", "other"),
+                                            "status": p.get("status", "active"), "summary": p.get("summary", ""),
+                                            "next_step": p.get("next_step", "")})
+        ids: dict[str, int] = {}
+        for n, it in enumerate(p.get("items", [])):
+            body = {"type": it["type"], "title": it["title"], "body": it.get("body", ""), "uid": f"seed-{slug}-{n}"}
+            for key in ("status", "owner", "ts"):
+                if it.get(key):
+                    body[key] = it[key]
+            if it.get("location"):
+                body["location"] = loc(it["location"])
+            if it.get("parent"):
+                body["parent_id"] = ids[it["parent"]]
+            ids[it["title"]] = http(cfg, "POST", f"/api/projects/{slug}/items", body)["id"]
+        for d in p.get("paths", []):
+            http(cfg, "POST", "/api/path-map", {"prefix": loc(d), "project": slug})
+        print(f"seeded {slug}: {len(ids)} items")
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="pj", description="projects dashboard client")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -426,6 +454,7 @@ def build_parser() -> argparse.ArgumentParser:
     add("show", cmd_show)
     add("session-end", cmd_session_end, project=False)
     add("backfill", cmd_backfill, project=False).add_argument("--root")
+    add("seed", cmd_seed, project=False).add_argument("file")
     return ap
 
 
