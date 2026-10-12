@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -57,8 +58,12 @@ def upsert_session(body: SessionIn, conn: sqlite3.Connection = Depends(get_db)):
     project = body.project
     if project is not None:
         require_project(conn, project)
-    elif body.cwd:
-        project = resolve(conn, body.cwd)
+    else:
+        project = resolve(conn, body.cwd) if body.cwd else None
+        if project is None:
+            # Most chats start in the workspace root; the files they edited still say which project they were about.
+            hits = Counter(p for p in (resolve(conn, f) for f in body.files_changed) if p)
+            project = hits.most_common(1)[0][0] if hits else None
     conn.execute(
         "INSERT INTO session(id,project,title,cwd,first_prompt,started_at,ended_at,user_turns,files_changed,transcript_path)"
         " VALUES(?,?,?,?,?,?,?,?,?,?)"

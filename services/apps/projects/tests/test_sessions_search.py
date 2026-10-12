@@ -78,3 +78,15 @@ def test_search_cyrillic_case_insensitive(client):
     assert client.get("/api/search", params={"q": "davinci"}).json()[0]["hits"][0]["type"] == "finding"
     assert [h["type"] for h in client.get("/api/search", params={"q": "50%_"}).json()[0]["hits"]] == ["artifact"]
     assert client.get("/api/search", params={"q": "  "}).json() == []
+
+
+def test_session_project_from_changed_files_when_cwd_unmapped(client):
+    mk(client, "nodesize")
+    mk(client, "toolsites")
+    client.post("/api/path-map", json={"prefix": "/x/nodesize", "project": "nodesize"})
+    client.post("/api/path-map", json={"prefix": "/x/toolsites", "project": "toolsites"})
+    s = client.post("/api/sessions", json={"id": "root-chat", "cwd": "/x", "files_changed": [
+        "/x/nodesize/build.py", "/x/nodesize/site/a.html", "/x/toolsites/README.md", "/elsewhere/notes.md"]}).json()
+    assert s["project"] == "nodesize"
+    none = client.post("/api/sessions", json={"id": "no-files", "cwd": "/x", "files_changed": ["/elsewhere/a"]}).json()
+    assert none["project"] is None
