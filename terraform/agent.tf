@@ -5,8 +5,8 @@ locals {
     ip         = "192.168.1.40"
     mac        = "BC:24:11:4B:38:40"
     cores      = 2
-    memory_mb  = 2048
-    balloon_mb = 1024
+    memory_mb  = 3072
+    balloon_mb = 1536
     disk_gb    = 30
     role       = "AI ops agent (Telegram), read-only"
   }

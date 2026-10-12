@@ -1,0 +1,12 @@
+# Прототипы игр фермы (трек GAME): статика из /opt/games/<игра>/site, доступ только из LAN и Tailscale.
+services:
+  games:
+    image: nginx:1.29-alpine
+    container_name: games
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /opt/games:/srv/games:ro
+    mem_limit: 64m
