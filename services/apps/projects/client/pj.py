@@ -306,6 +306,91 @@ def cmd_show(cfg, a):
     print("\n".join(out))
 
 
+EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+TS_RE = re.compile(r'"timestamp":\s*"([^"]+)"')
+CWD_RE = re.compile(r'"cwd":\s*"([^"]+)"')
+
+
+def _text_of(content) -> str:
+    if isinstance(content, str):
+        return content
+    return " ".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+
+
+def parse_transcript(path: Path) -> dict:
+    """One pass, JSON-decoding only lines that can matter (big sessions run to 100+ MB)."""
+    res = {"title": "", "first_prompt": "", "started_at": None, "ended_at": None,
+           "user_turns": 0, "files_changed": [], "cwd": ""}
+    ai_title = custom_title = ""
+    files: dict[str, None] = {}
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = TS_RE.search(line)
+            if m:
+                res["started_at"] = res["started_at"] or m.group(1)
+                res["ended_at"] = m.group(1)
+            if not res["cwd"]:
+                c = CWD_RE.search(line)
+                if c:
+                    res["cwd"] = c.group(1)
+            if not ("turnOrigin" in line or "tool_use" in line or "-title" in line):
+                continue
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            t = e.get("type")
+            if t == "custom-title":
+                custom_title = e.get("customTitle") or custom_title
+            elif t == "ai-title":
+                ai_title = e.get("aiTitle") or ai_title
+            elif t == "user" and e.get("turnOrigin") == "human" and not e.get("isCompactSummary"):
+                res["user_turns"] += 1
+                text = _text_of(e.get("message", {}).get("content", "")).strip()
+                if text and not res["first_prompt"] and not text.startswith("<"):
+                    res["first_prompt"] = text[:300]
+            elif t == "assistant":
+                for b in e.get("message", {}).get("content", []) or []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in EDIT_TOOLS:
+                        p = (b.get("input") or {}).get("file_path") or (b.get("input") or {}).get("notebook_path")
+                        if p:
+                            files[p] = None
+    res["title"] = custom_title or ai_title
+    res["files_changed"] = list(files)[:50]
+    return res
+
+
+def session_payload(session_id: str, cwd: str, transcript_path: str) -> dict | None:
+    t = parse_transcript(Path(transcript_path))
+    if t["user_turns"] < 3:
+        return None
+    return {"id": session_id, "title": t["title"], "cwd": cwd or t["cwd"], "first_prompt": t["first_prompt"],
+            "started_at": t["started_at"], "ended_at": t["ended_at"], "user_turns": t["user_turns"],
+            "files_changed": t["files_changed"], "transcript_path": transcript_path}
+
+
+def cmd_session_end(cfg, a):
+    # Runs as a Claude Code SessionEnd hook: must be quick and must never fail.
+    try:
+        hook = json.loads(sys.stdin.read())
+        body = session_payload(hook["session_id"], hook.get("cwd", ""), hook["transcript_path"])
+        if body:
+            send(cfg, "POST", "/api/sessions", body)
+    except Exception as e:
+        print(f"pj session-end: {e}", file=sys.stderr)
+
+
+def cmd_backfill(cfg, a):
+    root = Path(a.root).expanduser() if a.root else claude_projects()
+    sent = 0
+    for f in sorted(root.glob("*/*.jsonl")):
+        body = session_payload(f.stem, "", str(f))
+        if body:
+            send(cfg, "POST", "/api/sessions", body)
+            sent += 1
+    print(f"backfilled {sent} sessions")
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="pj", description="projects dashboard client")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -339,6 +424,8 @@ def build_parser() -> argparse.ArgumentParser:
     add("map", cmd_map).add_argument("dir", nargs="?", default=".")
     add("list", cmd_list, project=False)
     add("show", cmd_show)
+    add("session-end", cmd_session_end, project=False)
+    add("backfill", cmd_backfill, project=False).add_argument("--root")
     return ap
 
 
