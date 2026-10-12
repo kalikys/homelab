@@ -1,0 +1,15 @@
+# Дашборд проектов: https://projects.home.kalik8s.ru, только LAN и Tailscale. Без авторизации (AUTH_MODE=token включает её).
+services:
+  projects:
+    build: .
+    image: projects:local
+    container_name: projects
+    restart: unless-stopped
+    ports:
+      - "8790:8790"
+    environment:
+      TZ: Asia/Tbilisi
+      AUTH_MODE: none
+    volumes:
+      - ./data:/data
+    mem_limit: 256m

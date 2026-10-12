@@ -192,6 +192,12 @@
         description: Proxmox и ВМ лабы Kubernetes
         server: local
         container: pulse
+    - Проекты:
+        icon: mdi-view-dashboard-outline
+        href: https://projects.home.kalik8s.ru
+        description: Где я остановился, что ждёт меня
+        server: local
+        container: projects
     - Контейнер apps:
         icon: mdi-docker
         description: Docker, 192.168.1.10
