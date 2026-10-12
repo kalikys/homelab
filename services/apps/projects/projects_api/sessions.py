@@ -30,6 +30,7 @@ class SessionPatch(BaseModel):
 class PathMapIn(BaseModel):
     prefix: str = Field(min_length=1)
     project: str
+    replace: bool = False
 
 
 def _norm(path: str) -> str:
@@ -133,6 +134,9 @@ def list_path_map(conn: sqlite3.Connection = Depends(get_db)):
 def add_path_map(body: PathMapIn, conn: sqlite3.Connection = Depends(get_db)):
     require_project(conn, body.project)
     prefix = _norm(body.prefix)
+    old = conn.execute("SELECT project FROM path_map WHERE prefix=?", (prefix,)).fetchone()
+    if old is not None and old["project"] != body.project and not body.replace:
+        raise HTTPException(409, f"{prefix} is already mapped to {old['project']}")
     conn.execute("INSERT INTO path_map(prefix,project) VALUES(?,?)"
                  " ON CONFLICT(prefix) DO UPDATE SET project=excluded.project", (prefix, body.project))
     return {"prefix": prefix, "project": body.project}

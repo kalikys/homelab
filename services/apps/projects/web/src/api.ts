@@ -17,7 +17,7 @@ export type Session = {
   id: string; project: string | null; title: string; cwd: string; first_prompt: string;
   started_at: string | null; ended_at: string | null; user_turns: number; files_changed: string[];
 };
-export type Card = Project & { items: Item[]; events: Ev[]; sessions: Session[] };
+export type Card = Project & { items: Item[]; events: Ev[]; sessions: (Session & { items: (Small & { roles: string[] })[] })[] };
 export type ItemDetail = Item & {
   parent: Small | null; children: Item[];
   relations: { direction: "out" | "in"; kind: string; item: Small }[];

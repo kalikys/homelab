@@ -74,6 +74,7 @@ def link_session(conn, session_id: str | None, item, role: str, ts: str) -> None
     # Stub row so the current chat shows up before its SessionEnd hook runs.
     conn.execute("INSERT OR IGNORE INTO session(id, project, started_at) VALUES(?,?,?)",
                  (session_id, item["project"], ts))
+    conn.execute("UPDATE session SET project=? WHERE id=? AND project IS NULL", (item["project"], session_id))
     conn.execute("INSERT OR IGNORE INTO session_item(session_id,item_id,role,ts) VALUES(?,?,?,?)",
                  (session_id, item["id"], role, ts))
 

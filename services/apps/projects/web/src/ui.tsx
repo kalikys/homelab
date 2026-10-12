@@ -31,11 +31,29 @@ export const Progress = ({ value }: { value: number | null }) =>
     </div>
   );
 
+// navigator.clipboard exists only on https/localhost; the dashboard is also opened as http://192.168.1.10:8790.
+async function copy(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch { /* fall through */ }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  ta.remove();
+  return ok;
+}
+
 export function CopyButton({ text, label }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <Button title={text} className="px-2 py-1 text-xs"
-      onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); }}>
+      onClick={async (e) => {
+        e.preventDefault();
+        if (await copy(text)) { setDone(true); setTimeout(() => setDone(false), 1200); }
+        else window.prompt("Скопируй вручную:", text);
+      }}>
       {done ? <Check size={14} /> : <Copy size={14} />}{label}
     </Button>
   );

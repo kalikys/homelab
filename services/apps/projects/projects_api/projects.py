@@ -21,6 +21,7 @@ class ProjectIn(BaseModel):
     summary: str = ""
     next_step: str = ""
     milestones: list[str] = []
+    ts: str | None = None  # historic imports (seed): when the project was last active
 
 
 class ProjectPatch(BaseModel):
@@ -59,7 +60,7 @@ def list_projects(conn: sqlite3.Connection = Depends(get_db)):
 
 @router.post("/projects", status_code=201)
 def create_project(body: ProjectIn, conn: sqlite3.Connection = Depends(get_db)):
-    ts = now()
+    ts = body.ts or now()
     try:
         conn.execute(
             "INSERT INTO project(slug,title,area,status,summary,next_step,created_at,updated_at)"
@@ -86,6 +87,15 @@ def get_project(slug: str, conn: sqlite3.Connection = Depends(get_db)):
         "SELECT * FROM session WHERE project=? OR id IN"
         " (SELECT si.session_id FROM session_item si JOIN item i ON i.id=si.item_id WHERE i.project=?)"
         " ORDER BY COALESCE(ended_at, started_at, '') DESC LIMIT 50", (slug, slug))]
+    touched: dict[str, dict[int, dict]] = {}
+    for r in conn.execute(
+            "SELECT si.session_id, si.role, i.id, i.type, i.title, i.status, i.project FROM session_item si"
+            " JOIN item i ON i.id=si.item_id WHERE i.project=? ORDER BY si.ts, i.id", (slug,)):
+        it = touched.setdefault(r["session_id"], {}).setdefault(
+            r["id"], {k: r[k] for k in ("id", "type", "title", "status", "project")} | {"roles": []})
+        it["roles"].append(r["role"])
+    for s in d["sessions"]:
+        s["items"] = list(touched.get(s["id"], {}).values())
     return d
 
 

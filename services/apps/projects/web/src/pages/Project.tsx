@@ -113,11 +113,21 @@ export default function Project() {
         <div className="space-y-2">
           {p.sessions.length === 0 && <Empty>Чатов пока нет.</Empty>}
           {p.sessions.map((s) => (
-            <Card key={s.id} className="flex items-center justify-between gap-2">
-              <Link to={`/s/${s.id}`} className="min-w-0 truncate hover:text-accent">
-                {s.title || s.first_prompt || s.id.slice(0, 8)} <span className="text-xs text-muted">· {ago(s.ended_at ?? s.started_at)}</span>
-              </Link>
-              <CopyButton text={resume(s)} />
+            <Card key={s.id} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Link to={`/s/${s.id}`} className="min-w-0 truncate hover:text-accent">
+                  {s.title || s.first_prompt || s.id.slice(0, 8)} <span className="text-xs text-muted">· {ago(s.ended_at ?? s.started_at)}</span>
+                </Link>
+                <CopyButton text={resume(s)} />
+              </div>
+              {s.items.length > 0 && (
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                  {s.items.slice(0, 6).map((i) => (
+                    <Link key={i.id} to={`/i/${i.id}`} className="hover:text-accent">{TYPE[i.type].label}: {i.title}</Link>
+                  ))}
+                  {s.items.length > 6 && <span>и ещё {s.items.length - 6}</span>}
+                </div>
+              )}
             </Card>
           ))}
         </div>

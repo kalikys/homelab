@@ -179,3 +179,70 @@ def test_claude_code_session_id_wins_over_guess(pj_env, monkeypatch):
     assert pj.current_session() == "cc-session-7"
     monkeypatch.setenv("PJ_SESSION", "explicit")
     assert pj.current_session() == "explicit"
+
+
+# --- final review fixes ---------------------------------------------------
+
+def test_5xx_queues_instead_of_dropping(pj_env, monkeypatch, capsys):
+    import io
+    import urllib.error
+    pj, home, url = pj_env
+    pj.main(["new", "a", "A"])
+    real = urllib.request.urlopen
+    state = {"failed": False}
+
+    def flaky(req, timeout=None):
+        if req.get_method() != "GET" and not state["failed"]:
+            state["failed"] = True
+            raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, io.BytesIO(b"<html>502</html>"))
+        return real(req, timeout=timeout)
+
+    monkeypatch.setattr(pj.urllib.request, "urlopen", flaky)
+    assert pj.main(["add", "-p", "a", "note", "во время деплоя"]) == 0
+    assert "queued" in capsys.readouterr().err
+    monkeypatch.setattr(pj.urllib.request, "urlopen", real)
+    pj.main(["list"])
+    assert [i["title"] for i in items(url, "a")] == ["во время деплоя"]
+
+
+def test_offline_without_project_flag_is_queued_and_resolved_later(pj_env, tmp_path, monkeypatch):
+    pj, home, url = pj_env
+    d = tmp_path / "work" / "site"
+    d.mkdir(parents=True)
+    pj.main(["new", "site", "Сайт", "--path", str(d)])
+    monkeypatch.chdir(d)
+    monkeypatch.setenv("PJ_URL", "http://127.0.0.1:9")
+    assert pj.main(["add", "note", "без -p офлайн"]) == 0
+    monkeypatch.setenv("PJ_URL", url)
+    monkeypatch.chdir(tmp_path)
+    pj.main(["list"])
+    assert [i["title"] for i in items(url, "site")] == ["без -p офлайн"]
+
+
+def test_corrupt_outbox_line_is_skipped(pj_env, capsys):
+    pj, home, url = pj_env
+    pj.main(["new", "a", "A"])
+    good = json.dumps({"method": "POST", "path": "/api/projects/a/items", "body": {"type": "note", "title": "ok", "uid": "u-ok"}})
+    (home / "outbox.jsonl").write_text(good + "\n" + '{"method": "POST", "pa' + "\n")
+    assert pj.main(["list"]) == 0
+    assert [i["title"] for i in items(url, "a")] == ["ok"]
+    assert (home / "outbox.bad").read_text().startswith('{"method": "POST", "pa')
+    assert "corrupt" in capsys.readouterr().err
+
+
+def test_session_end_survives_bad_config(pj_env, monkeypatch):
+    pj, home, url = pj_env
+    (home / "config.toml").write_text("url = [broken")
+    import io
+    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+    assert pj.main(["session-end"]) == 0
+
+
+def test_seed_keeps_last_activity_date(pj_env, tmp_path):
+    pj, home, url = pj_env
+    seed = tmp_path / "seed.json"
+    seed.write_text(json.dumps({"projects": [{"slug": "old", "title": "Old", "items": [
+        {"type": "milestone", "title": "a", "status": "done", "ts": "2026-09-03T12:00:00Z"},
+        {"type": "todo", "title": "без даты"}]}]}, ensure_ascii=False))
+    pj.main(["seed", str(seed)])
+    assert get(url, "/api/projects/old")["updated_at"] == "2026-09-03T12:00:00Z"

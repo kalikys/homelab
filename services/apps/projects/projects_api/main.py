@@ -1,3 +1,4 @@
+import hmac
 import os
 from pathlib import Path
 
@@ -24,7 +25,7 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
         @app.middleware("http")
         async def require_token(request: Request, call_next):
             path = request.url.path
-            if path.startswith("/api/") and path != "/api/health" and request.headers.get("authorization") != expected:
+            if path.startswith("/api/") and path != "/api/health" and not hmac.compare_digest(request.headers.get("authorization", ""), expected):
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             return await call_next(request)
 

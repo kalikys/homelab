@@ -68,6 +68,9 @@ def http(cfg: dict, method: str, path: str, body=None, timeout: float = 5):
             msg = json.loads(e.read()).get("error", e.reason)
         except Exception:
             msg = str(e.reason)
+        if e.code >= 500 or e.code == 429:
+            # NPM answers 502 while the container restarts: that is "unreachable", not a rejected write.
+            raise Offline(f"{e.code} {msg}")
         raise ApiError(e.code, msg)
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
         raise Offline(str(e))
@@ -77,6 +80,19 @@ def _outbox() -> Path:
     return home() / "outbox.jsonl"
 
 
+# Path placeholder for writes made offline without -p: the project is resolved from the saved cwd at replay.
+SLUG = "{slug}"
+
+
+def _fill(cfg: dict, path: str, cwd: str) -> str:
+    if SLUG not in path:
+        return path
+    slug = http(cfg, "GET", "/api/resolve?cwd=" + urllib.parse.quote(cwd))["project"]
+    if not slug:
+        raise ApiError(404, f"no project mapped to {cwd}")
+    return path.replace(SLUG, slug)
+
+
 def flush(cfg: dict) -> int:
     box = _outbox()
     if not box.exists():
@@ -84,9 +100,17 @@ def flush(cfg: dict) -> int:
     lines = [l for l in box.read_text().splitlines() if l.strip()]
     done = 0
     for i, line in enumerate(lines):
-        item = json.loads(line)
         try:
-            http(cfg, item["method"], item["path"], item.get("body"))
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            # A cut-short append (full disk, killed process) must not wedge every later call.
+            with (home() / "outbox.bad").open("a") as f:
+                f.write(line + "\n")
+            print("pj: skipped a corrupt outbox line (kept in outbox.bad)", file=sys.stderr)
+            done += 1
+            continue
+        try:
+            http(cfg, item["method"], _fill(cfg, item["path"], item.get("cwd", "")), item.get("body"))
         except Offline:
             box.write_text("\n".join(lines[i:]) + "\n")
             return done
@@ -100,11 +124,11 @@ def flush(cfg: dict) -> int:
 def send(cfg: dict, method: str, path: str, body=None):
     try:
         flush(cfg)
-        return http(cfg, method, path, body)
+        return http(cfg, method, _fill(cfg, path, os.getcwd()), body)
     except Offline as e:
         home().mkdir(parents=True, exist_ok=True)
         with _outbox().open("a") as f:
-            f.write(json.dumps({"method": method, "path": path, "body": body}, ensure_ascii=False) + "\n")
+            f.write(json.dumps({"method": method, "path": path, "body": body, "cwd": os.getcwd()}, ensure_ascii=False) + "\n")
         print(f"pj: dashboard unreachable ({e}); queued, will retry on the next call", file=sys.stderr)
         return None
 
@@ -150,7 +174,7 @@ def project_slug(cfg: dict, args) -> str:
     try:
         slug = read(cfg, "/api/resolve?cwd=" + urllib.parse.quote(cwd))["project"]
     except Offline:
-        raise Die("dashboard unreachable and no -p given; pass -p <slug>")
+        return SLUG  # resolved from this cwd when the queued write is replayed
     if not slug:
         raise Die(f"no project mapped to {cwd}; pass -p <slug>, or create one: pj new <slug> \"<title>\" --path {cwd}")
     return slug
@@ -401,15 +425,22 @@ def cmd_seed(cfg, a):
         if slug in existing:
             print(f"skip {slug}")
             continue
-        http(cfg, "POST", "/api/projects", {"slug": slug, "title": p["title"], "area": p.get("area", "other"),
-                                            "status": p.get("status", "active"), "summary": p.get("summary", ""),
-                                            "next_step": p.get("next_step", "")})
+        # The newest dated item is the project's last activity; undated items inherit it so home sorts honestly.
+        newest = max((it["ts"] for it in p.get("items", []) if it.get("ts")), default=None)
+        last = p.get("ts") or newest
+        body = {"slug": slug, "title": p["title"], "area": p.get("area", "other"), "status": p.get("status", "active"),
+                "summary": p.get("summary", ""), "next_step": p.get("next_step", "")}
+        if last:
+            body["ts"] = last
+        http(cfg, "POST", "/api/projects", body)
         ids: dict[str, int] = {}
         for n, it in enumerate(p.get("items", [])):
             body = {"type": it["type"], "title": it["title"], "body": it.get("body", ""), "uid": f"seed-{slug}-{n}"}
             for key in ("status", "owner", "ts"):
                 if it.get(key):
                     body[key] = it[key]
+            if last and "ts" not in body:
+                body["ts"] = last
             if it.get("location"):
                 body["location"] = loc(it["location"])
             if it.get("parent"):
@@ -461,7 +492,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    cfg = load_config()
+    try:
+        cfg = load_config()
+    except Exception as e:
+        print(f"pj: bad config {home() / 'config.toml'}: {e}", file=sys.stderr)
+        return 0 if args.cmd == "session-end" else 1
     try:
         args.fn(cfg, args)
     except Die as e:

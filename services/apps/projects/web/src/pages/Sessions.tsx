@@ -7,13 +7,13 @@ import { Card, CopyButton, Empty } from "../ui";
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const load = () => api.unsorted().then(setSessions);
   useEffect(() => { load(); api.projects().then(setProjects); }, []);
 
   async function attach(s: Session, slug: string) {
     await api.attach(s.id, slug);
-    if (remember && s.cwd) await api.addPathMap(s.cwd, slug);
+    if (remember && s.cwd) await api.addPathMap(s.cwd, slug).catch((e) => alert(String(e)));
     load();
   }
 

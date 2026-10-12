@@ -21,3 +21,9 @@ def test_spa_fallback(tmp_path):
         assert c.get("/assets/app.js").text == "console.log(1)"
         assert "spa" in c.get("/p/video02").text
         assert c.get("/api/nope").status_code == 404
+
+
+def test_token_compared_in_constant_time():
+    import inspect
+    from projects_api import main
+    assert "compare_digest" in inspect.getsource(main)

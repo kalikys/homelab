@@ -90,3 +90,36 @@ def test_session_project_from_changed_files_when_cwd_unmapped(client):
     assert s["project"] == "nodesize"
     none = client.post("/api/sessions", json={"id": "no-files", "cwd": "/x", "files_changed": ["/elsewhere/a"]}).json()
     assert none["project"] is None
+
+
+def test_path_map_does_not_silently_replace(client):
+    mk(client, "a")
+    mk(client, "b")
+    client.post("/api/path-map", json={"prefix": "/x/root", "project": "a"})
+    r = client.post("/api/path-map", json={"prefix": "/x/root", "project": "b"})
+    assert r.status_code == 409
+    assert client.get("/api/resolve", params={"cwd": "/x/root"}).json()["project"] == "a"
+    assert client.post("/api/path-map", json={"prefix": "/x/root", "project": "b", "replace": True}).status_code == 201
+    assert client.get("/api/resolve", params={"cwd": "/x/root"}).json()["project"] == "b"
+
+
+def test_resumed_unsorted_chat_gets_bound_by_item_write(client):
+    mk(client, "v")
+    client.post("/api/sessions", json={"id": "old-chat", "cwd": "/nowhere", "user_turns": 5})
+    client.post("/api/projects/v/items", json={"type": "note", "title": "n", "session_id": "old-chat"})
+    assert client.get("/api/sessions/old-chat").json()["project"] == "v"
+    assert [s["id"] for s in client.get("/api/sessions", params={"unsorted": 1}).json()] == []
+
+
+def test_project_card_chats_list_what_they_touched(client):
+    mk(client, "v")
+    it = client.post("/api/projects/v/items", json={"type": "todo", "title": "свести звук", "session_id": "c1"}).json()
+    s = client.get("/api/projects/v").json()["sessions"][0]
+    assert s["items"] == [{"id": it["id"], "type": "todo", "title": "свести звук", "status": "open", "project": "v", "roles": ["created"]}]
+
+
+def test_project_and_items_keep_historic_ts(client):
+    r = client.post("/api/projects", json={"slug": "old", "title": "Old", "ts": "2026-09-01T12:00:00Z"})
+    assert r.json()["updated_at"] == "2026-09-01T12:00:00Z"
+    client.post("/api/projects/old/items", json={"type": "note", "title": "n", "ts": "2026-09-02T12:00:00Z"})
+    assert client.get("/api/projects/old").json()["updated_at"] == "2026-09-02T12:00:00Z"

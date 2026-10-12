@@ -21,4 +21,7 @@ export const AREAS: Record<string, string> = {
   youtube: "YouTube", sites: "Сайты", infra: "Инфра", jobs: "Работа", crypto: "Крипто", research: "Исследования", other: "Другое",
 };
 
-export const resume = (s: { id: string; cwd: string }) => (s.cwd ? `cd ${s.cwd} && ` : "") + `claude --resume ${s.id}`;
+// The user pastes this into a terminal: quote everything that comes from the API.
+const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+
+export const resume = (s: { id: string; cwd: string }) => (s.cwd ? `cd ${sq(s.cwd)} && ` : "") + `claude --resume ${sq(s.id)}`;
