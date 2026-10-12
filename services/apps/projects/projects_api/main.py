@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from . import db, errors, items, projects
+from . import db, errors, items, projects, search, sessions
 
 
 def create_app(db_path: str | None = None, static_dir: str | None = None,
@@ -15,4 +15,6 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
     errors.install(app)
     app.include_router(projects.router)
     app.include_router(items.router)
+    app.include_router(sessions.router)
+    app.include_router(search.router)
     return app
