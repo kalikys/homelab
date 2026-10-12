@@ -99,3 +99,14 @@ test("ruPlural", () => {
   assert.equal(f(22), "дня");
   assert.equal(f(112), "дней");
 });
+
+test("skPlural", () => {
+  const f = (n) => Core.skPlural(n, "deň", "dni", "dní");
+  assert.equal(f(0), "dní");
+  assert.equal(f(1), "deň");
+  assert.equal(f(2), "dni");
+  assert.equal(f(4), "dni");
+  assert.equal(f(5), "dní");
+  assert.equal(f(21), "dní");
+  assert.equal(f(22), "dní");
+});

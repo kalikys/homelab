@@ -1,0 +1,622 @@
+{
+ "name": "05 · Traffic",
+ "nodes": [
+  {
+   "id": "9f304b1a-3b2a-5977-9e0e-e7964f075e5b",
+   "name": "About",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -80,
+    -420
+   ],
+   "parameters": {
+    "content": "## 05 · Traffic\nЛендинг публикуется → агент готовит кампанию: объявления или письма, ключи/аудитории, лимиты, ссылки с UTM, пошаговая инструкция.\n\n**Guardrails (код):** канал и бюджет как в условиях · дневной лимит · все ссылки с utm_campaign=EXP · лимиты длины объявлений · для писем — отписка, адрес, вне ЕС.\n\n**Твой шаг:** запустить кампанию по инструкции → «Я запустил». Дальше метрики собирает `05m`.",
+    "width": 540,
+    "height": 320,
+    "color": 5
+   }
+  },
+  {
+   "id": "e5e7aaf8-d88b-5776-b80b-7007bcd2401f",
+   "name": "Called by another workflow",
+   "type": "n8n-nodes-base.executeWorkflowTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -240,
+    0
+   ],
+   "parameters": {
+    "inputSource": "passthrough"
+   }
+  },
+  {
+   "id": "0b63066c-ee44-5c0d-b159-bde66cb85155",
+   "name": "Expect this stage",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "jsCode": "return $input.all().map(i => ({ json: { exp_id: i.json.exp_id, stage: 5 } }));"
+   }
+  },
+  {
+   "id": "41d1d2ee-9b01-5863-a9dc-ee09dc935076",
+   "name": "Guardrail preflight",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "3O5a5pa8PtbdgzMz",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "8755ea99-93c3-5446-a731-5c3930f78bea",
+   "name": "All checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "3c88e2eb-32ca-5b2d-9ec5-f84b2bfe5644",
+       "leftValue": "={{ $json.ok }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "8a4d580a-4adc-5a63-a16e-f4486292cb86",
+   "name": "Load context",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    720,
+    -120
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "SELECT e.id AS exp_id, e.chosen_brief AS slug, e.prereg, e.landing_url, e.title,\n  (SELECT value FROM settings WHERE key = 'budget_test_usd')::numeric AS budget_cap, (SELECT json_build_object(\n  'lessons', (SELECT coalesce(json_agg(json_build_object('id', l.id, 'kind', l.kind, 'lesson', l.lesson, 'weight', l.weight)), '[]'::json)\n              FROM (SELECT * FROM lessons WHERE active AND track = x.track ORDER BY weight DESC, last_seen DESC LIMIT 10) l),\n  'history', (SELECT coalesce(json_agg(json_build_object('slug', h.slug, 'title', h.title, 'outcome', h.outcome, 'score', h.score,\n                                                          'verdict', h.verdict, 'why', h.reasons) ORDER BY h.ts DESC), '[]'::json)\n              FROM (SELECT DISTINCT ON (slug) * FROM idea_history WHERE track = x.track ORDER BY slug, ts DESC LIMIT 200) h))\n FROM (SELECT track FROM experiments WHERE id = $1) x) AS memory, ((SELECT coalesce(max(value) FILTER (WHERE key = 'api_budget_month_usd'), '0')::numeric FROM settings)\n  - (SELECT coalesce(sum(usd), 0) FROM costs WHERE source = 'claude_api' AND ts >= date_trunc('month', now())) > 5) AS use_api\nFROM experiments e WHERE e.id = $1",
+    "options": {
+     "queryReplacement": "={{ [$('Expect this stage').first().json.exp_id] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "cdde8dfc-85d4-5c42-a792-2c686b54143f",
+   "name": "Publish live",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    960,
+    -120
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/publish/landing/{{ $('Load context').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 600000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={\"mode\": \"live\"}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "id": "41984600-3f9e-5c43-a975-d6991e720b68",
+   "name": "Agent: traffic",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1200,
+    -120
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "http://172.30.0.10:8080/run/traffic",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 10800000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ exp_id: $('Load context').first().json.exp_id, slug: $('Load context').first().json.slug, stage: 5, max_turns: 60, budget_usd: 3, timeout_s: 2400, queue_timeout_s: 10800, use_api: $('Load context').first().json.use_api, memory: $('Load context').first().json.memory, prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url, input: { note: \"Write campaign.json for the owner\" } }) }}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "id": "76544e09-5352-5856-949e-49095f0347ad",
+   "name": "Validate campaign",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1440,
+    -200
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "=http://172.30.0.10:8080/validate/campaign/{{ $('Load context').first().json.exp_id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "options": {
+     "timeout": 600000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ prereg: $('Load context').first().json.prereg, landing_url: $('Publish live').first().json.url }) }}"
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "sMBbx1wz3RKIJAgm",
+     "name": "Agent runner token"
+    }
+   }
+  },
+  {
+   "id": "ae8f304a-0dc1-59a7-b873-6609391d71ec",
+   "name": "Checks passed?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1680,
+    -200
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "1253ba70-3d60-59f9-9083-15e1842e5a0b",
+       "leftValue": "={{ $json.passed === true }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "b8947a5d-eed1-57bd-85e4-44217e548ab3",
+   "name": "Save campaign, open gate",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1920,
+    -280
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "WITH u AS (UPDATE experiments SET campaign = $2::jsonb, landing_url = $3, status = 'waiting_owner', updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id),\ng AS (INSERT INTO gate_tokens (exp_id, gate, stage, choices) SELECT id, 'G-launch', 5, ARRAY['launched']::text[] FROM u RETURNING token),\nev AS (INSERT INTO events (exp_id, stage, kind, actor, message) SELECT id, 5, 'waiting_owner', 'n8n', 'Ждёт решения владельца: G-launch' FROM u RETURNING 1)\nSELECT (SELECT token FROM g) AS token",
+    "options": {
+     "queryReplacement": "={{ [$('Load context').first().json.exp_id, JSON.stringify($json.campaign), $('Publish live').first().json.url] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   }
+  },
+  {
+   "id": "06a9d2f3-9275-5de2-9507-679dc936f1a4",
+   "name": "Compose launch steps",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2160,
+    -280
+   ],
+   "parameters": {
+    "jsCode": "const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst x = $('Load context').first().json, cmp = $('Validate campaign').first().json.campaign || {};\nconst t = $('Save campaign, open gate').first().json.token;\nconst steps = (cmp.owner_steps || []).map(s => esc(s)).join('\\n');\nconst ads = (cmp.ads || []).slice(0, 1).map(a => '«' + esc((a.headlines || []).slice(0, 3).join(' | ')) + '»').join('');\nreturn [{ json: { text: `🚀 <b>${esc(x.exp_id)}: кампания готова</b> · ${esc(cmp.channel)} · бюджет $${cmp.budget_usd}, не больше $${cmp.daily_cap_usd}/день\\n` +\n  `Лендинг: ${esc($('Publish live').first().json.url)}\\n${ads ? 'Объявление: ' + ads + '\\n' : ''}\\n<b>Как запустить:</b>\\n${steps}\\n\\n` +\n  `Полная спецификация (ключи, тексты, ссылки) — в n8n и в /work/${esc(x.exp_id)}/test/campaign.json.\\n` +\n  `<a href=\"https://n8n.home.kalik8s.ru/webhook/farm-gate?g=${t}&c=launched\">Я запустил кампанию</a> — с этого момента считаем тест. Траты отмечай в пульте: action=cost&source=ads.` } }];"
+   }
+  },
+  {
+   "id": "6376d560-8a66-57ef-a03b-eb038442c051",
+   "name": "Ask owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    2400,
+    -280
+   ],
+   "parameters": {
+    "chatId": "260160459",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "tURAovmMnZsndM8n",
+     "name": "Telegram (Hermes bot, send only)"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueRegularOutput"
+  },
+  {
+   "id": "d73a120d-fdc5-5cd8-8b1f-8a2c1730529d",
+   "name": "Stage failed",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1200,
+    260
+   ],
+   "parameters": {
+    "jsCode": "const exp = $('Expect this stage').first().json.exp_id;\nconst r = $input.first().json || {};\nconst failed = (r.checks || []).filter(x => !x.passed).map(x => '✗ ' + x.detail).join('\\n');\nconst why = failed || r.error || r.result || 'нет ответа от агента';\nreturn [{ json: { exp_id: exp, stage: 5, kind: 'stage_failed', actor: 'n8n', message: '⛔ 05 · Traffic: ' + String(why).slice(0, 700), notify: true } }];"
+   }
+  },
+  {
+   "id": "581d016e-49ad-55ba-a1d5-6729539b0613",
+   "name": "Mark blocked",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.5,
+   "position": [
+    1440,
+    260
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "UPDATE experiments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'running' RETURNING id, status",
+    "options": {
+     "queryReplacement": "={{ [$json.exp_id, 'blocked'] }}"
+    }
+   },
+   "credentials": {
+    "postgres": {
+     "id": "AQDTH0A6lV9UWRdi",
+     "name": "Farm DB (farm)"
+    }
+   },
+   "alwaysOutputData": true
+  },
+  {
+   "id": "63d0ec30-ffc6-515a-a9e5-b68511d60694",
+   "name": "Pass failure on",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1680,
+    260
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: $('Stage failed').first().json }];"
+   }
+  },
+  {
+   "id": "a2128518-af29-53d2-9657-700ba0bf0f37",
+   "name": "Log failure",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    1920,
+    260
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "id": "f81621b4-4b05-5404-895b-67e458cfe11a",
+   "name": "Blocked report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    720,
+    460
+   ],
+   "parameters": {
+    "jsCode": "const r = $('Guardrail preflight').first().json;\nconst failed = (r.checks || []).filter(c => !c.passed).map(c => '✗ ' + c.detail).join('\\n');\nreturn [{ json: { exp_id: r.exp_id, stage: 5, kind: 'guardrail_blocked', actor: 'n8n', message: '⛔ Этап 05 · 05 · Traffic остановлен guardrails. Не выполнены условия:\\n' + failed, notify: true } }];"
+   }
+  },
+  {
+   "id": "b495045e-40e8-51f8-ba3a-f1f3781b2e34",
+   "name": "Log blocked",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.2,
+   "position": [
+    960,
+    460
+   ],
+   "parameters": {
+    "source": "database",
+    "workflowId": {
+     "__rl": true,
+     "value": "IDtMT2FqWnNirkvQ",
+     "mode": "id"
+    },
+    "mode": "each",
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Called by another workflow": {
+   "main": [
+    [
+     {
+      "node": "Expect this stage",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Expect this stage": {
+   "main": [
+    [
+     {
+      "node": "Guardrail preflight",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Guardrail preflight": {
+   "main": [
+    [
+     {
+      "node": "All checks passed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "All checks passed?": {
+   "main": [
+    [
+     {
+      "node": "Load context",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Blocked report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Load context": {
+   "main": [
+    [
+     {
+      "node": "Publish live",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Publish live": {
+   "main": [
+    [
+     {
+      "node": "Agent: traffic",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: traffic": {
+   "main": [
+    [
+     {
+      "node": "Validate campaign",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Validate campaign": {
+   "main": [
+    [
+     {
+      "node": "Checks passed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Checks passed?": {
+   "main": [
+    [
+     {
+      "node": "Save campaign, open gate",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Stage failed",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Save campaign, open gate": {
+   "main": [
+    [
+     {
+      "node": "Compose launch steps",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Compose launch steps": {
+   "main": [
+    [
+     {
+      "node": "Ask owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Stage failed": {
+   "main": [
+    [
+     {
+      "node": "Mark blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Mark blocked": {
+   "main": [
+    [
+     {
+      "node": "Pass failure on",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Pass failure on": {
+   "main": [
+    [
+     {
+      "node": "Log failure",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Blocked report": {
+   "main": [
+    [
+     {
+      "node": "Log blocked",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "saveManualExecutions": true,
+  "saveDataSuccessExecution": "all",
+  "saveDataErrorExecution": "all",
+  "timezone": "Asia/Tbilisi",
+  "executionTimeout": 12000,
+  "errorWorkflow": "5xAs9bkS68XauAQS"
+ }
+}

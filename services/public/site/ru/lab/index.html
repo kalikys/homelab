@@ -19,13 +19,14 @@
   <link rel="canonical" href="https://kalik8s.com/ru/lab/">
   <link rel="alternate" hreflang="en" href="https://kalik8s.com/lab/">
   <link rel="alternate" hreflang="ru" href="https://kalik8s.com/ru/lab/">
+  <link rel="alternate" hreflang="sk" href="https://kalik8s.com/sk/lab/">
   <link rel="alternate" hreflang="x-default" href="https://kalik8s.com/lab/">
   <meta name="theme-color" content="#0a0d14">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=202609300430">
+  <link rel="stylesheet" href="/styles.css?v=202610111300">
   <link rel="stylesheet" href="/vendor/asciinema-player/asciinema-player.css?v=3.17.0">
 </head>
 <body>
@@ -40,9 +41,9 @@
         <a href="#machines" data-i18n="certlab.nav.machines">Лаба</a>
         <a href="#live" data-i18n="certlab.nav.live">Эфир</a>
       </nav>
-      <a class="lang" id="lang-toggle" href="/lab/" hreflang="en" data-target="en" aria-label="Switch language">
-        <span data-lang="en">EN</span><span class="lang__sep">/</span><span data-lang="ru" class="is-active">RU</span>
-      </a>
+      <nav class="lang" id="lang-switch" aria-label="Language">
+        <a href="/lab/" hreflang="en" lang="en" data-lang="en">EN</a><span class="lang__sep" aria-hidden="true">/</span><a href="/ru/lab/" hreflang="ru" lang="ru" data-lang="ru" class="is-active" aria-current="page">RU</a><span class="lang__sep" aria-hidden="true">/</span><a href="/sk/lab/" hreflang="sk" lang="sk" data-lang="sk">SK</a>
+      </nav>
     </div>
   </header>
 
@@ -108,9 +109,9 @@
     </div>
   </footer>
 
-  <script src="/lab-core.js?v=202609300430" defer></script>
+  <script src="/lab-core.js?v=202610111200" defer></script>
   <script src="/vendor/asciinema-player/asciinema-player.min.js?v=3.17.0" defer></script>
-  <script src="/lab.js?v=202609300445" defer></script>
+  <script src="/lab.js?v=202610111200" defer></script>
   <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
 </body>

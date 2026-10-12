@@ -78,11 +78,12 @@ a:focus-visible, button:focus-visible {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 5px 12px;
-  cursor: pointer;
   transition: border-color 0.15s ease;
 }
 .lang:hover { border-color: var(--border-strong); }
 .lang [data-lang].is-active { color: var(--text); }
+.lang a[data-lang] { transition: color 0.15s ease; }
+.lang a[data-lang]:hover { color: var(--text); }
 .lang__sep { margin: 0 4px; opacity: 0.5; }
 
 /* Hero */
@@ -147,6 +148,48 @@ a:focus-visible, button:focus-visible {
 .hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 30px; }
 .hero__cta-note { margin: 0; font-size: 13px; color: var(--faint); }
 .actions--secondary { margin-top: 14px; gap: 8px; }
+
+/* Hero: live log from the homelab */
+.pulse {
+  max-width: 640px;
+  margin-top: 34px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.pulse__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; color: var(--faint); font-size: 12px; }
+.pulse__beat { animation: pulse-beat 2s ease-in-out infinite; }
+.pulse__more { margin-left: auto; color: var(--accent); }
+.pulse__more:hover { text-decoration: underline; }
+.pulse__log { list-style: none; margin: 0; padding: 0; }
+.pulse__line {
+  display: flex; gap: 8px; padding: 3px 0;
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden;
+  animation: pulse-in 0.4s ease-out both;
+}
+.pulse__line > :last-child { overflow: hidden; text-overflow: ellipsis; }
+.pulse__tag { flex: none; }
+.pulse__tag--ok { color: var(--ok); }
+.pulse__tag--info { color: var(--accent); }
+.pulse__tag--warn { color: var(--warn); }
+.pulse__tag--fail { color: var(--down); }
+.pulse__link { flex: none; color: var(--accent); }
+.pulse__link:hover { text-decoration: underline; }
+.pulse__msg { min-width: 0; color: var(--faint); }
+@keyframes pulse-beat { 50% { opacity: 0.35; } }
+@keyframes pulse-in { from { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 640px) {
+  .pulse__line { display: block; white-space: normal; }
+  .pulse__line > * { margin-right: 6px; }
+  .pulse__msg { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse__beat, .pulse__line { animation: none; }
+}
 
 /* Sections */
 .section { padding-top: 56px; padding-bottom: 16px; }
@@ -580,4 +623,79 @@ button.btn { font-family: inherit; cursor: pointer; }
   #lab-live-state.is-live .dot { animation: none; }
   .project, .arch-guest, .arch-route { transition: none; }
   .project:hover { transform: none; }
+}
+
+/* Hero: second role */
+.hero__role-sep { margin: 0 6px; }
+.hero__role-alt { border-bottom: 1px solid rgba(94, 234, 212, 0.35); transition: border-color 0.15s ease; }
+.hero__role-alt:hover { border-color: var(--accent-2); }
+
+/* Aerospace: flight on a ballistic arc */
+.flight {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: radial-gradient(120% 90% at 50% 0%, rgba(142, 162, 255, 0.08), transparent 70%), var(--bg-2);
+  overflow: hidden;
+}
+.flight__svg { display: block; width: 100%; height: auto; }
+.flight__stars circle { fill: #c7d0ff; animation: star-blink 4s ease-in-out infinite; }
+.flight__earth { fill: #0f1a2b; stroke: rgba(94, 234, 212, 0.45); stroke-width: 1.2; }
+.flight__atmo { fill: rgba(142, 162, 255, 0.07); }
+.flight__karman { fill: none; stroke: rgba(142, 162, 255, 0.45); stroke-width: 1; stroke-dasharray: 3 5; }
+.flight__ghost { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-width: 1.2; stroke-dasharray: 2 6; }
+.flight__trail { fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.flight__label { font: 500 11px var(--mono); fill: var(--faint); }
+.flight__label--karman { fill: rgba(142, 162, 255, 0.75); }
+.flight__site circle { fill: var(--bg-2); stroke: var(--accent-2); stroke-width: 1.5; }
+.flight__site text { font: 600 12px var(--mono); fill: var(--text); }
+.flight__site .flight__label { font-weight: 500; fill: var(--faint); }
+.flight__body { fill: var(--text); }
+.flight__plume { fill: var(--warn); opacity: 0; transform-origin: -9px 0; }
+.flight__plume.is-on { opacity: 0.9; animation: plume 0.12s steps(2) infinite; }
+.flight__telemetry {
+  position: absolute; top: 14px; left: 16px;
+  display: grid; grid-template-columns: repeat(5, auto); gap: 4px 18px;
+  margin: 0; padding: 8px 12px;
+  font: 500 12px var(--mono);
+  background: rgba(10, 13, 20, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.flight__telemetry dt { color: var(--faint); font-size: 10.5px; letter-spacing: 0.06em; }
+.flight__telemetry dd { margin: 0; color: var(--text); white-space: nowrap; }
+.flight__phase dd { color: var(--accent-2); }
+.flight__caption { padding: 12px 16px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; }
+@keyframes star-blink { 50% { opacity: 0.25; } }
+@keyframes plume { 50% { transform: scaleX(0.7); } }
+
+.aero { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.aero__card {
+  padding: 22px 22px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.aero__card--thesis { background: linear-gradient(160deg, rgba(94, 234, 212, 0.07), transparent 55%), var(--surface); }
+.aero__kicker { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--accent-2); }
+.aero__title { margin: 10px 0 0; font-size: 18px; font-weight: 600; line-height: 1.35; }
+.aero__card:not(.aero__card--thesis) .aero__title { margin-top: 0; }
+.aero__text { margin: 12px 0 0; color: var(--muted); font-size: 14.5px; }
+.aero__text--faint { color: var(--faint); font-size: 13.5px; }
+.aero__points { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.aero__points li { margin: 6px 0; }
+.aero__points li::marker { color: var(--faint); }
+
+@media (max-width: 900px) {
+  .aero { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .aero { grid-template-columns: 1fr; }
+  .flight__telemetry { position: static; grid-template-columns: repeat(3, auto); border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; padding: 10px 16px; }
+  .flight__label--karman, .flight__site .flight__label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flight__stars circle, .flight__plume.is-on { animation: none; }
 }

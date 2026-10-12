@@ -26,6 +26,12 @@
         uptime: "host uptime", guests: "guests running, LXC + VM", containers: "Docker containers",
         load: (n) => `load average, ${n} threads`, d: "d", h: "h",
       },
+      pulse: {
+        checks: (up, total) => `${up}/${total} health checks passing`,
+        host: (up, g, gt, c) => `host up ${up} · ${g}/${gt} guests running (LXC + VM) · ${c} Docker containers`,
+        ci: { success: "infra CI passing", failure: "infra CI failing" },
+        commit: (ago) => `last change ${ago}:`,
+      },
     },
     ru: {
       updated: "обновлён",
@@ -49,6 +55,12 @@
         uptime: "аптайм хоста", guests: "гостей запущено, LXC + ВМ", containers: "Docker-контейнеров",
         load: (n) => `load average, ${n} потоков`, d: "дн", h: "ч",
       },
+      pulse: {
+        checks: (up, total) => `${up}/${total} проверок здоровья проходят`,
+        host: (up, g, gt, c) => `хост работает ${up} · запущено ${g}/${gt} гостей (LXC + ВМ) · ${c} Docker-контейнеров`,
+        ci: { success: "CI инфраструктуры проходит", failure: "CI инфраструктуры падает" },
+        commit: (ago) => `последнее изменение ${ago}:`,
+      },
       roles: {
         adguard: "DNS и блокировка рекламы для LAN и VPN",
         tailscale: "VPN: маршрутизатор подсети и exit node",
@@ -67,6 +79,52 @@
         dmz: "Изолированный мост без выхода наружу; до песочницы достаёт только публичный контейнер",
       },
     },
+    sk: {
+      updated: "aktualizované",
+      stars: "hviezd",
+      noDesc: "Zatiaľ bez popisu.",
+      reposError: "GitHub teraz neodpovedá.",
+      reposEmpty: "Zatiaľ žiadne verejné repozitáre.",
+      internet: "Internet",
+      tunnel: "Tunel",
+      tunnelLink: "tunel, iba odchádzajúce spojenie",
+      host: "Hostiteľ Proxmox VE",
+      zones: { lan: "Domáca sieť", dmz: "Izolovaná DMZ" },
+      bothNets: "LAN + DMZ",
+      mb: "MB",
+      gb: "GB",
+      restart: "Reštartovať reláciu",
+      ci: { label: "kontroly infraštruktúry", success: "prechádzajú", failure: "padajú", other: "bez údajov" },
+      archBelow: "architektúra nižšie ↓",
+      commitsError: "Commity teraz nie sú dostupné.",
+      stats: {
+        uptime: "uptime hostiteľa", guests: "spustených hostí, LXC + VM", containers: "Docker kontajnerov",
+        load: (n) => `load average, ${n} vlákien`, d: "d", h: "h",
+      },
+      pulse: {
+        checks: (up, total) => `${up}/${total} kontrol stavu prechádza`,
+        host: (up, g, gt, c) => `hostiteľ beží ${up} · spustených ${g}/${gt} hostí (LXC + VM) · ${c} Docker kontajnerov`,
+        ci: { success: "CI infraštruktúry prechádza", failure: "CI infraštruktúry padá" },
+        commit: (ago) => `posledná zmena ${ago}:`,
+      },
+      roles: {
+        adguard: "DNS a blokovanie reklám pre LAN a VPN",
+        tailscale: "VPN: smerovač podsiete a exit node",
+        npm: "Reverzné proxy s wildcard TLS",
+        apps: "Domáce služby v Dockeri",
+        public: "Verejný uzol: životopis, stavová stránka, Cloudflare Tunnel",
+        sandbox: "Verejný webový terminál, izolovaná sieť, reset každých 30 minút",
+        agent: "AI agent na prevádzku (Telegram), iba na čítanie",
+        farm: "Farma startupov: n8n, Postgres, agenti Claude, trasy Phoenix",
+        "k8s-cp": "Kubernetes lab: control plane",
+        "k8s-w1": "Kubernetes lab: worker",
+        "k8s-w2": "Kubernetes lab: worker",
+      },
+      networks: {
+        lan: "Domáca sieť za dvojitým NAT, bez prichádzajúcich portov",
+        dmz: "Izolovaný most bez prístupu von; k sandboxu sa dostane iba verejný kontajner",
+      },
+    },
   };
 
   const LANG_COLORS = {
@@ -77,11 +135,12 @@
   const STATUS_TEXT = {
     en: { ok: "All systems operational", partial: "Partial outage", down: "Major outage", error: "Status unavailable", checked: "checked", ago: "ago", s: "s", m: "min" },
     ru: { ok: "Все системы работают", partial: "Частичный сбой", down: "Серьёзный сбой", error: "Статус недоступен", checked: "проверено", ago: "назад", s: "с", m: "мин" },
+    sk: { ok: "Všetky systémy fungujú", partial: "Čiastočný výpadok", down: "Vážny výpadok", error: "Stav nie je dostupný", checked: "skontrolované", ago: "pred", s: "s", m: "min" },
   };
 
-  // Each language is its own static page (/ and /ru/, built by scripts/build-ru.py).
+  // Each language is its own static page (/, /ru/ and /sk/, built by scripts/build-i18n.py).
   // JS only renders the live blocks in the page language.
-  const lang = document.documentElement.lang === "ru" ? "ru" : "en";
+  const lang = ["ru", "sk"].includes(document.documentElement.lang) ? document.documentElement.lang : "en";
   let lastStatus = null;
   let repos;      // undefined: loading, null: failed, array: loaded
   let inventory;  // undefined: loading, null: failed, object: loaded
@@ -97,21 +156,37 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
   }
 
-  // First visit from a Russian-language browser goes to /ru/; an explicit choice is remembered.
+  // Where this visit came from (UTM tags or referrer). Kept for the tab only, so it survives
+  // the language redirect below and the EN/RU switch; no cookies, nothing leaves the browser here.
+  function visitSource() {
+    try {
+      const kept = window.sessionStorage.getItem("src");
+      if (kept) return JSON.parse(kept);
+    } catch (e) { /* storage unavailable */ }
+    const c = TrackCore.campaign(window.location.search, document.referrer, window.location.hostname);
+    try { if (c) window.sessionStorage.setItem("src", JSON.stringify(c)); } catch (e) { /* storage unavailable */ }
+    return c;
+  }
+  const source = visitSource();
+
+  // First visit from a Russian-language browser goes to /ru/, a Slovak or Czech one to /sk/;
+  // an explicit choice is remembered.
   // Crawlers are never redirected, so each URL is indexed in its own language.
   const saved = storageGet("lang");
   const isBot = /bot|crawl|spider|slurp|preview/i.test(navigator.userAgent);
-  const preferred = saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
-  if (!isBot && preferred !== lang) {
-    window.location.replace((preferred === "ru" ? "/ru/" : "/") + window.location.search + window.location.hash);
+  const browser = (navigator.language || "").toLowerCase();
+  const preferred = saved || (browser.startsWith("ru") ? "ru" : /^(sk|cs)/.test(browser) ? "sk" : "en");
+  if (!isBot && preferred !== lang && ["en", "ru", "sk"].includes(preferred)) {
+    window.location.replace((preferred === "en" ? "/" : `/${preferred}/`) + window.location.search + window.location.hash);
     return;
   }
 
-  const toggle = document.getElementById("lang-toggle");
-  toggle.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    storageSet("lang", toggle.dataset.target);
-    window.location.assign(toggle.getAttribute("href") + window.location.hash);
+  document.querySelectorAll("#lang-switch a[data-lang]").forEach((a) => {
+    a.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      storageSet("lang", a.dataset.lang);
+      window.location.assign(a.getAttribute("href") + window.location.hash);
+    });
   });
 
   if (LINKEDIN_URL) {
@@ -119,6 +194,17 @@
     li.href = LINKEDIN_URL;
     li.hidden = false;
   }
+
+  // Booking links carry the visit source to cal.com. Each contact click is counted by nginx
+  // (/e/<event>, see nginx/default.conf): event, source, language and country, no IP and no cookies.
+  document.querySelectorAll("a[href]").forEach((a) => {
+    const event = TrackCore.eventFor(a.getAttribute("href"));
+    if (!event) return;
+    if (event === "call") a.href = TrackCore.calUrl(a.href, source);
+    a.addEventListener("click", () => {
+      if (navigator.sendBeacon) navigator.sendBeacon(TrackCore.eventPath(event, source, lang));
+    });
+  });
 
   const overallEl = document.getElementById("status-overall");
   const updatedEl = document.getElementById("status-updated");
@@ -164,7 +250,7 @@
     if (newest) {
       const sec = Math.max(0, Math.round((Date.now() - newest) / 1000));
       const age = sec < 60 ? `${sec} ${t.s}` : `${Math.round(sec / 60)} ${t.m}`;
-      updatedEl.textContent = `${t.checked} ${age} ${t.ago}`;
+      updatedEl.textContent = lang === "sk" ? `${t.checked} ${t.ago} ${age}` : `${t.checked} ${age} ${t.ago}`;
     }
 
     const ORDER = ["Network", "Compute", "Edge", "Apps"];
@@ -188,6 +274,7 @@
       lastStatus = null;
     }
     renderStatus(lastStatus);
+    renderPulse();
   }
 
   loadStatus();
@@ -270,7 +357,7 @@
   getJSON("/api/github/actions")
     .then((data) => { ciRun = (data.workflow_runs && data.workflow_runs[0]) || null; })
     .catch(() => { ciRun = null; })
-    .then(renderProjects);
+    .then(() => { renderProjects(); renderPulse(); });
 
   // ---- Homelab: recent commits and live stats ----
 
@@ -293,7 +380,7 @@
   getJSON("/api/github/commits")
     .then((data) => { commits = Array.isArray(data) ? data : null; })
     .catch(() => { commits = null; })
-    .then(renderCommits);
+    .then(() => { renderCommits(); renderPulse(); });
 
   function formatUptime(sec, t) {
     const days = Math.floor(sec / 86400);
@@ -324,11 +411,105 @@
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data) => { stats = data; })
       .catch(() => { stats = null; })
-      .then(renderStats);
+      .then(() => { renderStats(); renderPulse(); });
   }
 
   loadStats();
   setInterval(loadStats, 300000);
+
+  // ---- Hero: live log from the homelab (real data only; a line shows up once its source answers) ----
+
+  const pulseLines = new Map();
+
+  function pulseLine(key, level, parts) {
+    const log = document.getElementById("pulse-log");
+    let li = pulseLines.get(key);
+    if (!parts) { if (li) { li.remove(); pulseLines.delete(key); } return; }
+    if (!li) {
+      li = el("li", "pulse__line");
+      li.dataset.key = key;
+      pulseLines.set(key, li);
+      // Keep a fixed order no matter which source answers first.
+      const order = ["checks", "host", "ci", "commit"];
+      const next = Array.from(log.children).find((n) => order.indexOf(n.dataset.key) > order.indexOf(key));
+      log.insertBefore(li, next || null);
+    }
+    li.replaceChildren(el("span", `pulse__tag pulse__tag--${level.toLowerCase()}`, `[${level}]`), ...parts);
+  }
+
+  function renderPulse() {
+    const box = document.getElementById("pulse");
+    if (!box) return;
+    const t = UI[lang].pulse;
+
+    if (lastStatus) {
+      const last = lastStatus.map((ep) => ep.results && ep.results[ep.results.length - 1]).filter(Boolean);
+      const up = last.filter((r) => r.success).length;
+      const level = up === last.length ? "OK" : up >= last.length - 2 && up > 0 ? "WARN" : "FAIL";
+      pulseLine("checks", level, last.length ? [el("span", "", t.checks(up, last.length))] : null);
+      box.querySelector(".pulse__beat").className = `dot pulse__beat ${{ OK: "dot--ok", WARN: "dot--warn", FAIL: "dot--down" }[level]}`;
+    } else {
+      pulseLine("checks", "", null);
+    }
+
+    pulseLine("host", "OK", stats ? [el("span", "", t.host(formatUptime(stats.uptime_seconds, UI[lang].stats), stats.guests_running, stats.guests_total, stats.containers_running))] : null);
+
+    const ciState = ciRun && (ciRun.conclusion === "success" || ciRun.conclusion === "failure") ? ciRun.conclusion : null;
+    if (ciState) {
+      const a = el("a", "pulse__link", t.ci[ciState]);
+      a.href = ciRun.html_url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      pulseLine("ci", ciState === "success" ? "OK" : "FAIL", [a]);
+    } else {
+      pulseLine("ci", "", null);
+    }
+
+    const c = commits && commits[0];
+    if (c) {
+      const sha = el("a", "pulse__link", c.sha.slice(0, 7));
+      sha.href = c.html_url;
+      sha.target = "_blank";
+      sha.rel = "noopener";
+      pulseLine("commit", "INFO", [el("span", "", t.commit(relativeTime(c.commit.author.date))), sha, el("span", "pulse__msg", c.commit.message.split("\n")[0])]);
+    } else {
+      pulseLine("commit", "", null);
+    }
+
+    box.hidden = pulseLines.size === 0;
+  }
+
+  // ---- Impact: numbers count up once the block scrolls into view (the HTML keeps the real values) ----
+
+  function countUp(root) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) if (/\d/.test(walker.currentNode.nodeValue)) nodes.push([walker.currentNode, walker.currentNode.nodeValue]);
+    const start = performance.now();
+    const ms = 1100;
+    function frame(now) {
+      const k = Math.min(1, (now - start) / ms);
+      const ease = 1 - Math.pow(1 - k, 3);
+      nodes.forEach(([node, text]) => {
+        node.nodeValue = text.replace(/\d+/g, (d) => String(Math.round(Number(d) * ease)));
+      });
+      if (k < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const impact = document.querySelectorAll("#impact .metric__value");
+  if (impact.length && "IntersectionObserver" in window && !reduceMotion) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        io.unobserve(e.target);
+        countUp(e.target);
+      });
+    }, { threshold: 0.6 });
+    impact.forEach((v) => io.observe(v));
+  }
 
   // ---- Learning: live progress from the k8s-certs checklists (same parser as /lab/) ----
 

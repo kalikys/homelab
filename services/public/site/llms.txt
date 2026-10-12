@@ -1,6 +1,6 @@
-# Kalislav Smirnov, DevOps Engineer
+# Kalislav Smirnov, DevOps Engineer and Aerospace Engineer
 
-> DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines. Based in Tbilisi, Georgia. Open to offers now: full-time as an employee, B2B or contract; relocation to the EU, the USA or Kazakhstan (needs visa sponsorship), or remote work for a company in any country.
+> DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines. Aerospace engineer by degree (Bauman Moscow State Technical University, spacecraft design; SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Based in Tbilisi, Georgia, relocating to Košice, Slovakia. Open to offers now: full-time as an employee, B2B or contract; a job in Košice first (needs a work permit such as the EU Blue Card), elsewhere in the EU, or remote work for a company in any country.
 
 Book a 20-minute intro call: https://cal.com/kalikys/intro
 
@@ -11,6 +11,7 @@ Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in
 - [CV in Markdown](https://kalik8s.com/cv.md): experience, case studies, skills, education and hiring details in one file
 - [CV website (English)](https://kalik8s.com/): the same content with a live homelab status and a public sandbox shell
 - [CV website (Russian)](https://kalik8s.com/ru/)
+- [CV website (Slovak)](https://kalik8s.com/sk/)
 - [Kubernetes certification lab](https://kalik8s.com/lab/): live progress towards CKA, CKAD and CKS, practice activity, the lab VMs and a live terminal stream
 - [homelab repository](https://github.com/kalikys/homelab): Terraform, service configs and CI for the Proxmox home lab that hosts the site
 

@@ -9,12 +9,14 @@ import json
 import os
 import re
 import urllib.request
+from urllib.parse import parse_qsl, unquote, urlsplit
 import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import smoketest
 from panel import summarise_panel
 
 ROLES = {"discovery", "diligence", "game-discovery", "game-diligence", "reflector", "judges", "preregistration", "landing", "traffic", "builder", "analyst"}
@@ -38,6 +40,27 @@ TOOLS = {
     "analyst": "Read,Write,Edit,Glob,Grep",
 }
 TOKEN = os.environ["RUNNER_TOKEN"]
+# Agents run as uid 1000 while this server runs as root, so an agent cannot read the server's /proc environ.
+AGENT_UID = AGENT_GID = 1000
+AGENT_HOME = "/home/agent"
+MODEL_PROXY = os.environ.get("MODEL_PROXY", "http://172.30.0.5")
+HAS_SUBSCRIPTION = os.environ.get("HAS_SUBSCRIPTION") == "1"
+HAS_API_KEY = os.environ.get("HAS_API_KEY") == "1"
+PLACEHOLDER_OAUTH = "sk-ant-oat01-farm-model-proxy-placeholder"
+PLACEHOLDER_KEY = "sk-ant-api03-farm-model-proxy-placeholder"
+
+
+def _drop_to_agent():
+    if os.getuid() == 0:
+        os.setgroups([])
+        os.setgid(AGENT_GID)
+        os.setuid(AGENT_UID)
+
+
+def _give_to_agent(path):
+    """Files the server prepared (inputs, memory) must stay writable for the agent."""
+    if os.getuid() == 0:
+        subprocess.run(["chown", "-R", f"{AGENT_UID}:{AGENT_GID}", str(path)], check=False)
 LOCK = threading.Lock()
 EXP_RE = re.compile(r"^(EXP|GAME)-\d{3}$")
 
@@ -51,14 +74,29 @@ def run(role, body):
         return 404, {"ok": False, "error": f"no skill for role {role}"}
     work = Path("/work") / exp
     if role == "judges":
-        # Independent panel over an existing memo; the memo is never touched.
+        # Independent panel in its own folder: a copy of the memo without the author's verdict, so judges do not anchor on it.
         slug = body.get("slug", "")
-        if not SLUG_RE.match(slug) or not (work / "dd" / slug / "memo.json").exists():
+        dd = work / "dd" / slug
+        if not SLUG_RE.match(slug) or not (dd / "memo.json").exists():
             return 404, {"ok": False, "error": "judges need an existing dd/<slug>/memo.json"}
         if body.get("skip"):
             return 200, {"ok": True, "role": role, "exp_id": exp, "slug": slug, "skipped": True, "panel": None}
-        work = work / "dd" / slug
+        work = dd / "panel"
+        work.mkdir(exist_ok=True)
+        memo = json.loads((dd / "memo.json").read_text())
+        memo.pop("verdict", None)
+        (work / "memo.json").write_text(json.dumps(memo, ensure_ascii=False, indent=2))
+        for name in ("verification.json", "brief.json", "concept.json"):
+            if (dd / name).exists():
+                v = json.loads((dd / name).read_text())
+                if isinstance(v, dict):
+                    v.pop("verdict", None)
+                (work / name).write_text(json.dumps(v, ensure_ascii=False, indent=2))
         (work / "panel.json").unlink(missing_ok=True)
+    elif role in smoketest.TEST_ROLES:
+        work, err = smoketest.prepare(exp, role, body)
+        if err:
+            return 404, {"ok": False, "error": err}
     elif role in DILIGENCE_ROLES:
         src_dir, in_name = DILIGENCE_ROLES[role]
         slug = body.get("slug", "")
@@ -88,20 +126,25 @@ def run(role, body):
     started = time.time()
     cmd = ["claude", "-p", prompt, "--output-format", "json", "--max-turns", str(max_turns),
            "--allowedTools", TOOLS[role], "--append-system-prompt", skill.read_text()]
-    env = dict(os.environ)
+    # The agent holds no secret: model calls go through model-proxy, which swaps the placeholder for the real credential.
+    keep = {"PATH", "LANG", "HTTP_PROXY", "HTTPS_PROXY", "DISABLE_AUTOUPDATER"}
+    env = {k: v for k, v in os.environ.items() if k in keep or k.startswith(("OTEL_", "CLAUDE_CODE_ENABLE_TELEMETRY", "CLAUDE_CODE_ENHANCED"))}
+    env.update(HOME=AGENT_HOME, USER="agent", NO_PROXY="phoenix,172.30.0.4,172.30.0.5")
     billing = "subscription"
-    if role in API_ROLES and env.get("ANTHROPIC_API_KEY") and body.get("use_api", True):
+    if role in API_ROLES and HAS_API_KEY and body.get("use_api", True):
         # Prepaid API budget when a key is configured; otherwise the subscription is used.
         billing = "api"
-        env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
-        budget = min(float(body.get("budget_usd", 4)), float(env.get("MAX_BUDGET_PER_RUN_USD", "8")))
+        env.update(ANTHROPIC_BASE_URL=f"{MODEL_PROXY}:8081", ANTHROPIC_API_KEY=PLACEHOLDER_KEY)
+        budget = min(float(body.get("budget_usd", 4)), float(os.environ.get("MAX_BUDGET_PER_RUN_USD", "8")))
         cmd += ["--max-budget-usd", f"{budget:.2f}"]
     else:
-        env.pop("ANTHROPIC_API_KEY", None)
+        env.update(ANTHROPIC_BASE_URL=f"{MODEL_PROXY}:8080", CLAUDE_CODE_OAUTH_TOKEN=PLACEHOLDER_OAUTH)
     if body.get("model"):
         cmd += ["--model", body["model"]]
+    _give_to_agent(work)
     try:
-        proc = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=int(body.get("timeout_s", 3000)))
+        proc = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=int(body.get("timeout_s", 3000)),
+                              preexec_fn=_drop_to_agent)
     except subprocess.TimeoutExpired:
         return 504, {"ok": False, "error": "agent timed out"}
     out = {}
@@ -123,12 +166,17 @@ def run(role, body):
     }
     if role == "judges":
         try:
-            result["panel"] = summarise_panel(json.loads((work / "panel.json").read_text()))
+            raw = json.loads((work / "panel.json").read_text())
+            result["panel"] = summarise_panel(raw)
         except (OSError, ValueError):
-            result["panel"] = None
-        if not result["panel"]:
+            raw, result["panel"] = {}, None
+        lazy = [j.get("persona") for j in raw.get("judges", []) if not j.get("spot_checks")]
+        if not result["panel"] or lazy:
             result["ok"] = False
-            result["error"] = "panel.json missing or fewer than 3 scored judges"
+            result["panel"] = None
+            result["error"] = "panel.json missing, fewer than 3 judges, or judges without a spot check: " + ", ".join(map(str, lazy))
+        else:
+            (work.parent / "panel.json").write_text(json.dumps(raw, ensure_ascii=False, indent=2))
     (work / "runs" / f"{int(started)}-{role}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return 200, result
 
@@ -155,6 +203,12 @@ def _quote_found(url, quote_raw):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (farm-validator)"})
     with urllib.request.urlopen(req, timeout=25) as r:
         raw = r.read(3_000_000).decode("utf-8", "ignore")
+    # Search and suggest APIs echo the request back; text that only comes from our own query proves nothing.
+    # A quote contained in our own URL (query or path) is an echo, whatever the page returns.
+    parts = urlsplit(url)
+    echoed = [_norm(v) for _, v in parse_qsl(parts.query)] + [_norm(unquote(parts.path).replace("+", " "))]
+    if any(q in e for e in echoed if e):
+        return False
     variants = [raw]
     try:
         obj = json.loads(raw)
@@ -199,6 +253,15 @@ def _verified_number_quote(url, quote):
         return False, f"fetch failed: {ex}"[:160]
 
 
+def _recent_page(url, years_back=1):
+    """True if the page mentions this year or last year: benchmarks from 2019 must not drive 2026 decisions."""
+    now = time.gmtime().tm_year
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (farm-validator)"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        raw = r.read(3_000_000).decode("utf-8", "ignore")
+    return any(str(y) in raw for y in range(now - years_back, now + 1))
+
+
 def _brief_economics(e, cpc, channel=None):
     """Cheap unit-economics screen before due diligence: CAC from the CPC estimate and sourced conversion rates, LTV from price."""
     fails = []
@@ -210,7 +273,8 @@ def _brief_economics(e, cpc, channel=None):
         life, margin = float(e.get("lifetime_months")), float(e.get("gross_margin", 0.85))
     except (TypeError, ValueError):
         return {"failures": ["economics: price_usd, landing_conversion, trial_to_paid, lifetime_months must be numbers"]}
-    billing = e.get("billing")
+    billing = {"monthly": "month", "yearly": "year", "annual": "year", "annually": "year", "one-time": "one_time",
+               "onetime": "one_time", "lifetime": "one_time"}.get(str(e.get("billing")).lower(), e.get("billing"))
     if billing not in ("month", "year", "one_time"):
         fails.append(f"economics: billing {billing!r} must be month, year or one_time")
     for k, cap in ECON_CAPS.items():
@@ -234,6 +298,8 @@ def _brief_economics(e, cpc, channel=None):
         ok, why = _verified_number_quote(e.get("cpc_source_url"), e.get("cpc_quote"))
         if not ok:
             fails.append(f"paid channel: CPC benchmark quote not verified ({why})")
+        elif not _recent_page(e.get("cpc_source_url")):
+            fails.append("paid channel: CPC benchmark page has no mention of this or last year — find a current benchmark")
         else:
             nums = [float(x) for x in MONEY_RE.findall(e.get("cpc_quote", ""))]
             if nums and cpc < 0.8 * min(nums):
@@ -323,14 +389,8 @@ def validate_diligence(exp, slug):
     except Exception as ex:
         return {"ok": True, "exp_id": exp, "slug": slug, "passed": False, "checks": [{"rule": "memo", "passed": False, "detail": f"memo.json не читается: {ex}"}]}
     ev = m.get("evidence") or []
-    types = {x.get("source_type") for x in ev}
-    domains = {re.sub(r"^www\.", "", re.sub(r"^https?://", "", x.get("url", "")).split("/")[0]) for x in ev if x.get("url")}
-    chk("evidence_count", len(ev) >= 8, f"Доказательств: {len(ev)} (нужно ≥ 8)")
-    chk("source_types", len(types) >= 4, f"Типов источников: {len(types)} (нужно ≥ 4): {', '.join(sorted(t for t in types if t))}")
-    chk("domains", len(domains) >= 5, f"Разных доменов: {len(domains)} (нужно ≥ 5)")
-    chk("money_signals", sum(1 for x in ev if x.get("signals_money")) >= 3, "Не меньше 3 доказательств, что за решение уже платят")
     verified = 0
-    for x in ev[:14]:
+    for x in ev[:20]:
         url, quote = x.get("url", ""), _norm(html.unescape(re.sub(r"(?s)<[^>]+>", " ", x.get("quote", ""))))
         ok = False
         if url.startswith(("http://", "https://")) and len(quote) >= 15:
@@ -340,7 +400,18 @@ def validate_diligence(exp, slug):
                 ok = False
         x["verified"] = ok
         verified += ok
-    chk("quotes_verified", verified >= max(6, int(0.6 * min(len(ev), 14))), f"Цитаты найдены дословно на страницах: {verified} из {min(len(ev), 14)}")
+    chk("quotes_verified", verified >= max(6, int(0.6 * min(len(ev), 20))), f"Цитаты найдены дословно на страницах: {verified} из {min(len(ev), 20)}")
+    # Counts use verified evidence only, one item per page: relabelling or repeating a page must not add up.
+    seen, good = set(), []
+    for x in ev:
+        if x.get("verified") and x.get("url") not in seen:
+            seen.add(x.get("url")); good.append(x)
+    types = {x.get("source_type") for x in good}
+    domains = {re.sub(r"^www\.", "", re.sub(r"^https?://", "", x.get("url", "")).split("/")[0]) for x in good}
+    chk("evidence_count", len(good) >= 8, f"Подтверждённых доказательств с разных страниц: {len(good)} (нужно ≥ 8)")
+    chk("source_types", len(types) >= 4, f"Типов источников (подтверждённых): {len(types)} (нужно ≥ 4): {', '.join(sorted(t for t in types if t))}")
+    chk("domains", len(domains) >= 5, f"Разных доменов (подтверждённых): {len(domains)} (нужно ≥ 5)")
+    chk("money_signals", sum(1 for x in good if x.get("signals_money")) >= 3, "Не меньше 3 подтверждённых доказательств, что за решение уже платят")
     mk = m.get("market") or {}
     vals = [(mk.get(k) or {}).get("value_usd") for k in ("tam", "sam", "som_2y")]
     try:
@@ -348,7 +419,8 @@ def validate_diligence(exp, slug):
     except (TypeError, ValueError):
         chk("market_order", False, "TAM, SAM, SOM должны быть числами")
     inputs = [i for k in ("tam", "sam", "som_2y") for i in ((mk.get(k) or {}).get("inputs") or [])]
-    chk("market_sourced", inputs and all(i.get("source_url") or "estimate" in str(i.get("name", "")).lower() for i in inputs), "У каждого входа расчёта рынка есть источник или пометка «estimate»")
+    sourced = sum(1 for i in inputs if str(i.get("source_url", "")).startswith("http"))
+    chk("market_sourced", inputs and sourced * 2 >= len(inputs), f"Входов расчёта рынка с источником: {sourced} из {len(inputs)} (нужно не меньше половины)")
     comps = m.get("competitors") or []
     chk("competitors", len(comps) >= 4 and all(c.get("price_source_url") for c in comps), f"Конкурентов с ценой из источника: {sum(1 for c in comps if c.get('price_source_url'))} (нужно ≥ 4)")
     ue = m.get("unit_economics") or {}
@@ -356,6 +428,11 @@ def validate_diligence(exp, slug):
         cac = float(ue["cpc_usd"]) / float(ue["landing_conversion"]) / float(ue["trial_to_paid"])
         ltv = float(ue["price_usd_month"]) * float(ue["gross_margin"]) / float(ue["monthly_churn"])
         ok = _close(ue.get("cac_usd"), cac) and _close(ue.get("ltv_usd"), ltv)
+        # Same caps as the discovery screen: a 1% churn or a 30% landing conversion would buy any LTV/CAC.
+        caps = [f"{k} {float(ue[k])} вне ({lo}, {hi}]" for k, lo, hi in (("monthly_churn", 0.02, 1), ("landing_conversion", 0, 0.15), ("trial_to_paid", 0, 0.6), ("gross_margin", 0, 0.95))
+                if not lo <= float(ue[k]) <= hi]
+        if caps:
+            chk("ue_caps", False, "Допущения юнит-экономики вне допустимого: " + "; ".join(caps))
         note = f"CAC по формуле ${cac:,.0f} (в отчёте ${float(ue.get('cac_usd', 0)):,.0f}), LTV ${ltv:,.0f} (в отчёте ${float(ue.get('ltv_usd', 0)):,.0f})"
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         ok, note = False, "Не хватает входных данных для пересчёта CAC и LTV"
@@ -463,6 +540,15 @@ def validate_game_diligence(exp, slug):
     return result
 
 
+def render_prereg(exp):
+    d = smoketest.test_dir(exp)
+    proc = subprocess.run(["python3", "/app/render_deck.py", "--prereg", str(d)], capture_output=True, text=True, timeout=300,
+                          preexec_fn=_drop_to_agent)
+    if proc.returncode != 0 or not (d / "test_plan.pdf").exists():
+        return 500, {"ok": False, "error": proc.stderr[-1500:]}
+    return 200, {"ok": True, "exp_id": exp, "pdf": "test/test_plan.pdf"}
+
+
 def render_diligence(exp, slug):
     d = Path("/work") / exp / "dd" / slug
     if not (d / "memo.json").exists():
@@ -470,7 +556,7 @@ def render_diligence(exp, slug):
     args = ["python3", "/app/render_deck.py", str(d)]
     if (d / "verification.json").exists():
         args.append(str(d / "verification.json"))
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=300)
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=300, preexec_fn=_drop_to_agent)
     if proc.returncode != 0:
         return 500, {"ok": False, "error": proc.stderr[-1500:]}
     pdf = d / "deck.pdf"
@@ -505,8 +591,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/healthz":
             claude = subprocess.run(["claude", "--version"], capture_output=True, text=True).stdout.strip()
             return self._send(200, {"ok": True, "busy": LOCK.locked(), "claude": claude,
-                                    "auth": bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")),
-                                    "api_key": bool(os.environ.get("ANTHROPIC_API_KEY"))})
+                                    "auth": HAS_SUBSCRIPTION, "api_key": HAS_API_KEY, "uid": os.getuid()})
         self._send(404, {"ok": False})
 
     def do_POST(self):
@@ -527,6 +612,20 @@ class Handler(BaseHTTPRequestHandler):
         v = re.match(r"^/render/(?:game-)?diligence/((?:EXP|GAME)-\d{3})/([a-z0-9][a-z0-9-]{1,60})$", self.path)
         if v:
             return self._send(*render_diligence(v.group(1), v.group(2)))
+        t = re.match(r"^/(validate/prereg|qa/landing|publish/landing|validate/campaign|render/prereg)/((?:EXP|GAME)-\d{3})$", self.path)
+        if t:
+            length = int(self.headers.get("Content-Length", 0))
+            tbody = json.loads(self.rfile.read(length) or b"{}")
+            action, exp = t.group(1), t.group(2)
+            if action == "validate/prereg":
+                return self._send(200, smoketest.validate_prereg(exp, tbody))
+            if action == "qa/landing":
+                return self._send(200, smoketest.qa_landing(exp, tbody))
+            if action == "publish/landing":
+                return self._send(*smoketest.publish_landing(exp, tbody))
+            if action == "validate/campaign":
+                return self._send(200, smoketest.validate_campaign(exp, tbody))
+            return self._send(*render_prereg(exp))
         m = re.match(r"^/run/([a-z-]+)$", self.path)
         if not m or m.group(1) not in ROLES:
             return self._send(404, {"ok": False, "error": "unknown role"})

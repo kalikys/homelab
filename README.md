@@ -50,6 +50,8 @@ flowchart LR
 | `apps` | 103 | Homepage, Paperless-ngx, Speedtest Tracker, Uptime Kuma |
 | `public` | 104 | CV site (nginx), Gatus, cloudflared |
 | `sandbox` | 200 (VM) | Public web terminal (ttyd), see below |
+| `agent` | 220 (VM) | Hermes agent in Telegram: startup farm and content questions, read-only |
+| `content` | 250 (VM) | Content pipeline: scheduled short videos and article drafts |
 
 ## Public sandbox
 
