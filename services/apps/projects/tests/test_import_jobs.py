@@ -79,6 +79,8 @@ def test_import_both_idempotent(imp, tmp_path):
     assert by["Olmait"]["status"] == "interview" and by["Olmait"]["contact_name"] == "Tamuna"
     assert by["Olmait"]["applied_at"] == "2026-10-05"
     assert by["EMCD"]["platform"] == "hirify" and by["EMCD"]["vacancy_id"] == "1088"
+    assert by["EMCD"]["next_action_at"] == "2026-10-17"  # 7-day reminder already sent, the 14-day one is left
+    assert by["Toughbyte"]["next_action_at"] is None
     assert by["Acme"]["status"] == "draft" and by["Acme"]["letters_count"] == 1 and by["Acme"]["platform"] == "profesia"
     d = get(url, f"/api/jobs/applications/{by['Acme']['id']}")
     assert d["letters"][0]["source"] == "imported" and d["letters"][0]["sent"] is False

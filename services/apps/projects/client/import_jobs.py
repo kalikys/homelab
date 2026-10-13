@@ -15,6 +15,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import date, timedelta
 
 URL = os.environ.get("PJ_URL", "http://192.168.1.10:8790").rstrip("/")
 
@@ -39,6 +40,16 @@ def platform_of(channel: str, source: str | None) -> str:
     return source or channel or "other"
 
 
+def next_reminder(r: dict) -> str | None:
+    """jobwatch reminds 7 and 14 days after sending; keep the reminders it has not sent yet."""
+    if r["status"] != "sent":
+        return None
+    for mark in (7, 14):
+        if mark not in (r.get("reminded") or []):
+            return (date.fromisoformat(r["date"]) + timedelta(days=mark)).isoformat()
+    return None
+
+
 def import_jobwatch(path: str) -> tuple[int, int]:
     new = old = 0
     for r in json.load(open(path, encoding="utf-8")):
@@ -48,7 +59,9 @@ def import_jobwatch(path: str) -> tuple[int, int]:
             note = f"{note}\nКанал: {channel}".strip()
         body = {"company": r["company"], "title": r["title"], "url": r.get("url") or "",
                 "platform": platform_of(channel, r.get("source")), "status": STATUS.get(r["status"], "sent"),
-                "applied_at": r["date"], "notes": note, "uid": f"jobwatch:{r['id']}"}
+                "applied_at": r["date"], "next_action_at": next_reminder(r), "notes": note, "uid": f"jobwatch:{r['id']}"}
+        if body["next_action_at"]:
+            body["next_action"] = "Написать follow-up"
         if r.get("vacancy_id") and str(r["vacancy_id"]).isdigit():
             body["vacancy_id"] = str(r["vacancy_id"])
         m = re.search(r"рекрутер (\S+)", channel)
