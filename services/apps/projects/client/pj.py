@@ -486,6 +486,81 @@ def cmd_context(cfg, a):
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ctx}}, ensure_ascii=False))
 
 
+# --- job applications (/jobs section of the same service) ----------------
+
+JOB_STATUSES = ["draft", "inbound", "sent", "replied", "interview", "offer", "rejected", "declined", "silent"]
+JOB_LABELS = {"draft": "готовлю", "inbound": "HR написала", "sent": "отправил", "replied": "ответили",
+              "interview": "интервью", "offer": "оффер", "rejected": "отказ", "declined": "сам отказался",
+              "silent": "тишина"}
+
+
+def cmd_job_add(cfg, a):
+    body = {"company": a.company, "title": a.title, "url": a.url or "", "platform": a.platform,
+            "origin": "inbound" if a.inbound else "outbound", "location": a.location or "",
+            "work_format": a.format or "", "salary": a.salary or "", "fit": a.fit, "notes": a.note or "",
+            "uid": str(uuid.uuid4())}
+    if a.status:
+        body["status"] = a.status
+    if a.vacancy_id:
+        body["vacancy_id"] = a.vacancy_id
+    if a.text_file:
+        body["vacancy_text"] = Path(a.text_file).expanduser().read_text()
+    if a.contact:
+        body["contact"] = {"name": a.contact, "company": a.company, "role": a.contact_role or "",
+                           "email": a.contact_email or "", "phone": a.contact_phone or "",
+                           "telegram": a.contact_tg or "", "linkedin": a.contact_linkedin or ""}
+    if a.generate:
+        body["generate"] = {"lang": a.generate, "wish": ""}
+    res = send(cfg, "POST", "/api/jobs/applications", body)
+    if res is None:
+        if a.letter_file:
+            print("pj: --letter-file skipped (offline, the new id is unknown); add it later with pj job letter", file=sys.stderr)
+        return
+    if a.letter_file:
+        sent = res["status"] not in ("draft", "inbound")
+        send(cfg, "POST", f"/api/jobs/applications/{res['id']}/letters",
+             {"lang": a.letter_lang, "body": Path(a.letter_file).expanduser().read_text().strip(), "sent": sent})
+    print(f"#{res['id']} {res['company']} — {res['title']} [{JOB_LABELS[res['status']]}]")
+
+
+def cmd_job_status(cfg, a):
+    body = {"status": a.status}
+    if a.note:
+        body["note"] = a.note
+    send(cfg, "PATCH", f"/api/jobs/applications/{a.id}", body)
+
+
+def cmd_job_letter(cfg, a):
+    send(cfg, "POST", f"/api/jobs/applications/{a.id}/letters",
+         {"lang": a.lang, "body": Path(a.file).expanduser().read_text().strip(), "sent": a.sent})
+
+
+def cmd_job_list(cfg, a):
+    q = "?status=" + a.status if a.status else ""
+    for j in read(cfg, "/api/jobs/applications" + q):
+        when = j["applied_at"] or j["created_at"][:10]
+        print(f"#{j['id']:<4} {when}  {JOB_LABELS[j['status']]:<13} {j['company'][:28]:<28} {j['title'][:40]:<40} {j['platform_name'] or ''}")
+
+
+def cmd_job_show(cfg, a):
+    j = read(cfg, f"/api/jobs/applications/{a.id}")
+    print(f"#{j['id']} {j['company']} — {j['title']} [{JOB_LABELS[j['status']]}]")
+    for label, key in (("Платформа", "platform_name"), ("Ссылка", "url"), ("Локация", "location"), ("Зарплата", "salary"),
+                       ("Отклик", "applied_at"), ("Следующий шаг", "next_action"), ("Напомнить", "next_action_at"), ("Заметки", "notes")):
+        if j.get(key):
+            print(f"{label}: {j[key]}")
+    c = j.get("contact")
+    if c:
+        print("Контакт: " + ", ".join(v for v in (c["name"], c["role"], c["email"], c["phone"], c["telegram"], c["linkedin"]) if v))
+    for l in j["letters"]:
+        mark = " (ушло)" if l["sent"] else ""
+        print(f"\n--- письмо #{l['id']} {l['lang']} {l['status']}{mark}\n{l['body'] or l.get('error') or ''}")
+    if j["events"]:
+        print("\nИстория:")
+        for e in j["events"][:15]:
+            print(f"  {e['at'][:10]} {e['text']}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="pj", description="projects dashboard client")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -523,6 +598,26 @@ def build_parser() -> argparse.ArgumentParser:
     add("backfill", cmd_backfill, project=False).add_argument("--root")
     add("seed", cmd_seed, project=False).add_argument("file")
     add("context", cmd_context, project=False)
+
+    job = sub.add_parser("job", help="job applications").add_subparsers(dest="job_cmd", required=True)
+    sp = job.add_parser("add"); sp.set_defaults(fn=cmd_job_add)
+    sp.add_argument("company"); sp.add_argument("title")
+    sp.add_argument("--url"); sp.add_argument("--platform", help="slug or name; unknown ones are created")
+    sp.add_argument("-s", "--status", choices=JOB_STATUSES); sp.add_argument("--inbound", action="store_true", help="HR wrote first")
+    sp.add_argument("--location"); sp.add_argument("--format", choices=["remote", "hybrid", "onsite", "relocation"])
+    sp.add_argument("--salary"); sp.add_argument("--fit", type=int, choices=range(1, 6)); sp.add_argument("--note")
+    sp.add_argument("--vacancy-id"); sp.add_argument("--text-file", help="vacancy description")
+    sp.add_argument("--contact", help="contact name"); sp.add_argument("--contact-role"); sp.add_argument("--contact-email")
+    sp.add_argument("--contact-phone"); sp.add_argument("--contact-tg"); sp.add_argument("--contact-linkedin")
+    sp.add_argument("--letter-file", help="the cover letter that was sent"); sp.add_argument("--letter-lang", default="en")
+    sp.add_argument("--generate", metavar="LANG", help="queue a generated letter in this language")
+    sp = job.add_parser("status"); sp.set_defaults(fn=cmd_job_status)
+    sp.add_argument("id", type=int); sp.add_argument("status", choices=JOB_STATUSES); sp.add_argument("--note")
+    sp = job.add_parser("letter"); sp.set_defaults(fn=cmd_job_letter)
+    sp.add_argument("id", type=int); sp.add_argument("--file", required=True); sp.add_argument("--lang", default="en")
+    sp.add_argument("--sent", action="store_true", help="this is the version that went out")
+    sp = job.add_parser("list"); sp.set_defaults(fn=cmd_job_list); sp.add_argument("-s", "--status", choices=JOB_STATUSES)
+    sp = job.add_parser("show"); sp.set_defaults(fn=cmd_job_show); sp.add_argument("id", type=int)
     return ap
 
 

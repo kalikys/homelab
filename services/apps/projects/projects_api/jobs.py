@@ -135,7 +135,7 @@ class ApplicationIn(BaseModel):
     salary: str = ""
     fit: int | None = Field(default=None, ge=1, le=5)
     vacancy_text: str = ""
-    vacancy_id: str | None = None
+    vacancy_id: str | None = Field(default=None, pattern=r"^\d{1,12}$")
     notes: str = ""
     status: Status | None = None
     applied_at: str | None = None
@@ -157,7 +157,7 @@ class ApplicationPatch(BaseModel):
     salary: str | None = None
     fit: int | None = Field(default=None, ge=1, le=5)
     vacancy_text: str | None = None
-    vacancy_id: str | None = None
+    vacancy_id: str | None = Field(default=None, pattern=r"^\d{1,12}$")
     notes: str | None = None
     status: Status | None = None
     applied_at: str | None = None

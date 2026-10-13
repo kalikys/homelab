@@ -105,3 +105,25 @@ def test_nonzero_exit_marks_failed(worker, monkeypatch):
     _, l = queue(url)
     assert letters.once() == "failed"
     assert "not logged in" in get(url, f"/api/jobs/letters/{l['id']}")["error"]
+
+
+def test_hirify_fetch_only_for_numeric_ids(worker, monkeypatch, tmp_path):
+    letters, _, _ = worker
+    calls = []
+    fake = tmp_path / "hz"
+    fake.mkdir()
+    (fake / "hirify_collect.py").write_text(
+        "CALLS = []\ndef api(path, *a, **k):\n    CALLS.append(path)\n    return {'data': {'description': 'Kubernetes'}}\n")
+    monkeypatch.setattr(letters, "JOBWATCH", str(fake))
+    monkeypatch.setattr(letters, "api", lambda *a, **k: calls.append(a))
+    assert letters.fetch_hirify({"id": 1, "vacancy_id": "1/../../applications", "vacancy_text": ""}) == ""
+    import hirify_collect
+    assert hirify_collect.CALLS == []
+    assert letters.fetch_hirify({"id": 1, "vacancy_id": "1214749", "vacancy_text": ""}) == "Kubernetes"
+    assert hirify_collect.CALLS == ["/vacancies/1214749"]
+
+
+def test_api_rejects_non_numeric_vacancy_id(client):
+    r = client.post("/api/jobs/applications", json={"company": "A", "title": "B", "vacancy_id": "1/../x"})
+    assert r.status_code == 400
+    assert client.post("/api/jobs/applications", json={"company": "A", "title": "B", "vacancy_id": "1214749"}).status_code == 201

@@ -94,6 +94,10 @@ def fetch_hirify(app: dict) -> str:
     """Hirify vacancies can be fetched by id with the jobwatch key; anything else must be pasted."""
     if not app.get("vacancy_id") or app.get("vacancy_text"):
         return app.get("vacancy_text") or ""
+    # The id comes from the dashboard (no auth on the LAN) and goes into a request carrying the Hirify key.
+    if not re.fullmatch(r"\d{1,12}", str(app["vacancy_id"])):
+        print(f"skipping non-numeric hirify id {app['vacancy_id']!r}", file=sys.stderr)
+        return ""
     try:
         sys.path.insert(0, JOBWATCH)
         from hirify_collect import api as hirify  # noqa: PLC0415
