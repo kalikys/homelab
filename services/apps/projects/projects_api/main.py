@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, errors, items, projects, search, sessions
+from . import db, errors, items, jobs, projects, search, sessions
 
 
 def create_app(db_path: str | None = None, static_dir: str | None = None,
@@ -15,6 +15,13 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
     app.state.db_path = db_path or os.environ.get("PROJECTS_DB", "/data/projects.db")
     Path(app.state.db_path).parent.mkdir(parents=True, exist_ok=True)
     db.init(app.state.db_path)
+    conn = db.connect(app.state.db_path)
+    conn.executescript(jobs.SCHEMA)
+    jobs.seed(conn)
+    conn.commit()
+    conn.close()
+    # Attachments live next to the database unless JOBS_FILES says otherwise.
+    app.state.files_dir = os.environ.get("JOBS_FILES") or str(Path(app.state.db_path).parent / "files")
     errors.install(app)
 
     # Auth is off on the LAN; AUTH_MODE=token is the switch for later.
@@ -33,6 +40,7 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
     app.include_router(items.router)
     app.include_router(sessions.router)
     app.include_router(search.router)
+    app.include_router(jobs.router)
 
     static = Path(static_dir or os.environ.get("STATIC_DIR", "/app/static"))
     index = static / "index.html"
