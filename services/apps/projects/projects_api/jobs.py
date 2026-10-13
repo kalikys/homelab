@@ -683,9 +683,13 @@ async def upload_file(aid: int, name: str, request: Request, conn: sqlite3.Conne
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_FILE:
         raise HTTPException(413, "file is larger than 15 MB")
-    data = await request.body()
-    if len(data) > MAX_FILE:
-        raise HTTPException(413, "file is larger than 15 MB")
+    # Read in chunks and stop at the limit: a chunked upload has no Content-Length to check up front.
+    buf = bytearray()
+    async for chunk in request.stream():
+        buf += chunk
+        if len(buf) > MAX_FILE:
+            raise HTTPException(413, "file is larger than 15 MB")
+    data = bytes(buf)
     if not data:
         raise HTTPException(400, "empty file")
     cur = conn.execute("INSERT INTO attachment(application_id,name,mime,size,path,created_at) VALUES(?,?,?,?,'',?)",

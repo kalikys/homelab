@@ -232,3 +232,19 @@ def test_contacts_crud(client):
     assert client.get(f"/api/jobs/applications/{a['id']}").json()["contact"]["name"] == "Zuzana Nagy"
     client.delete(f"/api/jobs/contacts/{c['id']}")
     assert client.get(f"/api/jobs/applications/{a['id']}").json()["contact"] is None
+
+
+def test_chunked_upload_over_limit_is_cut(client, monkeypatch, tmp_path):
+    from projects_api import jobs
+    monkeypatch.setattr(jobs, "MAX_FILE", 100)
+    a = new_app(client)
+    sent = []
+
+    def chunks():
+        for _ in range(50):
+            sent.append(1)
+            yield b"x" * 10
+
+    r = client.put(f"/api/jobs/applications/{a['id']}/files?name=a.pdf", content=chunks())
+    assert r.status_code == 413
+    assert not list((tmp_path / "files").rglob("*.pdf"))
