@@ -116,8 +116,10 @@ def test_hirify_fetch_only_for_numeric_ids(worker, monkeypatch, tmp_path):
         "CALLS = []\ndef api(path, *a, **k):\n    CALLS.append(path)\n    return {'data': {'description': 'Kubernetes'}}\n")
     monkeypatch.setattr(letters, "JOBWATCH", str(fake))
     monkeypatch.setattr(letters, "api", lambda *a, **k: calls.append(a))
-    assert letters.fetch_hirify({"id": 1, "vacancy_id": "1/../../applications", "vacancy_text": ""}) == ""
+    monkeypatch.syspath_prepend(str(fake))
+    sys.modules.pop("hirify_collect", None)
     import hirify_collect
+    assert letters.fetch_hirify({"id": 1, "vacancy_id": "1/../../applications", "vacancy_text": ""}) == ""
     assert hirify_collect.CALLS == []
     assert letters.fetch_hirify({"id": 1, "vacancy_id": "1214749", "vacancy_text": ""}) == "Kubernetes"
     assert hirify_collect.CALLS == ["/vacancies/1214749"]
