@@ -12,9 +12,9 @@ from fastapi.responses import FileResponse
 from pydantic import AfterValidator, BaseModel, Field
 from typing import Annotated
 
-from .db import get_db, now
+from .db import CommitRoute, get_db, now
 
-router = APIRouter(prefix="/api/jobs")
+router = APIRouter(prefix="/api/jobs", route_class=CommitRoute)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS platform(

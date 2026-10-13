@@ -5,9 +5,9 @@ from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .db import get_db, require_project, session_json, touch
+from .db import CommitRoute, get_db, require_project, session_json, touch
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", route_class=CommitRoute)
 
 
 class SessionIn(BaseModel):

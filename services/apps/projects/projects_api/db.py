@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, Request
+from fastapi.routing import APIRoute
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS project(
@@ -66,11 +67,32 @@ def init(path: str) -> None:
 
 def get_db(request: Request):
     conn = connect(request.app.state.db_path)
+    request.state.db = conn
     try:
         yield conn
         conn.commit()
     finally:
         conn.close()
+
+
+class CommitRoute(APIRoute):
+    """Commits before the response goes out.
+
+    FastAPI runs the code after `yield` in get_db only once the response has been sent, so a client that
+    chains requests (create a contact, then link it) could read before the commit and get a 404.
+    """
+
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def run(request: Request):
+            response = await handler(request)
+            conn = getattr(request.state, "db", None)
+            if conn is not None and response.status_code < 400:
+                conn.commit()
+            return response
+
+        return run
 
 
 def require_project(conn: sqlite3.Connection, slug: str) -> sqlite3.Row:

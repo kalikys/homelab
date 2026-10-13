@@ -4,10 +4,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from .db import get_db, item_rows, now, require_project, touch
+from .db import CommitRoute, get_db, item_rows, now, require_project, touch
 from .model import LABELS, STATUS_LABELS, check_status, default_status, done_status, finished, location_kind
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", route_class=CommitRoute)
 
 ItemType = Literal["feature", "milestone", "plan", "todo", "artifact", "decision", "finding", "note"]
 Owner = Literal["claude", "user"]

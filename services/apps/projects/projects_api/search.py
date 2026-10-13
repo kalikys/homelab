@@ -2,9 +2,9 @@ import sqlite3
 
 from fastapi import APIRouter, Depends
 
-from .db import get_db
+from .db import CommitRoute, get_db
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", route_class=CommitRoute)
 
 QUERIES = [
     "SELECT slug AS project, slug AS id, 'project' AS type,"

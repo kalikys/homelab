@@ -4,9 +4,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from .db import get_db, item_rows, now, progress, require_project, session_json, touch
+from .db import CommitRoute, get_db, item_rows, now, progress, require_project, session_json, touch
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", route_class=CommitRoute)
 
 Area = Literal["youtube", "sites", "infra", "jobs", "crypto", "research", "other"]
 Status = Literal["active", "paused", "done", "dropped"]
