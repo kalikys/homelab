@@ -29,7 +29,7 @@ export function AppRow({ a, right }: { a: Application; right?: ReactNode }) {
           <Fit value={a.fit} />
           {a.letter_sent > 0 && <span title="есть отправленное письмо"><FileCheck2 size={14} /></span>}
           {a.files_count > 0 && <span title="есть файлы"><Paperclip size={13} /></span>}
-          <span className="hidden w-12 text-right tabular-nums sm:block">{agoShort(a.updated_at)}</span>
+          <span className="hidden w-14 text-right tabular-nums sm:block" title={a.applied_at ? "дата отклика" : "изменено"}>{a.applied_at ? day(a.applied_at) : agoShort(a.updated_at)}</span>
         </div>
       )}
     </motion.div>
@@ -43,7 +43,7 @@ function WeekGoal({ n }: { n: number }) {
       <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line">
         <motion.div className="h-full rounded-full bg-ok" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }} />
       </div>
-      <span className="tabular-nums">{n} из {WEEK_GOAL} за неделю</span>
+      <span className="tabular-nums">{n >= WEEK_GOAL ? `${n} за неделю, цель есть` : `${n} из ${WEEK_GOAL} за неделю`}</span>
     </div>
   );
 }
