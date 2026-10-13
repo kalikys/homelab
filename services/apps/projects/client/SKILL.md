@@ -42,6 +42,16 @@ Ids are printed by `pj add` and shown by `pj show`; `pj item <id>` shows one ite
 
 `pj next "<one concrete next step>"`. When a project is finished: `pj status done`.
 
+## Job applications (`/jobs` of the same dashboard)
+
+Every application the user sends or an HR person starts goes here, with the letter that went out:
+- `pj job add "<Company>" "<Title>" --platform <slug|name> --url <link> [--fit 1-5] [--text-file vacancy.txt] [--letter-file letter.md --letter-lang en]`
+  (`-s draft` while not sent yet; unknown platforms are created).
+- HR wrote first: `pj job add "<Company>" "<Title>" --inbound --contact "<Name>" --contact-email … --contact-tg @… --contact-linkedin …`
+- A reply, interview, offer or rejection: `pj job status <id> replied|interview|offer|rejected|declined|silent --note "<what happened>"`.
+- A rewritten or extra letter: `pj job letter <id> --file letter.md --lang sk [--sent]`. `pj job list`, `pj job show <id>`.
+The user can also generate letters from the web page; those are written by the worker on VM 220.
+
 ## Rules
 
 - Write titles in the user's language (Russian), short and concrete; details go in `-b`.
