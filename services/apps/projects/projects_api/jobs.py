@@ -295,6 +295,11 @@ def find_or_create_contact(conn, c: ContactIn) -> int:
         row = conn.execute("SELECT id FROM contact WHERE ulower(email)=?", (c.email.lower(),)).fetchone()
         if row:
             return row["id"]
+    else:
+        row = conn.execute("SELECT id FROM contact WHERE ulower(name)=? AND ulower(company)=?",
+                           (c.name.lower(), c.company.lower())).fetchone()
+        if row:
+            return row["id"]
     ts = now()
     cur = conn.execute(
         "INSERT INTO contact(name,company,role,email,phone,telegram,linkedin,notes,created_at,updated_at)"

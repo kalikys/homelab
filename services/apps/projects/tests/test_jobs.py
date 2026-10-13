@@ -248,3 +248,11 @@ def test_chunked_upload_over_limit_is_cut(client, monkeypatch, tmp_path):
     r = client.put(f"/api/jobs/applications/{a['id']}/files?name=a.pdf", content=chunks())
     assert r.status_code == 413
     assert not list((tmp_path / "files").rglob("*.pdf"))
+
+
+def test_contact_without_email_reused_by_name_and_company(client):
+    c = {"name": "Lívia Tomečková", "company": "DT ITS"}
+    a = client.post("/api/jobs/applications", json={"company": "DT ITS", "title": "SRE", "contact": c}).json()
+    b = client.post("/api/jobs/applications", json={"company": "DT ITS", "title": "DevOps", "contact": c}).json()
+    other = client.post("/api/jobs/applications", json={"company": "VW", "title": "X", "contact": {"name": "Lívia Tomečková", "company": "VW"}}).json()
+    assert a["contact_id"] == b["contact_id"] != other["contact_id"]
