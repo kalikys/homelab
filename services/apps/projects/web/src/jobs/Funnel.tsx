@@ -43,7 +43,7 @@ function WeekGoal({ n }: { n: number }) {
       <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line">
         <motion.div className="h-full rounded-full bg-ok" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }} />
       </div>
-      <span className="tabular-nums">{n >= WEEK_GOAL ? `${n} за неделю, цель есть` : `${n} из ${WEEK_GOAL} за неделю`}</span>
+      <span className="tabular-nums">{n >= WEEK_GOAL ? `${n} за неделю · цель выполнена` : `${n} из ${WEEK_GOAL} за неделю`}</span>
     </div>
   );
 }
