@@ -6,7 +6,8 @@ import { jobs, type Contact, type ContactIn } from "./api";
 import { Editable, Ghost, Label, Primary, inputCls } from "./ui";
 
 const tgLink = (t: string) => `https://t.me/${t.replace(/^@/, "").replace(/^https?:\/\/t\.me\//, "")}`;
-const httpLink = (u: string) => (/^https?:\/\//.test(u) ? u : `https://${u}`);
+// A bare "linkedin.com/in/x" gets https://; any other scheme (javascript:, data:) is forced into a harmless https URL.
+const httpLink = (u: string) => (/^https?:\/\//i.test(u) ? u : `https://${u.replace(/^[a-z][\w+.-]*:/i, "")}`);
 
 export const CONTACT_FIELDS: { key: keyof ContactIn; label: string; placeholder: string; type?: string }[] = [
   { key: "role", label: "Роль", placeholder: "Recruiter, HR, CTO" },

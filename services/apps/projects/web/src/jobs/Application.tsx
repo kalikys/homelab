@@ -7,7 +7,7 @@ import { jobs, type ApplicationDetail, type ApplicationIn, type Platform } from 
 import { ContactCard } from "./Contact";
 import Files from "./Files";
 import Letters from "./Letters";
-import { FORMATS, NEXT, STATUS, dueLabel, daysUntil, formatLabel, type Status } from "./model";
+import { FORMATS, NEXT, STATUS, dueLabel, daysUntil, formatLabel, safeHref, type Status } from "./model";
 import { Editable, Fit, Flash, Ghost, Primary, StatusMenu, useFlash } from "./ui";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -63,8 +63,8 @@ export default function ApplicationPage() {
               {a.origin === "inbound" && next === "replied" ? "Я ответил" : STATUS[next].label}<ArrowRight size={15} />
             </Primary>
           )}
-          {a.url && (
-            <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-accent hover:bg-hover">
+          {safeHref(a.url) && (
+            <a href={safeHref(a.url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-accent hover:bg-hover">
               <ExternalLink size={14} />Вакансия
             </a>
           )}

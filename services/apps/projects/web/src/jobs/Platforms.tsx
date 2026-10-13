@@ -4,6 +4,7 @@ import { ArrowRight, ExternalLink, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { Card, Empty, Skeleton } from "../ui";
 import { jobs, type Platform } from "./api";
+import { safeHref } from "./model";
 import { Editable, Ghost, Label, Primary, inputCls } from "./ui";
 
 const KIND: Record<string, string> = { board: "доска вакансий", ats: "система найма", social: "соцсеть", direct: "напрямую", recruiter: "через рекрутера", other: "другое" };
@@ -29,7 +30,7 @@ function PlatformCard({ p, onChange }: { p: Platform; onChange: () => void }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 font-medium">
               {p.name}
-              {p.url && <a href={p.url} target="_blank" rel="noreferrer" className="text-muted hover:text-accent" title={p.url}><ExternalLink size={13} /></a>}
+              {safeHref(p.url) && <a href={safeHref(p.url)} target="_blank" rel="noreferrer" className="text-muted hover:text-accent" title={p.url}><ExternalLink size={13} /></a>}
             </div>
             <div className="text-xs text-muted">{KIND[p.kind] ?? p.kind}</div>
           </div>

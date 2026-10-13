@@ -256,3 +256,13 @@ def test_contact_without_email_reused_by_name_and_company(client):
     b = client.post("/api/jobs/applications", json={"company": "DT ITS", "title": "DevOps", "contact": c}).json()
     other = client.post("/api/jobs/applications", json={"company": "VW", "title": "X", "contact": {"name": "Lívia Tomečková", "company": "VW"}}).json()
     assert a["contact_id"] == b["contact_id"] != other["contact_id"]
+
+
+def test_urls_must_be_http(client):
+    bad = "javascript:alert(1)"
+    assert client.post("/api/jobs/applications", json={"company": "A", "title": "B", "url": bad}).status_code == 400
+    a = new_app(client, url="https://ok.example/1")
+    assert client.patch(f"/api/jobs/applications/{a['id']}", json={"url": " JavaScript:alert(1)"}).status_code == 400
+    assert client.patch(f"/api/jobs/applications/{a['id']}", json={"url": ""}).status_code == 200
+    assert client.post("/api/jobs/platforms", json={"slug": "x", "name": "X", "url": bad}).status_code == 400
+    assert client.patch("/api/jobs/platforms/hirify", json={"url": "data:text/html,x"}).status_code == 400

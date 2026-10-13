@@ -9,7 +9,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+from typing import Annotated
 
 from .db import get_db, now
 
@@ -80,17 +81,31 @@ INLINE = {"png", "jpg", "jpeg", "webp"}
 
 # ---------- models
 
+def http_url(v: str | None) -> str | None:
+    """Links are rendered as <a href>: only http(s), so a javascript: or data: URL can never run."""
+    if v is None or v.strip() == "":
+        return v.strip() if v is not None else None
+    v = v.strip()
+    if not re.match(r"^https?://", v, re.I):
+        raise ValueError("url must start with http:// or https://")
+    return v
+
+
+Url = Annotated[str, AfterValidator(http_url)]
+OptUrl = Annotated[str | None, AfterValidator(http_url)]
+
+
 class PlatformIn(BaseModel):
     slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,40}$")
     name: str = Field(min_length=1)
-    url: str = ""
+    url: Url = ""
     kind: Literal["board", "ats", "social", "direct", "recruiter", "other"] = "other"
     notes: str = ""
 
 
 class PlatformPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1)
-    url: str | None = None
+    url: OptUrl = None
     kind: Literal["board", "ats", "social", "direct", "recruiter", "other"] | None = None
     notes: str | None = None
 
@@ -125,7 +140,7 @@ class GenerateIn(BaseModel):
 class ApplicationIn(BaseModel):
     company: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    url: str = ""
+    url: Url = ""
     platform: str | None = None
     origin: Literal["outbound", "inbound"] = "outbound"
     contact_id: int | None = None
@@ -148,7 +163,7 @@ class ApplicationIn(BaseModel):
 class ApplicationPatch(BaseModel):
     company: str | None = Field(default=None, min_length=1)
     title: str | None = Field(default=None, min_length=1)
-    url: str | None = None
+    url: OptUrl = None
     platform: str | None = None
     origin: Literal["outbound", "inbound"] | None = None
     contact_id: int | None = None
