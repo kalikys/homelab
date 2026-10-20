@@ -68,36 +68,22 @@
     }));
   }
 
-  // ---- Hero clip: loads after the page is idle, plays while the poster is on screen ----
-  const video = document.getElementById("poster-video");
-  if (video && !reduce && "IntersectionObserver" in window) {
-    const saveData = navigator.connection && navigator.connection.saveData;
-    let loaded = false;
-    function load() {
-      if (loaded || saveData) return;
-      loaded = true;
-      const webm = document.createElement("source");
-      webm.src = video.dataset.srcWebm; webm.type = "video/webm";
-      const mp4 = document.createElement("source");
-      mp4.src = video.dataset.src; mp4.type = "video/mp4";
-      video.append(webm, mp4);
-      video.load();
-      video.addEventListener("playing", () => video.classList.add("is-playing"), { once: true });
-    }
-    let onScreen = false;
-    function start() {
+  // ---- Hero orbit (SVG animateMotion): paused off screen, in a hidden tab and under reduced motion ----
+  const orbit = document.getElementById("poster-orbit");
+  if (orbit && orbit.pauseAnimations) {
+    if (reduce) {
+      orbit.pauseAnimations();
+      orbit.setCurrentTime(6);
+    } else if ("IntersectionObserver" in window) {
+      let onScreen = true;
       new IntersectionObserver((entries) => {
         onScreen = entries[0].isIntersecting;
-        if (onScreen) { load(); video.play().catch(() => {}); } else if (loaded) video.pause();
-      }, { threshold: 0.2 }).observe(video.parentElement);
+        if (onScreen && !document.hidden) orbit.unpauseAnimations(); else orbit.pauseAnimations();
+      }).observe(orbit);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) orbit.pauseAnimations(); else if (onScreen) orbit.unpauseAnimations();
+      });
     }
-    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
-    if (document.readyState === "complete") idle(start);
-    else window.addEventListener("load", () => idle(start), { once: true });
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) video.pause();
-      else if (loaded && onScreen) video.play().catch(() => {});
-    });
   }
 
   // ---- Scroll loop: progress bar, current chapter in the nav, interlude openness ----

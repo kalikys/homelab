@@ -245,9 +245,24 @@
         <figure class="poster intro--clip" aria-hidden="true">
           <picture>
             <source srcset="/media/launch-169.webp" type="image/webp">
-            <img class="poster__img" src="/media/launch-169.jpg" alt="" width="1600" height="901" fetchpriority="high" decoding="async">
+            <img class="poster__img" src="/media/launch-169.jpg" alt="" width="1600" height="900" fetchpriority="high" decoding="async">
           </picture>
-          <video class="poster__video" id="poster-video" muted playsinline loop preload="none" data-src="/media/launch.mp4" data-src-webm="/media/launch.webm"></video>
+          <svg class="poster__orbit" id="poster-orbit" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <g transform="rotate(-9 960 300)">
+              <path id="orbit-path" class="poster__path" d="M 300 300 A 660 170 0 1 0 1620 300 A 660 170 0 1 0 300 300"/>
+              <g class="poster__sat">
+                <g transform="scale(1.6)">
+                <rect x="-46" y="-9" width="32" height="18" class="poster__panel"/>
+                <rect x="14" y="-9" width="32" height="18" class="poster__panel"/>
+                <path d="M -30 -9 V 9 M 30 -9 V 9" class="poster__grid"/>
+                <path d="M -14 0 H -8 M 8 0 H 14" class="poster__strut"/>
+                <rect x="-9" y="-11" width="18" height="22" rx="2" class="poster__body"/>
+                <path d="M -6 -11 Q 0 -22 6 -11" class="poster__dish"/>
+                </g>
+                <animateMotion dur="26s" repeatCount="indefinite"><mpath href="#orbit-path"/></animateMotion>
+              </g>
+            </g>
+          </svg>
           <figcaption class="poster__tag">KS-01 · T-0 · <span class="poster__live">LIVE</span></figcaption>
         </figure>
       </div>
