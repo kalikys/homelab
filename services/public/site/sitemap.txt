@@ -4,3 +4,7 @@ https://kalik8s.com/sk/
 https://kalik8s.com/lab/
 https://kalik8s.com/ru/lab/
 https://kalik8s.com/sk/lab/
+https://kalik8s.com/blog/
+https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/
+https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/
+https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/

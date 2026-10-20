@@ -39,4 +39,5 @@ for u in / /ru/ /sk/ /lab/ /media/launch-169.webp /motion.js /cv.md /Kalislav-Sm
   curl -s -o /dev/null -w "%{http_code}  https://kalik8s.com$u\n" "https://kalik8s.com$u?v=$STAMP"
 done
 curl -s -o /dev/null -w "%{http_code}  /e/reach_payload (expect 204)\n" -X POST "https://kalik8s.com/e/reach_payload?src=deploycheck&lang=en"
-curl -s "https://kalik8s.com/?v=$STAMP" | grep -q 'Mission KS' && echo "live page: new design" || echo "live page: OLD design still served (cache?)"
+page=$(curl -s "https://kalik8s.com/?v=$STAMP")
+case "$page" in *"Mission KS"*) echo "live page: new design" ;; *) echo "live page: OLD design still served (cache?)" ;; esac

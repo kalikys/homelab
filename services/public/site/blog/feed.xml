@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Field notes · Kalislav Smirnov</title>
+    <link>https://kalik8s.com/blog/</link>
+    <atom:link href="https://kalik8s.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
+    <description>Hands-on DevOps, Kubernetes and DevSecOps notes.</description>
+    <language>en</language>
+    <lastBuildDate>Wed, 21 Oct 2026 09:00:00 +0000</lastBuildDate>
+    <item>
+      <title>Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</title>
+      <link>https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/</link>
+      <guid isPermaLink="true">https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/</guid>
+      <pubDate>Wed, 21 Oct 2026 09:00:00 +0000</pubDate>
+      <description>Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.</description>
+      <category>trivy</category>
+      <category>gitlab-ci</category>
+      <category>supply-chain</category>
+      <category>devsecops</category>
+      <category>gitleaks</category>
+    </item>
+    <item>
+      <title>Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself</title>
+      <link>https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/</link>
+      <guid isPermaLink="true">https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/</guid>
+      <pubDate>Wed, 21 Oct 2026 09:00:00 +0000</pubDate>
+      <description>bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.</description>
+      <category>terraform</category>
+      <category>proxmox</category>
+      <category>homelab</category>
+      <category>iac</category>
+      <category>lxc</category>
+    </item>
+    <item>
+      <title>Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</title>
+      <link>https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/</link>
+      <guid isPermaLink="true">https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/</guid>
+      <pubDate>Wed, 21 Oct 2026 09:00:00 +0000</pubDate>
+      <description>How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.</description>
+      <category>nexus</category>
+      <category>air-gapped</category>
+      <category>gpg</category>
+      <category>supply-chain</category>
+      <category>kubernetes</category>
+    </item>
+  </channel>
+</rss>

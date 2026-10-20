@@ -50,11 +50,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Blog pages are up to date
+        run: |
+          python3 scripts/build-blog.py
+          git diff --exit-code -- services/public/site/blog/ services/public/site/index.html services/public/site/sitemap.xml services/public/site/sitemap.txt services/public/site/llms.txt
+          test -z "$(git status --porcelain -- services/public/site/blog/)"
+
+      - name: Blog Markdown converter tests
+        run: python3 -m unittest discover -s tests/site -p 'test_*.py'
+
       - name: Translated pages are up to date
         run: |
           python3 scripts/build-i18n.py
           git diff --exit-code -- services/public/site/ru/ services/public/site/sk/
           test -z "$(git status --porcelain -- services/public/site/ru/ services/public/site/sk/)"
+
+      - name: Terminal CV is up to date
+        run: |
+          python3 scripts/build-cv-terminal.py --check
+          python3 -m unittest discover -s tests/site -p 'test_*.py'
 
       - name: app.js parses
         run: |
@@ -64,6 +78,7 @@ jobs:
           node --check services/public/site/js-on.js
           node --check services/public/site/motion-core.js
           node --check services/public/site/motion.js
+          node --check scripts/og-shot.mjs
 
       - name: lab scripts parse
         run: |
