@@ -190,5 +190,8 @@
   "sites.title": "Живые сайты",
   "sites.nodesize": "Калькулятор размера нод Kubernetes: доступные CPU/память и max pods для всех типов инстансов EKS, GKE и AKS.",
   "sites.tapeclip": "Tapeclip — Mac-приложение, которое делает клип из трека.",
-  "hero.relocation": "Релокация · США, ЕС, Кипр"
+  "hero.relocation": "Релокация · США, ЕС, Кипр",
+  "nav.blog": "Статьи",
+  "blog.latest": "Свежие заметки",
+  "blog.all": "Все заметки →"
 }

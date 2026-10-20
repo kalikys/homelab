@@ -68,6 +68,36 @@
     }));
   }
 
+  // ---- Hero clip: loads after the page is idle, plays while the poster is on screen ----
+  const video = document.getElementById("poster-video");
+  if (video && !reduce && "IntersectionObserver" in window && !(navigator.connection && navigator.connection.saveData)) {
+    let loaded = false, onScreen = false;
+    function load() {
+      if (loaded) return;
+      loaded = true;
+      [["webm", video.dataset.srcWebm], ["mp4", video.dataset.src]].forEach(([type, src]) => {
+        const s = document.createElement("source");
+        s.src = src; s.type = "video/" + type;
+        video.append(s);
+      });
+      video.load();
+      video.addEventListener("playing", () => video.classList.add("is-playing"), { once: true });
+    }
+    function start() {
+      new IntersectionObserver((entries) => {
+        onScreen = entries[0].isIntersecting;
+        if (onScreen) { load(); video.play().catch(() => {}); } else if (loaded) video.pause();
+      }, { threshold: 0.2 }).observe(video.parentElement);
+    }
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    if (document.readyState === "complete") idle(start);
+    else window.addEventListener("load", () => idle(start), { once: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) video.pause();
+      else if (loaded && onScreen) video.play().catch(() => {});
+    });
+  }
+
   // ---- Hero orbit (SVG animateMotion): paused off screen, in a hidden tab and under reduced motion ----
   const orbit = document.getElementById("poster-orbit");
   if (orbit && orbit.pauseAnimations) {
