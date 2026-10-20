@@ -889,7 +889,9 @@ html { scroll-padding-top: 76px; }
   position: relative; height: clamp(220px, 42vw, 560px); overflow: hidden; background: var(--peach);
   clip-path: inset(calc((1 - var(--open)) * 38%) 0 calc((1 - var(--open)) * 38%) 0);
 }
-.interlude__frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(calc(1.14 - var(--open) * 0.14)); will-change: transform; }
+.interlude__frame img, .interlude__overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(calc(1.14 - var(--open) * 0.14)); will-change: transform; }
+.trajectory { fill: none; stroke: #e4501f; stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 0 14; animation: trajectory 1.4s linear infinite; }
+@keyframes trajectory { to { stroke-dashoffset: -14; } }
 .interlude__caption {
   position: absolute; left: clamp(16px, 4vw, 40px); bottom: clamp(14px, 2.5vw, 28px);
   padding: 8px 14px; border-radius: 4px; background: var(--cream); color: var(--ink);
@@ -1031,7 +1033,7 @@ html { scroll-padding-top: 76px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker__track, .poster__live, .cursor { animation: none; }
+  .ticker__track, .poster__live, .cursor, .trajectory { animation: none; }
   .ticker { overflow-x: auto; }
   .js .reveal { opacity: 1; transform: none; transition: opacity 200ms ease; }
   .intro, .line.intro > span, .intro--clip { animation: none; }
