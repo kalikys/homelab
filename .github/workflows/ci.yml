@@ -61,6 +61,9 @@ jobs:
           node --check services/public/site/app.js
           node --check services/public/site/track-core.js
           node --check services/public/site/aero.js
+          node --check services/public/site/js-on.js
+          node --check services/public/site/motion-core.js
+          node --check services/public/site/motion.js
 
       - name: lab scripts parse
         run: |

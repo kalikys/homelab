@@ -1,8 +1,8 @@
 (function () {
   "use strict";
 
-  // The aerospace section: a spaceplane flies a minimum-energy ballistic arc from Tbilisi (TBS)
-  // to Košice (KSC). The trajectory is integrated here in the browser: point-mass gravity,
+  // The aerospace section: a spaceplane flies a minimum-energy ballistic arc over a 2,005 km
+  // intercontinental-style hop, as in the thesis. The trajectory is integrated here in the browser: point-mass gravity,
   // spherical non-rotating Earth, no atmosphere. Drawn to scale, altitude included.
   const svg = document.getElementById("flight-svg");
   if (!svg) return;
@@ -13,10 +13,15 @@
     ru: { ascent: "подъём", apogee: "апогей", descent: "спуск", entry: "вход в атм.", landed: "посадка" },
     sk: { ascent: "stúpanie", apogee: "apogeum", descent: "klesanie", entry: "vstup do atm.", landed: "pristátie" },
   }[lang];
+  const SITE = {
+    en: ["Launch", "Landing"],
+    ru: ["Старт", "Посадка"],
+    sk: ["Štart", "Pristátie"],
+  }[lang];
 
   const MU = 3.986004418e14;   // m^3/s^2
   const R = 6371e3;            // m
-  const RANGE = 2005e3;        // TBS to KSC great circle, m
+  const RANGE = 2005e3;        // ground range of the hop, m
   const GAMMA = (40.5 * Math.PI) / 180; // minimum-energy flight path angle for this range
 
   function fly(v, dt) {
@@ -99,7 +104,7 @@
   }
 
   const sites = document.getElementById("flight-sites");
-  [[0, "TBS", "Tbilisi", "start"], [RANGE, "KSC", "Košice", "end"]].forEach(([s, code, city, anchor]) => {
+  [[0, "T-0", SITE[0], "start"], [RANGE, "T+11:43", SITE[1], "end"]].forEach(([s, code, city, anchor]) => {
     const [x, y] = pos(s, 0);
     const g = node("g", { class: "flight__site" }, sites);
     node("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: 4 }, g);
