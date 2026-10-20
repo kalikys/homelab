@@ -22,6 +22,12 @@ CHECKS = [
     "touch /etc/probe 2>/dev/null && echo '/etc writable: YES' || echo '/etc writable: no'",
     "touch /usr/local/probe 2>/dev/null && echo '/usr writable: YES' || echo '/usr writable: no'",
     "cat /proc/self/status | grep -E '^NoNewPrivs'",
+    'echo "hostname: $(hostname)"',
+    'echo "processes visible: $(ps -e --no-headers | wc -l)"',
+    "ip -br link | awk '{print \"link:\", $1}'",
+    "timeout 3 bash -c 'echo > /dev/tcp/10.66.0.10/7681' 2>/dev/null && echo 'own VM ttyd: REACHABLE' || echo 'own VM ttyd: blocked'",
+    "cat /proc/self/uid_map",
+    "timeout 3 getent hosts deb.debian.org >/dev/null 2>&1 && echo 'DNS: WORKS' || echo 'DNS: none'",
 ]
 
 

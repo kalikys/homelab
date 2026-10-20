@@ -42,6 +42,7 @@ qm start $VMID
 for i in $(seq 1 60); do $SSH true 2>/dev/null && break; sleep 5; done
 $SSH true
 
+$SSH "cat > /tmp/session.sh" < "$DIR/session.sh"
 $SSH "sudo bash -s" < "$DIR/provision.sh"
 for i in $(seq 1 60); do [ "$(qm status $VMID | awk '{print $2}')" = stopped ] && break; sleep 2; done
 if [ "$(qm status $VMID | awk '{print $2}')" != stopped ]; then

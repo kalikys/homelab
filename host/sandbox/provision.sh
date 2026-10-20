@@ -19,64 +19,77 @@ curl -fsSL -o "$TMP/SHA256SUMS" "$TTYD_URL/SHA256SUMS"
 install -m 0755 "$TMP/ttyd.x86_64" /usr/local/bin/ttyd
 rm -rf "$TMP"
 
-id guest >/dev/null 2>&1 || useradd -m -s /bin/bash guest
-passwd -l guest >/dev/null
-
 cat > /etc/motd <<'EOF'
 
   Homelab sandbox: a throwaway Debian VM on Proxmox VE.
 
   - Isolated network: no internet, no access to other hosts.
   - 1 vCPU capped at 50%, 768 MB RAM, 6 GB disk.
-  - The whole VM is rolled back to a clean snapshot every 30 minutes.
+  - Every session is its own throwaway container: you are root, nobody
+    else sees your session, and it is gone when you close the tab.
+  - A session lasts up to 15 minutes (5 minutes idle); the whole VM is
+    rolled back to a clean snapshot every 30 minutes.
 
   Things to try: htop, uname -a, df -h, cat /etc/os-release
 
 EOF
 
-cat > /home/guest/.bash_profile <<'EOF'
-cat /etc/motd
-[ -f ~/.bashrc ] && . ~/.bashrc
-EOF
-chown guest:guest /home/guest/.bash_profile
+# --- Per-session containers (sourced by provision.sh inside the VM, as root) ---
+# Every browser session gets its own throwaway container with root inside (see session.sh).
+apt-get install -y -qq systemd-container debootstrap >/dev/null
 
-cat > /etc/systemd/system/sandbox-shell.service <<'EOF'
+# Base image for the containers: a small Debian 13 with the tools visitors try first.
+BASE=/var/lib/machines/base
+if [ ! -x "$BASE/bin/bash" ]; then
+  debootstrap --variant=minbase --include=bash-completion,curl,htop,tree,jq,nano,less,procps,iproute2,iputils-ping,vim-tiny,python3,ncurses-term \
+    trixie "$BASE" http://deb.debian.org/debian >/dev/null
+fi
+cp /etc/motd "$BASE/etc/motd"
+echo sandbox > "$BASE/etc/hostname"
+printf '%s\n' 'cat /etc/motd' '[ -f ~/.bashrc ] && . ~/.bashrc' > "$BASE/root/.bash_profile"
+printf '%s\n' 'TMOUT=300' 'readonly TMOUT' 'export TMOUT' > "$BASE/etc/profile.d/zz-sandbox.sh"
+rm -rf "$BASE/var/cache/apt/archives/"*.deb "$BASE/var/lib/apt/lists/"*
+
+install -m 0755 /tmp/session.sh /usr/local/sbin/sandbox-session  # copied in by build.sh
+
+# ttyd runs as an unprivileged user that may start exactly one root helper.
+id ttyd >/dev/null 2>&1 || useradd -r -M -d /nonexistent -s /usr/sbin/nologin ttyd
+echo 'ttyd ALL=(root) NOPASSWD: /usr/local/sbin/sandbox-session' > /etc/sudoers.d/sandbox-session
+chmod 0440 /etc/sudoers.d/sandbox-session
+visudo -cf /etc/sudoers.d/sandbox-session >/dev/null
+userdel -r guest >/dev/null 2>&1 || true
+
+# Nothing on the VM may trace another process.
+echo 'kernel.yama.ptrace_scope = 2' > /etc/sysctl.d/90-sandbox.conf
+
+cat > /etc/systemd/system/sandbox-shell.service <<'UNIT'
 [Unit]
-Description=Public sandbox web terminal (ttyd)
+Description=Public sandbox web terminal (ttyd), one container per session
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=guest
-Group=guest
-WorkingDirectory=/home/guest
+User=ttyd
+Group=ttyd
+WorkingDirectory=/
 Environment=TERM=xterm-256color
-ExecStart=/usr/local/bin/ttyd --port 7681 --writable --max-clients 5 -t fontSize=14 -t titleFixed=sandbox /bin/bash --login
+ExecStart=/usr/local/bin/ttyd --port 7681 --writable --max-clients 5 --ping-interval 30 -t fontSize=14 -t titleFixed=sandbox /usr/bin/sudo -n /usr/local/sbin/sandbox-session
 Restart=always
 RestartSec=2
-
-NoNewPrivileges=yes
-RestrictSUIDSGID=yes
-ProtectSystem=strict
-ReadWritePaths=/home/guest
-PrivateTmp=yes
-ProtectKernelTunables=yes
+# ttyd needs sudo for the helper, so NoNewPrivileges stays off for this unit only;
+# the visitor runs in a separate container scope with its own limits.
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
-ProtectControlGroups=yes
-ProtectClock=yes
-ProtectHostname=yes
 LockPersonality=yes
-RestrictNamespaces=yes
-TasksMax=128
-MemoryMax=400M
-CPUQuota=50%
+MemoryMax=600M
+TasksMax=512
 
 [Install]
 WantedBy=multi-user.target
-EOF
+UNIT
 systemctl daemon-reload
 systemctl enable sandbox-shell.service >/dev/null
+# --- end per-session containers ---
 
 # Static address on the isolated bridge; no gateway, no DNS.
 rm -f /etc/netplan/*.yaml /etc/network/interfaces.d/*cloud-init* 2>/dev/null || true
