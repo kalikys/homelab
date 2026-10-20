@@ -38,7 +38,7 @@
     return pts;
   }
 
-  // Burnout speed that lands the arc on Košice.
+  // Burnout speed that lands the arc at the end of the range.
   let lo = 3000, hi = 6000;
   for (let i = 0; i < 40; i++) {
     const mid = (lo + hi) / 2;

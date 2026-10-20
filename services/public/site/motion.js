@@ -8,6 +8,7 @@
   const M = window.MotionCore;
   const T = window.TrackCore;
   if (!M) return;
+  window.__motionReady = true;
 
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const lang = ["ru", "sk"].includes(root.lang) ? root.lang : "en";
@@ -26,16 +27,27 @@
     const event = T.reachEvent(id);
     if (event) navigator.sendBeacon(T.eventPath(event, source(), lang));
   }
+  // A chapter counts only after it stays in view for 0.8 s, so jumping through the page
+  // with a nav link (smooth scroll) does not count the chapters it flies past.
   if ("IntersectionObserver" in window) {
+    const timers = new Map();
     const seen = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { reach(e.target.id); seen.unobserve(e.target); } });
+      entries.forEach((e) => {
+        const id = e.target.id;
+        if (e.isIntersecting) {
+          timers.set(id, setTimeout(() => { reach(id); seen.unobserve(e.target); }, 800));
+        } else {
+          clearTimeout(timers.get(id));
+        }
+      });
     }, { rootMargin: "0px 0px -40% 0px" });
     chapters.slice(1).forEach((c) => seen.observe(c));
   }
 
   // ---- Reveals: elements fade up once; siblings get a short stagger ----
-  root.classList.add("js");
+  // js-on.js set .js before first paint; if it already gave up (slow load), keep everything shown.
   const reveals = Array.from(document.querySelectorAll(".reveal"));
+  const revealsOn = root.classList.contains("js");
   const groups = new Map();
   reveals.forEach((el) => {
     const parent = el.parentElement;
@@ -43,7 +55,7 @@
     groups.set(parent, n + 1);
     el.style.setProperty("--d", Math.min(n, 6) * 60 + "ms");
   });
-  if (reduce || !("IntersectionObserver" in window)) {
+  if (!revealsOn || reduce || !("IntersectionObserver" in window)) {
     reveals.forEach((el) => el.classList.add("is-in"));
   } else {
     const io = new IntersectionObserver((entries) => {
@@ -72,11 +84,20 @@
       video.load();
       video.addEventListener("playing", () => video.classList.add("is-playing"), { once: true });
     }
-    new IntersectionObserver((entries) => {
-      const on = entries[0].isIntersecting;
-      if (on) { load(); video.play().catch(() => {}); } else if (loaded) video.pause();
-    }, { threshold: 0.2 }).observe(video.parentElement);
-    document.addEventListener("visibilitychange", () => { if (document.hidden) video.pause(); });
+    let onScreen = false;
+    function start() {
+      new IntersectionObserver((entries) => {
+        onScreen = entries[0].isIntersecting;
+        if (onScreen) { load(); video.play().catch(() => {}); } else if (loaded) video.pause();
+      }, { threshold: 0.2 }).observe(video.parentElement);
+    }
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    if (document.readyState === "complete") idle(start);
+    else window.addEventListener("load", () => idle(start), { once: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) video.pause();
+      else if (loaded && onScreen) video.play().catch(() => {});
+    });
   }
 
   // ---- Scroll loop: progress bar, current chapter in the nav, interlude openness ----

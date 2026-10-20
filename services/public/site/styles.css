@@ -28,7 +28,7 @@
   --muted: var(--ink-2);
   --faint: var(--ink-3);
   --accent: var(--sun-deep);
-  --accent-2: var(--sun);
+  --accent-2: var(--sun-deep);
   --ok: #15803d;
   --warn: #b45309;
   --down: #b91c1c;
@@ -989,8 +989,16 @@ html { scroll-padding-top: 76px; }
 .js .line.reveal { opacity: 1; transform: none; }
 .js .line.reveal > span { transform: translateY(105%); transition: transform 900ms var(--ease-out); transition-delay: var(--d, 0ms); }
 .js .line.reveal.is-in > span { transform: none; }
-.js .reveal--clip { transform: none; clip-path: inset(0 0 100% 0); transition: clip-path 1100ms var(--ease-in-out), opacity 300ms ease; }
-.js .reveal--clip.is-in { clip-path: inset(0 0 0 0); }
+/* First screen: pure CSS, so it paints without waiting for any script. */
+.intro { animation: intro-rise 800ms var(--ease-out) both; }
+.line.intro { animation: none; }
+.line.intro > span { animation: line-rise 950ms var(--ease-out) both; animation-delay: inherit; }
+.intro--2 { animation-delay: 60ms; } .intro--3 { animation-delay: 140ms; } .intro--4 { animation-delay: 240ms; }
+.intro--5 { animation-delay: 320ms; } .intro--6 { animation-delay: 400ms; }
+.intro--clip { animation: clip-in 1200ms var(--ease-in-out) 150ms both; }
+@keyframes intro-rise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes line-rise { from { transform: translateY(105%); } }
+@keyframes clip-in { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 -16px -16px 0); } }
 
 /* Responsive */
 @media (max-width: 1080px) {
@@ -1019,7 +1027,9 @@ html { scroll-padding-top: 76px; }
 @media (prefers-reduced-motion: reduce) {
   .ticker__track, .poster__live, .cursor { animation: none; }
   .ticker { overflow-x: auto; }
-  .js .reveal, .js .line.reveal > span, .js .reveal--clip { opacity: 1; transform: none; clip-path: none; transition: opacity 200ms ease; }
+  .js .reveal { opacity: 1; transform: none; transition: opacity 200ms ease; }
+  .intro, .line.intro > span, .intro--clip { animation: none; }
+  .ticker__list[aria-hidden] { display: none; }
   .interlude { --open: 1 !important; }
   .interlude__frame img { transform: none; }
   html { scroll-behavior: auto; }
@@ -1034,3 +1044,7 @@ html { scroll-padding-top: 76px; }
 .lab-cert, .lab-vm, .lab-live, .lab-heatmap { background: var(--paper); border-color: var(--line-strong); border-radius: 10px; }
 .lab-bar__fill { background: var(--sun); }
 .btn--primary { background: var(--ink); border-color: var(--ink); color: var(--cream); }
+
+/* Tap targets: at least 44 px tall */
+.lang a[data-lang] { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+.cta__more a { display: inline-flex; align-items: center; min-height: 44px; padding: 0; }
