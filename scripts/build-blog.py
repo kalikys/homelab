@@ -48,13 +48,25 @@ def slugify(text):
 def inline(text):
     """Inline Markdown to HTML. Raw HTML in the source is escaped, never passed through."""
     # Code spans become placeholders first, so a link label may contain code: [`x`](url).
-    codes = []
+    # Inside attributes (href, src, alt, title) a placeholder turns back into the plain code text,
+    # escaped as an attribute value; only element content gets the <code> markup.
+    global _RAW_CODES
+    _RAW_CODES = []
+    text = text.replace("\x00", "")  # nobody can forge a placeholder
 
     def stash(m):
-        codes.append("<code>" + html.escape(m.group(2), quote=False) + "</code>")
-        return f"\x00{len(codes) - 1}\x00"
+        _RAW_CODES.append(m.group(2))
+        return f"\x00{len(_RAW_CODES) - 1}\x00"
     t = _inline_text(re.sub(r"(`+)(.+?)\1", stash, text))
-    return re.sub(r"\x00(\d+)\x00", lambda m: codes[int(m.group(1))], t)
+    return re.sub(r"\x00(\d+)\x00", lambda m: "<code>" + html.escape(_RAW_CODES[int(m.group(1))], quote=True) + "</code>", t)
+
+
+_RAW_CODES = []
+
+
+def _unstash(value):
+    """Placeholders inside an attribute value become the raw code text (escaped later as an attribute)."""
+    return re.sub(r"\x00(\d+)\x00", lambda m: html.escape(_RAW_CODES[int(m.group(1))], quote=False), value)
 
 
 def _safe_url(url):
@@ -73,15 +85,15 @@ def _inline_text(t):
     t = html.escape(t, quote=False)
 
     def image(m):
-        title = f' title="{_attr(m.group(3))}"' if m.group(3) else ""
-        return f'<img src="{_attr(_safe_url(html.unescape(m.group(2))))}" alt="{_attr(m.group(1))}"{title} loading="lazy" decoding="async">'
+        title = f' title="{_attr(_unstash(m.group(3)))}"' if m.group(3) else ""
+        return f'<img src="{_attr(_safe_url(html.unescape(_unstash(m.group(2)))))}" alt="{_attr(_unstash(m.group(1)))}"{title} loading="lazy" decoding="async">'
     t = re.sub(r'!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)', image, t)
 
     def link(m):
-        href = _safe_url(html.unescape(m.group(2)))
+        href = _safe_url(html.unescape(_unstash(m.group(2))))
         ext = href.startswith("http") and not href.startswith(SITE)
         rel = ' target="_blank" rel="noopener"' if ext else ""
-        title = f' title="{_attr(m.group(3))}"' if m.group(3) else ""
+        title = f' title="{_attr(_unstash(m.group(3)))}"' if m.group(3) else ""
         return f'<a href="{_attr(href)}"{title}{rel}>{m.group(1)}</a>'
     t = re.sub(r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)', link, t)
     t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)

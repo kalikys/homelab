@@ -77,3 +77,17 @@ class LinkWithCode(unittest.TestCase):
         self.assertIn("<code>a_b_c</code>", out)
         self.assertIn("<code>**x**</code>", out)
         self.assertIn("&lt;b&gt;", out)
+
+
+class CodeInAttributes(unittest.TestCase):
+    def test_code_in_alt_title_and_url_stays_plain_text(self):
+        out = B.inline('![`<b>"x"`](/a.png "`t"q`") [l](`javascript:alert(1)`) [m](/p "`"><s>`")')
+        self.assertNotIn("<code>", out.split("<a")[0].split(">", 1)[0])
+        self.assertNotIn('alt="<code>', out)
+        self.assertNotIn("<s>", out)
+        self.assertNotIn('"><', out.replace('"><code', ''))
+        self.assertNotIn("javascript:", out)
+
+    def test_forged_placeholder_is_removed(self):
+        out = B.inline("a \x000\x00 `x`")
+        self.assertEqual(out.count("<code>"), 1)
