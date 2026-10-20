@@ -1056,3 +1056,5 @@ html { scroll-padding-top: 76px; }
 /* Tap targets: at least 44 px tall */
 .lang a[data-lang] { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
 .cta__more a { display: inline-flex; align-items: center; min-height: 44px; padding: 0; }
+.sites { margin-bottom: 28px; min-height: 0; }
+.sites__title { margin: 4px 0 12px; font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }

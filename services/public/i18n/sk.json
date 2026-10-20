@@ -186,5 +186,8 @@
   "ch.ground.title": "Žiadne slajdy. Tento web beží na mojich vlastných serveroch, naživo.",
   "int.contact": "Mäkké pristátie",
   "ch.contact.title": "Pripravený na ďalšiu misiu.",
-  "ch.contact.lead": "Na diaľku, pre firmu z ktorejkoľvek krajiny. Otvorený ponukám."
+  "ch.contact.lead": "Na diaľku, pre firmu z ktorejkoľvek krajiny. Otvorený ponukám.",
+  "sites.title": "Živé weby",
+  "sites.nodesize": "Kalkulačka veľkosti uzlov Kubernetes: dostupné CPU/pamäť a max. počet podov pre každý typ inštancie EKS, GKE a AKS.",
+  "sites.tapeclip": "Tapeclip — aplikácia pre Mac, ktorá z hudobnej skladby urobí videoklip."
 }
