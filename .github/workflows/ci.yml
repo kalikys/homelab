@@ -56,6 +56,11 @@ jobs:
           git diff --exit-code -- services/public/site/ru/ services/public/site/sk/
           test -z "$(git status --porcelain -- services/public/site/ru/ services/public/site/sk/)"
 
+      - name: Terminal CV is up to date
+        run: |
+          python3 scripts/build-cv-terminal.py --check
+          python3 -m unittest discover -s tests/site -p 'test_*.py'
+
       - name: app.js parses
         run: |
           node --check services/public/site/app.js

@@ -15,7 +15,7 @@ since="$(date -u -d "$days days ago" +%Y-%m-%d)"
 
 awk -v since="$since" '
   substr($1, 1, 10) < since { next }
-  $2 ~ /^reach_/ { next }
+  $2 ~ /^(reach_|cv_curl$|cv_json$|cv_link$)/ { next }
   { total++; by[$2 " " $3]++ }
   END {
     printf "contact clicks since %s: %d\n", since, total
@@ -29,4 +29,12 @@ awk -v since="$since" '
     print "scroll funnel (page views that reached each chapter):"
     split("payload flightlog origin ground contact", order, " ")
     for (i = 1; i <= 5; i++) printf "%5d  %s\n", n["reach_" order[i]] + 0, order[i]
+  }' "$log"
+
+awk -v since="$since" '
+  substr($1, 1, 10) >= since && ($2 == "cv_curl" || $2 == "cv_json" || $2 == "cv_link") { n[$2]++ }
+  END {
+    print ""
+    print "terminal CV (curl kalik8s.com/cv, /cv.json) and browser clicks on the /cv short link:"
+    printf "%5d  cv_curl\n%5d  cv_json\n%5d  cv_link\n", n["cv_curl"] + 0, n["cv_json"] + 0, n["cv_link"] + 0
   }' "$log"
