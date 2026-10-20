@@ -102,7 +102,7 @@ def build(lang, src, path, meta, extra):
     for old, new in extra:
         swap(old, new.format(p="/" + lang))
     if lang in CV_PDF and 'href="/Kalislav-Smirnov-CV.pdf"' in page:
-        swap('href="/Kalislav-Smirnov-CV.pdf"', f'href="{CV_PDF[lang]}"')
+        page = page.replace('href="/Kalislav-Smirnov-CV.pdf"', f'href="{CV_PDF[lang]}"')  # hero and contact
 
     # Body text.
     missing = []
