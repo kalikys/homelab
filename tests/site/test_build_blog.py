@@ -64,3 +64,16 @@ class Blocks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LinkWithCode(unittest.TestCase):
+    def test_code_inside_link_label(self):
+        out = B.inline("see [`allow_failure: exit_codes`](https://docs.gitlab.com/ci/yaml/#x) now")
+        self.assertIn('<a href="https://docs.gitlab.com/ci/yaml/#x"', out)
+        self.assertIn("<code>allow_failure: exit_codes</code></a>", out)
+
+    def test_code_is_not_formatted(self):
+        out = B.inline("`a_b_c` and `**x**` <b>")
+        self.assertIn("<code>a_b_c</code>", out)
+        self.assertIn("<code>**x**</code>", out)
+        self.assertIn("&lt;b&gt;", out)

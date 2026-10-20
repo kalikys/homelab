@@ -47,17 +47,14 @@ def slugify(text):
 
 def inline(text):
     """Inline Markdown to HTML. Raw HTML in the source is escaped, never passed through."""
-    parts = re.split(r"(`+)(.+?)\1", text)
-    out = []
-    # re.split with two groups yields: text, ticks, code, text, ticks, code, ...
-    i = 0
-    while i < len(parts):
-        chunk = parts[i]
-        out.append(_inline_text(chunk))
-        if i + 2 < len(parts):
-            out.append("<code>" + html.escape(parts[i + 2], quote=False) + "</code>")
-        i += 3
-    return "".join(out)
+    # Code spans become placeholders first, so a link label may contain code: [`x`](url).
+    codes = []
+
+    def stash(m):
+        codes.append("<code>" + html.escape(m.group(2), quote=False) + "</code>")
+        return f"\x00{len(codes) - 1}\x00"
+    t = _inline_text(re.sub(r"(`+)(.+?)\1", stash, text))
+    return re.sub(r"\x00(\d+)\x00", lambda m: codes[int(m.group(1))], t)
 
 
 def _safe_url(url):
