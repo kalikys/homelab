@@ -50,7 +50,20 @@ printf '%s\n' 'cat /etc/motd' '[ -f ~/.bashrc ] && . ~/.bashrc' > "$BASE/root/.b
 printf '%s\n' 'TMOUT=300' 'readonly TMOUT' 'export TMOUT' > "$BASE/etc/profile.d/zz-sandbox.sh"
 rm -rf "$BASE/var/cache/apt/archives/"*.deb "$BASE/var/lib/apt/lists/"*
 
+# The VM's filesystem has no ID-mapped mounts, so the base image is shifted once to the fixed
+# user-namespace range the sessions use (container root = uid 524288 on the VM).
+systemd-nspawn --quiet -D "$BASE" --private-users=524288:65536 --private-users-ownership=chown \
+  --private-network /bin/true
+
 install -m 0755 /tmp/session.sh /usr/local/sbin/sandbox-session  # copied in by build.sh
+
+# Self-test: a session container must start, be root inside, see no network and only its own
+# processes. A failure stops the build instead of publishing a broken sandbox.
+SELFTEST=$(timeout 60 systemd-nspawn --quiet -D "$BASE" --volatile=overlay --private-users=524288:65536 \
+  --private-network --as-pid2 /bin/sh -c 'id -u; ls /sys/class/net | tr "\n" " "; echo; ps -e --no-headers | wc -l')
+echo "session self-test: $SELFTEST"
+[ "$(echo "$SELFTEST" | sed -n 1p)" = 0 ] || { echo "self-test: not root inside" >&2; exit 1; }
+[ "$(echo "$SELFTEST" | sed -n 2p | tr -d ' ')" = lo ] || { echo "self-test: unexpected network interfaces" >&2; exit 1; }
 
 # ttyd runs as an unprivileged user that may start exactly one root helper.
 id ttyd >/dev/null 2>&1 || useradd -r -M -d /nonexistent -s /usr/sbin/nologin ttyd
