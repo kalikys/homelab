@@ -1,15 +1,14 @@
 # Kalislav Smirnov, DevOps Engineer and Aerospace Engineer
 
-Updated: 2026-10-11 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
+Updated: 2026-10-20 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
 
-DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). I live in Tbilisi, Georgia, and I am relocating to Košice, Slovakia.
+DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). I live in Tbilisi, Georgia, and I work remotely for companies in any country.
 
 ## Hiring details
 
 - Status: open to offers now, can start right away.
-- Location: Tbilisi, Georgia. My family is moving to Košice, Slovakia; a job in Košice is my first choice.
-- Relocation: Košice first, also elsewhere in the EU. Needs a work permit such as the EU Blue Card; no right to work outside Georgia yet.
-- Remote: open to remote work for a company in any country.
+- Location: Tbilisi, Georgia (GMT+4).
+- Remote: open to remote work for a company in any country; no visa is needed for remote work.
 - Employment: full-time as an employee, B2B or contract.
 - Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines), especially in banking, fintech and government projects. Also engineering roles where software meets physical systems: automotive, manufacturing, space.
 - Languages: English (B2), Russian.
