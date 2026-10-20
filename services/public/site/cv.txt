@@ -1,0 +1,178 @@
+[38;5;208m         /\           [0m[1mKALISLAV SMIRNOV[0m
+[38;5;208m        /  \          [0m[1mDevOps Engineer and Aerospace Engineer[0m
+[38;5;208m       | KS |         [0m[1mRemote · any country · Tbilisi, GMT+4[0m
+[38;5;208m       |    |    .    [0m[1mOpen to offers now[0m
+[38;5;208m      /|    |\       *[0m
+[38;5;208m     /_|____|_\       [0m[1mMISSION KS · T-0[0m
+[38;5;208m        /\/\    .[0m
+
+DevOps engineer with [38;5;208m4.5[0m years of experience. I build Kubernetes platforms,
+GitLab CI/CD pipelines and infrastructure automation with Ansible and
+Terraform, most recently for banks and government agencies, including fully
+air-gapped environments. I also integrate SAST, DAST and SCA scanning into
+pipelines. By degree I am a spacecraft engineer from Bauman Moscow State
+Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB,
+Simulink). I live in Tbilisi, Georgia, and I work remotely for companies in
+any country.
+
+[1m[38;5;208m== HIRING DETAILS ============================================================[0m
+
+· Status: open to offers now, can start right away.
+· Location: Tbilisi, Georgia (GMT+[38;5;208m4[0m).
+· Remote: open to remote work for a company in any country; no visa is needed
+  for remote work.
+· Employment: full-time as an employee, B2B or contract.
+· Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD,
+  Ansible, Terraform, security checks in pipelines), especially in banking,
+  fintech and government projects. Also engineering roles where software meets
+  physical systems: automotive, manufacturing, space.
+· Languages: English (B2), Russian.
+· Book a [38;5;208m20[0m-minute intro call: [38;5;245mhttps://cal.com/kalikys/intro[0m
+· Contact: kalikys@outlook.com · Telegram @kalikys · LinkedIn
+  [38;5;245mhttps://www.linkedin.com/in/devops-kalislav-smirnov/[0m · GitHub
+  [38;5;245mhttps://github.com/kalikys[0m
+
+[1m[38;5;208m== IMPACT ====================================================================[0m
+
+· Edge device (mini-PC) infrastructure setup: [38;5;208m10 hours → 20 minutes[0m.
+· [38;5;208m5[0m end-to-end DevSecOps platform implementations for banking and government
+  clients.
+· Multi-datacenter Kubernetes platforms with [38;5;208m100+ VMs[0m and disaster recovery
+  protocols.
+· Release cycle for [38;5;208m20+[0m microservices: [38;5;208m2 weeks → 3 days[0m.
+
+[1m[38;5;208m== CASE STUDIES ==============================================================[0m
+
+Client names are left out on purpose.
+
+[1m>> 1. Secure development process across a federal company[0m
+   Federal company with [38;5;208m90+[0m development teams and [38;5;208m200+[0m software products. Team
+   of [38;5;208m3[0m engineers, [38;5;208m1[0m year.
+   · Deployed OSA Firewall and put it into the package supply chain, so open
+     source dependencies are checked before developers get them.
+   · Deployed an ASOC platform that collects findings from every scanner in
+     one place.
+   · Added Gitleaks, Trivy, SCA and OSA checks to the shared GitLab CI
+     templates.
+   · Trained DevOps engineers and developers to work with the findings;
+     prepared and agreed [38;5;208m30+[0m process documents and instructions with the
+     client.
+   · Result: security checks run in [38;5;208m100%[0m of pipelines.
+   · Stack: GitLab CI, OSA Firewall, ASOC, Gitleaks, Trivy, SCA.
+   · Press release (Russian):
+     [38;5;245mhttps://habr.com/ru/companies/swordfish_security/news/1064506/[0m
+
+[1m>> 2. Signed package delivery into a bank's air-gapped network[0m
+   · Built a secure, GPG-signed package delivery service in Python on
+     Kubernetes for a major bank's air-gapped Nexus repository.
+   · Every package is signed with GPG, and the signature is checked before it
+     lands in Nexus.
+   · Stack: Python, Kubernetes, GPG, Nexus.
+
+[1m>> 3. Edge mini-PC setup automated end to end (investment bank)[0m
+   · Automated the entire infrastructure deployment for edge devices with
+     Ansible and custom scripts.
+   · Result: setup time per device cut from [38;5;208m10 hours[0m to [38;5;208m20 minutes[0m.
+   · Stack: Ansible, Bash, Linux.
+
+[1m>> 4. From a monolith to 10 services on Kubernetes (investment bank)[0m
+   · Designed and ran the initial migration of a core monolithic application
+     to [38;5;208m10[0m containerized microservices on Kubernetes.
+   · Wrote Helm charts for all [38;5;208m10[0m services: one-command deployments and
+     rollbacks.
+   · Built an observability stack from scratch with Prometheus, Grafana and
+     ELK.
+   · Stack: Kubernetes, Helm, Prometheus, Grafana, ELK.
+
+[1m[38;5;208m== EXPERIENCE ================================================================[0m
+
+[1m>> DevSecOps Engineer, Swordfish Security (Feb 2025 - Aug 2026, full-time)[0m
+   Deploying and maintaining DevSecOps platforms for enterprise clients in
+   banking, fintech, and government sectors, including fully air-gapped
+   environments.
+   · Led [38;5;208m5[0m end-to-end DevSecOps platform implementations for banking and
+     government clients, from architecture design to final handover.
+   · Engineered and deployed a secure, GPG-signed package delivery service
+     using Python and Kubernetes for a major bank's air-gapped Nexus
+     repository.
+   · Automated the integration of SAST, DAST, and SCA tools (Semgrep, Trivy)
+     into GitLab CI, enabling security scans on [38;5;208m100%[0m of new code commits.
+   · Developed a suite of [38;5;208m15+[0m reusable Ansible roles to standardize
+     deployments across client environments, reducing setup time for new
+     projects by an estimated [38;5;208m30%[0m.
+   · Designed and managed multi-datacenter Kubernetes platforms ([38;5;208m100+ VMs[0m)
+     with disaster recovery protocols for high-availability financial systems.
+   · Prepared and conducted product demonstrations and acceptance testing
+     (Nexus, GitLab, DevSecOps products).
+   · Maintained internal infrastructure: GitLab, proprietary products, RnD and
+     PROD environments
+
+[1m>> DevOps Engineer, Sinara Investment Bank (Oct 2024 - Feb 2025)[0m
+   · Automated the entire infrastructure deployment process for edge devices
+     (mini-PCs), slashing setup time from [38;5;208m10 hours[0m to [38;5;208m20 minutes[0m using Ansible
+     and custom scripts.
+   · Architected and executed the initial migration of a core monolithic
+     application to [38;5;208m10[0m containerized microservices on Kubernetes.
+   · Built a complete observability stack from scratch using Prometheus,
+     Grafana, and ELK, providing real-time monitoring and alerting for the new
+     microservices architecture.
+   · Developed and managed Helm charts for all [38;5;208m10[0m services, enabling
+     one-command deployments and rollbacks.
+
+[1m>> DevOps Engineer, Engineering & Manufacturing Company (Apr 2022 - Oct 2024)[0m
+   · Overhauled the CI/CD process by implementing automated testing and
+     deployment pipelines in GitLab CI, cutting the release cycle for [38;5;208m20+[0m
+     microservices from [38;5;208m2 weeks[0m to [38;5;208m3 days[0m.
+   · Automated manual deployment checklists with Ansible and Bash scripts,
+     reducing hands-on deployment time from over [38;5;208m4 hours[0m to under [38;5;208m30 minutes[0m
+     per release.
+   · Led the containerization of [38;5;208m20+[0m legacy Java microservices using Docker,
+     standardizing environments and eliminating configuration drift between
+     staging and production.
+   · Managed and maintained the company's production infrastructure,
+     consisting of [38;5;208m50+[0m Linux servers across two data centers.
+
+[1m[38;5;208m== SKILLS ====================================================================[0m
+
+· Platform: Kubernetes, Helm, Docker, Linux, microservices, disaster recovery
+· Automation & IaC: Ansible, Terraform, Python, Bash, OOP
+· CI/CD: GitLab CI, Jenkins, Nexus, Git, acceptance testing
+· Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub,
+  AppSec.Track, GPG, OSA Firewall
+· Observability: Prometheus, Grafana, Alertmanager, ELK
+· Data & messaging: PostgreSQL, ClickHouse, RabbitMQ, Airflow
+· Engineering: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink, strength
+  analysis
+
+[1m[38;5;208m== LEARNING ==================================================================[0m
+
+· Preparing for Kubernetes certifications: CKA first, then CKAD and CKS.
+  Started in [38;5;208m2026.[0m Live progress: [38;5;245mhttps://kalik8s.com/lab/[0m
+
+[1m[38;5;208m== EDUCATION =================================================================[0m
+
+· Integrated Master's degree in Aerospace Engineering (Specialist, Engineer),
+  Bauman Moscow State Technical University, [38;5;208m2020[0m - [38;5;208m2026.[0m Full-time, [38;5;208m6[0m-year
+  programme, [38;5;208m360[0m ECTS, equivalent to a Bachelor's plus a Master's.
+· Field: Design, Production and Operation of Rockets and Rocket-Space Systems.
+  Specialization: crewed and uncrewed spacecraft and systems.
+· Thesis: "Suborbital spaceplane for intercontinental commercial flights",
+  graded excellent.
+· Coursework: [38;5;208m3[0mD models and design drawings of spacecraft structures and
+  assemblies; strength, vibration and dynamics calculations; aerodynamics and
+  gas dynamics, flight theory and ballistics, propulsion; modelling of
+  automatic control and spacecraft stabilization. Research work and a
+  research-and-production internship, both graded excellent.
+· Tools: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink.
+
+[1m[38;5;208m== HOME LAB ==================================================================[0m
+
+This site runs on a Proxmox VE mini-PC at home, managed with Terraform
+([38;5;245mhttps://github.com/kalikys/homelab).[0m No open ports: the site is published
+through Cloudflare Tunnel, and the page includes a public sandbox shell in an
+isolated, throwaway VM ([38;5;245mhttps://shell.kalik8s.com).[0m
+
+------------------------------------------------------------------------------
+Same CV:  [38;5;245mhttps://kalik8s.com[0m   ·   curl [38;5;245mkalik8s.com/cv.json[0m
+As a container:  docker run --rm [38;5;245mghcr.io/kalikys/cv[0m
+Hiring? Book [38;5;208m20 minutes[0m:  [38;5;245mhttps://cal.com/kalikys/intro[0m
