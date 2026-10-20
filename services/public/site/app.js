@@ -5,6 +5,8 @@
 
   const UI = {
     en: {
+      ossCount: (o, m) => `${o} open · ${m} merged`,
+      ossState: { open: "open", merged: "merged", closed: "closed" },
       updated: "updated",
       stars: "stars",
       noDesc: "No description yet.",
@@ -34,6 +36,8 @@
       },
     },
     ru: {
+      ossCount: (o, m) => `${o} открыто · ${m} принято`,
+      ossState: { open: "открыт", merged: "принят", closed: "закрыт" },
       updated: "обновлён",
       stars: "звёзд",
       noDesc: "Описания пока нет.",
@@ -80,6 +84,8 @@
       },
     },
     sk: {
+      ossCount: (o, m) => `${o} otvorené · ${m} prijaté`,
+      ossState: { open: "otvorený", merged: "prijatý", closed: "zatvorený" },
       updated: "aktualizované",
       stars: "hviezd",
       noDesc: "Zatiaľ bez popisu.",
@@ -376,6 +382,34 @@
       list.append(li);
     });
   }
+
+  // ---- Open source: my pull requests to other projects, live from GitHub search ----
+  function renderOss(items) {
+    const box = document.getElementById("oss");
+    const list = document.getElementById("oss-list");
+    if (!box || !list || !items || !items.length) return;
+    const t = UI[lang];
+    const merged = items.filter((i) => i.pull_request && i.pull_request.merged_at).length;
+    const open = items.filter((i) => i.state === "open").length;
+    document.getElementById("oss-count").textContent = t.ossCount(open, merged);
+    list.replaceChildren();
+    items.slice(0, 4).forEach((i) => {
+      const state = i.pull_request && i.pull_request.merged_at ? "merged" : i.state === "open" ? "open" : "closed";
+      const repo = i.repository_url.replace("https://api.github.com/repos/", "");
+      const li = el("li", "oss__item");
+      const a = el("a", "oss__title", i.title);
+      a.href = i.html_url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      li.append(el("span", `oss__state oss__state--${state}`, t.ossState[state]), a,
+        el("span", "oss__repo", repo), el("span", "oss__time", relativeTime(i.created_at)));
+      list.append(li);
+    });
+    box.hidden = false;
+  }
+  getJSON("/api/github/prs")
+    .then((data) => renderOss(data && Array.isArray(data.items) ? data.items : null))
+    .catch(() => {});
 
   getJSON("/api/github/commits")
     .then((data) => { commits = Array.isArray(data) ? data : null; })

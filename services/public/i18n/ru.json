@@ -193,5 +193,7 @@
   "hero.relocation": "Релокация · США, ЕС, Кипр",
   "nav.blog": "Статьи",
   "blog.latest": "Свежие заметки",
-  "blog.all": "Все заметки →"
+  "blog.all": "Все заметки →",
+  "oss.title": "Open source: вживую с GitHub",
+  "oss.all": "Все мои pull request'ы на GitHub"
 }
