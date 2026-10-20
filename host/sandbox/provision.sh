@@ -60,7 +60,7 @@ install -m 0755 /tmp/session.sh /usr/local/sbin/sandbox-session  # copied in by 
 # Self-test: a session container must start, be root inside, see no network and only its own
 # processes. A failure stops the build instead of publishing a broken sandbox.
 SELFTEST=$(timeout 60 systemd-nspawn --quiet -D "$BASE" --volatile=overlay --private-users=524288:65536 \
-  --private-network --as-pid2 /bin/sh -c 'id -u; ls /sys/class/net | tr "\n" " "; echo; ps -e --no-headers | wc -l')
+  --private-network --as-pid2 /bin/sh -c 'id -u; ls /sys/class/net | tr "\n" " "; echo; ps -e --no-headers | wc -l' | tr -d '\r')
 echo "session self-test: $SELFTEST"
 [ "$(echo "$SELFTEST" | sed -n 1p)" = 0 ] || { echo "self-test: not root inside" >&2; exit 1; }
 [ "$(echo "$SELFTEST" | sed -n 2p | tr -d ' ')" = lo ] || { echo "self-test: unexpected network interfaces" >&2; exit 1; }
