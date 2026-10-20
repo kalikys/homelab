@@ -49,7 +49,15 @@
     return `/e/${event}?${q}`;
   }
 
-  const api = { cleanTag, campaign, eventFor, calUrl, eventPath };
+  // Chapters of the page, in order. Reaching one after the first screen is counted once per page view,
+  // which shows how far HR readers get (scripts/site-events.sh prints the funnel).
+  const CHAPTERS = ["launch", "payload", "flightlog", "origin", "ground", "contact"];
+  function reachEvent(chapter) {
+    const i = CHAPTERS.indexOf(chapter);
+    return i > 0 ? `reach_${chapter}` : null;
+  }
+
+  const api = { cleanTag, campaign, eventFor, calUrl, eventPath, CHAPTERS, reachEvent };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TrackCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
