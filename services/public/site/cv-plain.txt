@@ -12,8 +12,8 @@ Terraform, most recently for banks and government agencies, including fully
 air-gapped environments. I also integrate SAST, DAST and SCA scanning into
 pipelines. By degree I am a spacecraft engineer from Bauman Moscow State
 Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB,
-Simulink). I live in Tbilisi, Georgia, and I work remotely for companies in
-any country.
+Simulink). I live in Tbilisi, Georgia, and I am open to remote work for
+companies in any country or to relocation to the US, the EU or Cyprus.
 
 == HIRING DETAILS ============================================================
 
@@ -21,6 +21,9 @@ any country.
 · Location: Tbilisi, Georgia (GMT+4).
 · Remote: open to remote work for a company in any country; no visa is needed
   for remote work.
+· Relocation: open to relocation to the US, the EU (Cyprus included) or
+  another popular destination; needs a work permit such as the EU Blue Card or
+  a US work visa.
 · Employment: full-time as an employee, B2B or contract.
 · Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD,
   Ansible, Terraform, security checks in pipelines), especially in banking,

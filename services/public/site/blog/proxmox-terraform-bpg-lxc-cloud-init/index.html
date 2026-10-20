@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself | Kalislav Smirnov</title>
+  <meta name="description" content="bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.">
+  <link rel="canonical" href="https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/">
+  <link rel="alternate" type="application/rss+xml" title="Field notes · Kalislav Smirnov" href="/blog/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="kalik8s.com">
+  <meta property="og:title" content="Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself | Kalislav Smirnov">
+  <meta property="og:description" content="bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.">
+  <meta property="og:url" content="https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/">
+  <meta property="og:image" content="https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/og.jpg">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/#post",
+      "headline": "Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself",
+      "description": "bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.",
+      "url": "https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/",
+      "mainEntityOfPage": "https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/",
+      "datePublished": "2026-10-21",
+      "dateModified": "2026-10-21",
+      "inLanguage": "en",
+      "keywords": "terraform, proxmox, homelab, iac, lxc",
+      "image": "https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/og.jpg",
+      "wordCount": 3520,
+      "author": {
+        "@id": "https://kalik8s.com/#person",
+        "@type": "Person",
+        "name": "Kalislav Smirnov",
+        "url": "https://kalik8s.com/"
+      },
+      "publisher": {
+        "@id": "https://kalik8s.com/#person"
+      },
+      "isPartOf": {
+        "@id": "https://kalik8s.com/blog/#blog"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Kalislav Smirnov",
+          "item": "https://kalik8s.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Field notes",
+          "item": "https://kalik8s.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself",
+          "item": "https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/"
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <meta name="theme-color" content="#fdf6ec">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202610211200">
+</head><body class="blog-page">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="/" aria-label="Kalislav Smirnov, home">
+        <span class="brand__mark">KS</span><span class="brand__mission" aria-hidden="true">mission</span>
+      </a>
+      <nav class="nav nav--blog" aria-label="Site">
+        <a href="/#payload">Cases</a>
+        <a href="/#flightlog">Experience</a>
+        <a href="/blog/" aria-current="true">Field notes</a>
+        <a href="/#contact">Contact</a>
+      </nav>
+      <a class="btn btn--sun btn--sm topbar__cta" href="/Kalislav-Smirnov-CV.pdf" download>CV (PDF)</a>
+    </div>
+  </header>
+  <main id="main" class="wrap post">
+    <article class="article">
+      <header class="article__head">
+        <p class="label"><a class="label__num" href="/blog/">Field notes</a> <span>terraform · proxmox · homelab</span></p>
+        <h1 class="article__title">Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself</h1>
+        <p class="article__lead">bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.</p>
+        <p class="article__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 16 min read</p>
+      </header>
+      <nav class="toc" aria-label="Contents">
+        <p class="label">Contents</p>
+        <ol><li class="toc__l2"><a href="#why-bpg-and-not-telmate-in-2026">Why bpg and not Telmate in 2026</a></li><li class="toc__l2"><a href="#provider-setup-and-an-api-token-with-least-privilege">Provider setup and an API token with least privilege</a></li><li class="toc__l2"><a href="#the-lxc-resource-five-containers-from-one-map">The LXC resource: five containers from one map</a></li><li class="toc__l2"><a href="#a-cloud-init-vm-without-a-template-vm">A cloud-init VM without a template VM</a></li><li class="toc__l2"><a href="#networking-and-dns-keep-the-addresses-in-one-map">Networking and DNS: keep the addresses in one map</a></li><li class="toc__l2"><a href="#state-and-drift-import-blocks-targeted-applies-and-the-mistake-i-made">State and drift: import blocks, targeted applies, and the mistake I made</a></li><li class="toc__l2"><a href="#proxmox-ve-9-gotchas-i-ran-into-or-read-about">Proxmox VE 9 gotchas I ran into or read about</a></li><li class="toc__l2"><a href="#ci-fmt-validate-and-tflint-without-credentials">CI: fmt, validate and tflint without credentials</a></li><li class="toc__l2"><a href="#cheat-sheet-and-next-steps">Cheat-sheet and next steps</a></li></ol>
+      </nav>
+      <div class="prose">
+<p>My home server is one mini-PC with Proxmox VE and 32 GB of RAM. Everything on it, 5 LXC containers and 6 VMs built from an Ubuntu cloud image, is described in Terraform with the <a href="https://registry.terraform.io/providers/bpg/proxmox/latest" target="_blank" rel="noopener">bpg/proxmox</a> provider, and the code is public at <a href="https://github.com/kalikys/homelab/tree/main/terraform" target="_blank" rel="noopener">github.com/kalikys/homelab</a>. This post is the write-up I wished existed when I started: the provider setup, a container and a cloud-init VM that actually apply, and the part most tutorials skip, what happens when state and reality stop agreeing.</p>
+<blockquote><p><strong>TL;DR</strong></p>
+<ul><li>Use <code>bpg/proxmox</code>, not Telmate. bpg targets Proxmox VE 9.x and ships a release every week or two; Telmate's latest is still a release candidate.</li><li>A dedicated <code>terraform@pve</code> user with a 21-privilege role. I ran <code>PVEAdmin</code> plus <code>Sys.Modify</code> since the repo started; the exact role that replaced it is below, verified with a full plan.</li><li>LXC: <code>proxmox_virtual_environment_container</code> with an <code>initialization</code> block for hostname, DNS and a static IP. Ignore <code>template_file_id</code> after creation.</li><li>VM: <code>proxmox_virtual_environment_vm</code> with <code>disk.import_from</code> pointing at a cloud image in the <code>import</code> content type and a full <code>initialization</code> block. No template VM, no clone.</li><li>Adopt hand-made guests with <code>import</code> blocks and <code>for_each</code>, then put <code>prevent_destroy</code> on everything you cannot rebuild in an hour.</li><li>When state lags reality, stop running bare <code>terraform apply</code>. Plan with <code>-target</code>, save the plan, read it, apply the file.</li></ul></blockquote>
+<h2 id="why-bpg-and-not-telmate-in-2026">Why bpg and not Telmate in 2026</h2>
+<p>When you search "proxmox terraform" most results still show the Telmate syntax. In 2026 that is the wrong default. The numbers from both projects' release pages as of 2026-10-20:</p>
+<div class="table"><table><thead><tr><th></th><th>bpg/proxmox</th><th>Telmate/proxmox</th></tr></thead><tbody><tr><td>Latest release</td><td><a href="https://github.com/bpg/terraform-provider-proxmox/releases" target="_blank" rel="noopener">v0.117.0, 2026-10-17</a></td><td><a href="https://github.com/Telmate/terraform-provider-proxmox/releases" target="_blank" rel="noopener">v3.0.2-rc10, 2026-08-30</a></td></tr><tr><td>Release cadence</td><td>5 releases between 2026-09-21 and 2026-10-17</td><td>Release candidates, no stable 3.x tag yet</td></tr><tr><td>Proxmox VE 9</td><td>"targets Proxmox VE 9.x and is acceptance-tested against the current 9.x release" (<a href="https://github.com/bpg/terraform-provider-proxmox" target="_blank" rel="noopener">README</a>)</td><td>Not stated on the releases page</td></tr><tr><td>LXC resource</td><td><code>proxmox_virtual_environment_container</code></td><td><code>proxmox_lxc</code></td></tr><tr><td>Cloud-init</td><td><code>initialization</code> block with <code>user_account</code>, <code>ip_config</code>, <code>dns</code>, or a snippet via <code>user_data_file_id</code></td><td><code>ciuser</code>, <code>sshkeys</code>, <code>ipconfig0</code> string attributes</td></tr><tr><td>Disk from cloud image</td><td><code>disk.import_from</code>, no SSH needed</td><td>Clone from a template VM</td></tr><tr><td>Needs SSH to the node</td><td>Only for snippets, local file imports and LXC <code>idmap</code> (<a href="https://registry.terraform.io/providers/bpg/proxmox/latest/docs" target="_blank" rel="noopener">docs</a>)</td><td>For some disk operations</td></tr></tbody></table></div>
+<p>bpg is a 0.x provider, and its README says so plainly: it "is not guaranteed to be backward compatible with all previous minor versions". That is why I pin it with a pessimistic constraint and let the lock file do the rest:</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">terraform {
+  required_version = "&gt;= 1.9"
+
+  required_providers {
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = "~&gt; 0.114"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~&gt; 5.26"
+    }
+  }
+}</code></pre>
+<p>(<a href="https://github.com/kalikys/homelab/blob/main/terraform/versions.tf" target="_blank" rel="noopener">versions.tf</a>). The lock file holds 0.114.0 today. Bumping it is a deliberate commit, not a side effect of <code>terraform init</code>.</p>
+<h2 id="provider-setup-and-an-api-token-with-least-privilege">Provider setup and an API token with least privilege</h2>
+<p>The provider block is three lines. Everything that matters is in the token.</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">provider "proxmox" {
+  endpoint  = var.proxmox_endpoint
+  api_token = var.proxmox_api_token
+}</code></pre>
+<p>The token is a sensitive variable in the form <code>user@realm!tokenid=secret</code>. The repo ships a <a href="https://github.com/kalikys/homelab/blob/main/terraform/terraform.tfvars.example" target="_blank" rel="noopener">terraform.tfvars.example</a> with placeholder values; the real file is <code>secrets.auto.tfvars</code>, gitignored, and the repo is scanned with gitleaks on every push.</p>
+<p>Honesty first, because until this week my own setup failed this section. The token has always belonged to a dedicated <code>terraform@pve</code> user, which is the right start. But when I ran <code>pveum acl list</code> while writing this post, the ACL on <code>/</code> gave that user the built-in <code>PVEAdmin</code> role plus a one-privilege custom role <code>TerraformSys</code> that added <code>Sys.Modify</code>, and the token <code>homelab</code> was created with <code>--privsep=0</code>, so it inherited every right the user had. One UUID in a tfvars file away from full control of the host. It happened the usual way: a plan failed on a permission, I added the privilege that made it pass, and <code>PVEAdmin</code> was the shortcut that made everything pass.</p>
+<p>On 2026-10-20 I replaced both roles with one, built from the <a href="https://registry.terraform.io/providers/bpg/proxmox/latest/docs" target="_blank" rel="noopener">provider's authentication docs</a> and the <a href="https://pve.proxmox.com/pve-docs/pveum.1.html" target="_blank" rel="noopener">pveum privilege table</a>. This is what the user has now, nothing else:</p>
+<pre class="code"><span class="code__lang">sh</span><code class="language-sh">pveum user add terraform@pve
+pveum role add TerraformMin -privs "VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.CPU \
+  VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network \
+  VM.Config.Options VM.PowerMgmt VM.Snapshot VM.Snapshot.Rollback VM.GuestAgent.Audit \
+  Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit \
+  Sys.Audit SDN.Use"
+pveum aclmod / -user terraform@pve -role TerraformMin
+pveum acl delete / -user terraform@pve -role PVEAdmin
+pveum acl delete / -user terraform@pve -role TerraformSys
+pveum user token add terraform@pve homelab --privsep=0</code></pre>
+<p>Verified so far: a full <code>terraform plan</code>, which refreshes all 5 containers and 5 VMs through the API, runs with no permission errors. Not verified yet: an apply that creates or changes a guest. I will do that with the next VM and fix the list if something fails; the article will be updated if it does.</p>
+<p>Four things about that role:</p>
+<ol><li>The provider docs give a much longer privilege list and say themselves it is "likely too permissive for most use cases". Start from the pveum table and add only what your plan fails on. The list above covers creating and editing VMs and containers, cloud-init, disks on existing datastores and reading node status.</li><li>Keep <code>SDN.Use</code> (or <code>SDN.Audit</code>) in the role. Without it Proxmox hides the bridges from the node network list and the provider cannot resolve <code>vmbr0</code>.</li><li><code>VM.GuestAgent.Audit</code> is there because every VM in the repo has <code>agent { enabled = true }</code>, and on Proxmox VE 9 reading guest agent data (the IP the provider shows you after apply) is a separate privilege from <code>VM.Audit</code>. It was the one line I did not have in my first draft of the role.</li><li><code>Sys.Modify</code> is gone. The pveum docs describe it as "create/modify/remove node network parameters" and say it "should be handled with care". The provider needs it on <code>/</code> only to download a cloud image by URL with <code>proxmox_virtual_environment_download_file</code>, which is the only reason <code>TerraformSys</code> ever existed. The repo does not use that resource. Instead, the image is fetched on the host by hand, checksum verified, and referenced as a local file, as the comment in <a href="https://github.com/kalikys/homelab/blob/main/terraform/images.tf" target="_blank" rel="noopener">images.tf</a> says. <code>Pool.Allocate</code> went too; there are no pools.</li></ol>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl"># The Terraform token may not download by URL (needs Sys.Modify on /), so images are fetched on the host by hand:
+#   F=/var/lib/vz/import/ubuntu-24.04-server-cloudimg-amd64-20260926.qcow2
+#   wget -O $F https://cloud-images.ubuntu.com/releases/noble/release-20260926/ubuntu-24.04-server-cloudimg-amd64.img
+#   echo "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2  $F" | sha256sum -c -
+locals {
+  ubuntu_noble_image = "local:import/ubuntu-24.04-server-cloudimg-amd64-20260926.qcow2"
+}</code></pre>
+<p><code>--privsep=0</code> means the token inherits the user's permissions. Proxmox defaults to privilege separation, and that is the better choice if you manage several tokens per user, or if the user may ever carry more rights than the token should have, which is exactly how my <code>PVEAdmin</code> mistake reached the token. With one user, one purpose and a tight role, <code>privsep=0</code> is acceptable, since the ACL on the user is the ACL on the token. Still, the token is the next thing to fix: recreate it with privilege separation and put the ACL on the token itself, so a future "just add PVEAdmin for a minute" on the user cannot leak into it. Proxmox VE 9.2 added the ability to <a href="https://pve.proxmox.com/wiki/Roadmap" target="_blank" rel="noopener">regenerate a token's secret</a> through the API, which makes rotation a one-liner instead of delete-and-recreate.</p>
+<p>One more thing the docs are clear about: some calls fail with any API token, even for <code>root@pam</code>, with <code>Permission check failed (user != root@pam)</code>. The answer is SSH to the node, not a bigger role. I have not needed it for containers or VMs.</p>
+<h2 id="the-lxc-resource-five-containers-from-one-map">The LXC resource: five containers from one map</h2>
+<p>All five containers share one resource with <code>for_each</code> over a map in <a href="https://github.com/kalikys/homelab/blob/main/terraform/proxmox.tf" target="_blank" rel="noopener">proxmox.tf</a>. The map holds the things that differ: ID, IP, MAC, sizing, boot order, which DNS to use, whether the container needs <code>keyctl</code> for Docker or <code>/dev/net/tun</code> for Tailscale.</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">locals {
+  lan = {
+    gateway = "192.168.1.1"
+    prefix  = 24
+    domain  = "home.kalik8s.ru"
+    bridge  = "vmbr0"
+  }
+
+  lxc_template = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+
+  containers = {
+    adguard = {
+      vm_id   = 100
+      ip      = "192.168.1.2"
+      mac     = "BC:24:11:FC:7B:69"
+      cores   = 1
+      memory  = 512
+      swap    = 256
+      disk_gb = 4
+      order   = 1
+      dns     = ["1.1.1.1", "9.9.9.9"]
+      keyctl  = false
+      tun     = false
+      dmz_ip  = null
+    }
+    # tailscale, npm, apps, public ...
+  }
+}</code></pre>
+<p>The resource itself, trimmed to the parts that matter:</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">resource "proxmox_virtual_environment_container" "lxc" {
+  for_each = local.containers
+
+  node_name     = var.proxmox_node
+  vm_id         = each.value.vm_id
+  unprivileged  = true
+  start_on_boot = true
+  started       = true
+
+  startup {
+    order = each.value.order
+  }
+
+  features {
+    nesting = true
+    keyctl  = each.value.keyctl
+  }
+
+  cpu {
+    cores = each.value.cores
+  }
+
+  memory {
+    dedicated = each.value.memory
+    swap      = each.value.swap
+  }
+
+  disk {
+    datastore_id = "local-zfs"
+    size         = each.value.disk_gb
+  }
+
+  initialization {
+    hostname = each.key
+
+    dns {
+      domain  = local.lan.domain
+      servers = each.value.dns
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${each.value.ip}/${local.lan.prefix}"
+        gateway = local.lan.gateway
+      }
+    }
+  }
+
+  network_interface {
+    name        = "eth0"
+    bridge      = local.lan.bridge
+    mac_address = each.value.mac
+  }
+
+  operating_system {
+    template_file_id = local.lxc_template
+    type             = "debian"
+  }
+
+  dynamic "device_passthrough" {
+    for_each = each.value.tun ? ["/dev/net/tun"] : []
+    content {
+      path = device_passthrough.value
+    }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+    # The template is only used at creation time and cannot be read back from an existing container.
+    ignore_changes = [operating_system[0].template_file_id]
+  }
+}</code></pre>
+<p>Notes on the choices:</p>
+<ul><li><strong><code>unprivileged = true</code> is not the default.</strong> The provider defaults to <code>false</code>. Proxmox VE 9.0 made it harder to be careless here: creating a privileged container now needs <code>Sys.Modify</code> "in most cases" (<a href="https://pve.proxmox.com/wiki/Roadmap" target="_blank" rel="noopener">release notes</a>), so with the <code>TerraformMin</code> role above a privileged container simply fails to create. Good. With the old <code>PVEAdmin</code> plus <code>Sys.Modify</code> it would have succeeded silently.</li><li><strong><code>mac_address</code> is pinned.</strong> The containers existed before the repo. If I let Proxmox generate MACs, the import would show a diff on every interface, and a guest that ever gets recreated would turn up as a new device on the LAN.</li><li><strong><code>features</code> beyond <code>nesting</code> need root.</strong> The provider docs say "Changing flags (except nesting) is only allowed for <code>root@pam</code> authenticated user". <code>keyctl</code> is in the map because the Docker containers (<code>npm</code>, <code>apps</code>, <code>public</code>) have it on the host, and the code has to match what is there for the import to plan clean. Flipping it through the API token will fail; that is a UI change followed by a refresh.</li><li><strong><code>ignore_changes</code> on the template.</strong> Proxmox does not store which template a container was made from, so after an import the provider would plan to replace the container to "fix" the template. That one lifecycle line is the difference between a clean plan and a destroyed DNS server.</li><li><strong>The second NIC.</strong> The <code>public</code> container has a <code>dynamic &quot;ip_config&quot;</code> and a <code>dynamic &quot;network_interface&quot;</code> for a leg into an isolated bridge where a throwaway sandbox VM lives. Changing a container's network interfaces through the provider restarts the container, even though the plan shows an in-place update. I learned that the loud way and put it in the README.</li></ul>
+<h2 id="a-cloud-init-vm-without-a-template-vm">A cloud-init VM without a template VM</h2>
+<p>The usual recipe is: make a template VM by hand, then <code>clone</code> it. I skipped the template. bpg's <code>disk.import_from</code> takes an image straight from a datastore with the <code>import</code> content type ("The image must be of <code>import</code> content type (uncompressed images only)", <a href="https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm" target="_blank" rel="noopener">VM resource docs</a>), and the docs say to "prefer <code>import_from</code> for uncompressed images". The three Kubernetes lab VMs in <a href="https://github.com/kalikys/homelab/blob/main/terraform/lab.tf" target="_blank" rel="noopener">lab.tf</a> are the cleanest example:</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">locals {
+  lab_vms = {
+    k8s-cp = { vm_id = 210, ip = "192.168.1.20", mac = "BC:24:11:4B:38:20", role = "Kubernetes lab: control plane" }
+    k8s-w1 = { vm_id = 211, ip = "192.168.1.21", mac = "BC:24:11:4B:38:21", role = "Kubernetes lab: worker" }
+    k8s-w2 = { vm_id = 212, ip = "192.168.1.22", mac = "BC:24:11:4B:38:22", role = "Kubernetes lab: worker" }
+  }
+  lab_cores     = 2
+  lab_memory_mb = 4096
+  lab_disk_gb   = 30
+}
+
+resource "proxmox_virtual_environment_vm" "lab" {
+  for_each = local.lab_vms
+
+  node_name = var.proxmox_node
+  vm_id     = each.value.vm_id
+  name      = each.key
+  tags      = ["k8s-lab"]
+
+  # The lab runs only while practising: started with `lab up` on the host.
+  on_boot = false
+  started = false
+
+  machine       = "q35"
+  scsi_hardware = "virtio-scsi-single"
+
+  agent {
+    enabled = true
+  }
+
+  cpu {
+    cores = local.lab_cores
+    type  = "host"
+  }
+
+  memory {
+    dedicated = local.lab_memory_mb
+  }
+
+  disk {
+    datastore_id = "local-zfs"
+    interface    = "scsi0"
+    import_from  = local.ubuntu_noble_image
+    size         = local.lab_disk_gb
+    iothread     = true
+    discard      = "on"
+  }
+
+  network_device {
+    bridge      = local.lan.bridge
+    mac_address = each.value.mac
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  initialization {
+    datastore_id = "local-zfs"
+
+    dns {
+      domain  = local.lan.domain
+      servers = ["192.168.1.2"]
+    }
+
+    ip_config {
+      ipv4 {
+        address = "${each.value.ip}/${local.lan.prefix}"
+        gateway = local.lan.gateway
+      }
+    }
+
+    user_account {
+      username = "kalikys"
+      keys     = [var.lab_ssh_public_key]
+    }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+    # Started and stopped by the `lab` host script; the image is only used at creation.
+    ignore_changes = [started, disk[0].import_from]
+  }
+}</code></pre>
+<p>What each part does:</p>
+<ul><li><strong><code>initialization.datastore_id</code></strong> is where the cloud-init ISO goes. The provider defaults to <code>local-lvm</code>, which does not exist on a ZFS install, so set it.</li><li><strong><code>user_account</code> vs <code>user_data_file_id</code>.</strong> They conflict. <code>user_account</code> is enough for "a user with my SSH key"; the moment you need packages or <code>runcmd</code> you switch to a snippet, and snippets are one of the few things that still need SSH to the node. My provisioning for the lab (containerd, kubeadm) lives in a shell script on the host instead, so the token stays API-only.</li><li><strong><code>ip_config</code> with a static address</strong> plus <code>dns.servers</code> pointing at AdGuard, which serves the internal zone <code>home.kalik8s.ru</code>. The MAC is pinned for the same reason as on the containers: a recreated VM should look like the same device.</li><li><strong><code>started = false</code> with <code>ignore_changes = [started]</code>.</strong> The lab only runs when I practise, and a host script starts and stops it. Without the ignore, every plan would want to stop my running cluster.</li><li><strong><code>ignore_changes = [disk[0].import_from]</code>.</strong> Same story as the LXC template: the image is a creation-time input. When I bump the image date in <code>images.tf</code> for a new VM, the old ones must not be recreated.</li><li><strong><code>agent.enabled = true</code></strong> so the provider can read the guest's IP, and <code>cpu.type = &quot;host&quot;</code> because nested virtualisation is useful in a Kubernetes lab.</li></ul>
+<p>The long-running VMs (<a href="https://github.com/kalikys/homelab/blob/main/terraform/agent.tf" target="_blank" rel="noopener">agent.tf</a>, <a href="https://github.com/kalikys/homelab/blob/main/terraform/farm.tf" target="_blank" rel="noopener">farm.tf</a>, <a href="https://github.com/kalikys/homelab/blob/main/terraform/content.tf" target="_blank" rel="noopener">content.tf</a>) are the same shape with <code>on_boot = true</code>, a <code>startup { order }</code> after the containers, and <code>firewall = true</code> on the NIC so the Proxmox firewall applies.</p>
+<h2 id="networking-and-dns-keep-the-addresses-in-one-map">Networking and DNS: keep the addresses in one map</h2>
+<p>The pattern across both resource types is the same: one <code>local.lan</code> object with gateway, prefix, domain and bridge, and per-guest IP and MAC in the map. Guests get static addresses from cloud-init or the LXC config; DNS goes to the AdGuard container (<code>192.168.1.2</code>), which serves the internal zone. Nothing is port-forwarded. The only public path is a Cloudflare Tunnel from the <code>public</code> container, and the tunnel, its ingress rules and the CNAME records are Terraform too (<a href="https://github.com/kalikys/homelab/blob/main/terraform/cloudflare.tf" target="_blank" rel="noopener">cloudflare.tf</a>).</p>
+<p>One trick worth copying is in <a href="https://github.com/kalikys/homelab/blob/main/terraform/outputs.tf" target="_blank" rel="noopener">outputs.tf</a>: a <code>local.site_inventory</code> built from the same maps, roles included and addresses left out, exported to JSON for the architecture diagram on <a href="https://kalik8s.com/#homelab">my CV page</a>. Add a VM in Terraform and the diagram follows.</p>
+<h2 id="state-and-drift-import-blocks-targeted-applies-and-the-mistake-i-made">State and drift: import blocks, targeted applies, and the mistake I made</h2>
+<p>All five containers were created by hand before the repo existed. Recreating a DNS server and a reverse proxy to make Terraform happy is backwards, so I adopted them with <code>import</code> blocks (<a href="https://github.com/kalikys/homelab/blob/main/terraform/imports.tf" target="_blank" rel="noopener">imports.tf</a>). With <code>for_each</code> in the import block one stanza covers the whole map:</p>
+<pre class="code"><span class="code__lang">hcl</span><code class="language-hcl">import {
+  for_each = local.containers
+  to       = proxmox_virtual_environment_container.lxc[each.key]
+  id       = "${var.proxmox_node}/${each.value.vm_id}"
+}</code></pre>
+<p>The ID format for both containers and VMs is <code>node_name/vm_id</code>. Import blocks are plannable, so <code>terraform plan</code> shows exactly which attributes differ between the hand-made container and the code before anything is written to state. That plan is where <code>ignore_changes</code> on the template came from, and where I found the differences in <code>console</code> and <code>features</code> that I then wrote into the config rather than letting Terraform "fix".</p>
+<p>Then I did the thing this section is really about. On 2026-10-05 the host was swapping. The code at that point asked for more memory than the machine has: 3 lab VMs at 4 GB, the agent at 4 GB, the farm at 8 GB, the content VM at 6 GB, plus 6.75 GB across the containers and a sandbox VM. That is about 38 GB of <code>dedicated</code> memory on a 32 GB host, with ZFS ARC on top. I fixed it in the UI: farm down to 4096 with a 2048 balloon, agent to 2048/1024, content to 4096/1024, ARC capped at 2 GB, zram swap on the host.</p>
+<p>Reality was now correct. The code was not: <a href="https://github.com/kalikys/homelab/blob/main/terraform/farm.tf" target="_blank" rel="noopener">farm.tf</a> still says <code>memory_mb = 8192</code> and has no <code>floating</code> value. And state was behind both: it held the agent, the farm and the lab VMs, while the containers were still only import blocks and the content VM existed on the host but not in state. A bare <code>terraform plan</code> at that moment wanted to import five containers, create a VM that already existed, bump three VMs back to their old memory, and rewrite the tunnel config. Four unrelated changes, two of them capable of taking down services.</p>
+<p>The rule I follow since then, at home and at work:</p>
+<pre class="code"><span class="code__lang">sh</span><code class="language-sh">terraform plan -target=proxmox_virtual_environment_vm.farm -out=farm.tfplan
+# read the diff: is it only what I meant to change?
+terraform apply farm.tfplan</code></pre>
+<p>HashiCorp's docs say <code>-target</code> is for "exceptional circumstances only" and that routine use "can lead to undetected configuration drift". Both true. But on a box where state is already behind, a full apply is what causes the outage, and a targeted apply with a saved, reviewed plan is what lets you converge one resource at a time. <code>-out</code> is the key part: apply executes exactly what you read, not whatever the API returns thirty seconds later. Treat the file as sensitive; it holds your variables in cleartext.</p>
+<p>The way back to a clean full plan is boring on purpose: fix the code to match the host for each guest (memory values, <code>floating</code> for the balloon), apply with <code>-target</code>, import what is missing, repeat until <code>terraform plan</code> says no changes. Then take <code>-target</code> out of your muscle memory. Every resource I cannot rebuild in an hour carries <code>prevent_destroy = true</code>, so even a wrong plan cannot delete it before I edit the code.</p>
+<h2 id="proxmox-ve-9-gotchas-i-ran-into-or-read-about">Proxmox VE 9 gotchas I ran into or read about</h2>
+<p>My host runs Proxmox VE 9.2 on Debian 13; the LXC template in the repo is <code>debian-13-standard_13.6-1</code>. From the <a href="https://pve.proxmox.com/wiki/Roadmap" target="_blank" rel="noopener">release notes</a> and the provider docs, the items that affect Terraform users:</p>
+<ul><li><strong>Privileges changed in 9.0.</strong> <code>VM.Monitor</code> was dropped in favour of <code>Sys.Audit</code>, <code>VM.Replicate</code> is new, and privileged containers need <code>Sys.Modify</code>. If your <code>Terraform</code> role was created on PVE 8, run <code>pve8to9</code> and re-check the role; a custom role that references a removed privilege is reported by the script.</li><li><strong>Network interface names can change on upgrade.</strong> Proxmox 9 handles most renames transparently, but <code>pve-network-interface-pinning</code> before the upgrade is cheap insurance when your bridge config says <code>enp0s31f6</code>.</li><li><strong>cgroup v1 is gone.</strong> Old container templates that need the hybrid hierarchy will not start. Debian 13 and Ubuntu 24.04 are fine.</li><li><strong><code>host_managed</code> network interfaces need 9.1+.</strong> The provider gates it on 9.1, and it matters for OCI application containers, which 9.1 introduced.</li><li><strong>9.2 requires <code>VM.Config.Cloudinit</code> to dump the cloud-init password.</strong> If your plan starts failing on read after the upgrade, that is the privilege to add.</li><li><strong>TLS 1.3 by default.</strong> The provider's endpoint connection requires TLS 1.3 unless you lower <code>min_tls</code>. PVE 9 is fine; an old reverse proxy in front of it may not be.</li><li><strong>Idle connections.</strong> bpg 0.117.0 fixed a case where the provider kept an API connection open longer than pveproxy did, which showed up as flaky plans on long runs. Worth the bump if you see random connection errors.</li></ul>
+<p>Not verified by me, so not claimed: volume-chain snapshots on LVM (my disks are ZFS), SDN fabrics, HA affinity rules on a one-node "cluster".</p>
+<h2 id="ci-fmt-validate-and-tflint-without-credentials">CI: fmt, validate and tflint without credentials</h2>
+<p>The repo runs three checks on every push and pull request (<a href="https://github.com/kalikys/homelab/blob/main/.github/workflows/ci.yml" target="_blank" rel="noopener">ci.yml</a>). The Terraform job needs no backend and no token: providers are downloaded, <code>validate</code> runs offline.</p>
+<pre class="code"><span class="code__lang">yaml</span><code class="language-yaml">jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.15"
+
+      - name: fmt
+        run: terraform fmt -check -recursive -diff
+
+      # No backend and no credentials: providers are only downloaded, validate runs offline.
+      - name: init
+        run: terraform init -backend=false -input=false
+
+      - name: validate
+        run: terraform validate -no-color
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.64.0
+
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --format compact</code></pre>
+<p>A separate job runs gitleaks over the full history with <code>--redact</code>. The lock file is committed, so CI installs the same provider build I plan with. This is the same shape as the pipelines I run at work, where Terraform and Ansible manage 100+ VMs across datacenters: cheap checks on every change with no credentials, apply as a separate, deliberate step.</p>
+<p>What CI does not do is <code>terraform plan</code> against the live host. The host is behind double NAT with no open ports, and I do not want a GitHub runner holding a Proxmox token. Plans happen from my laptop over Tailscale.</p>
+<h2 id="cheat-sheet-and-next-steps">Cheat-sheet and next steps</h2>
+<div class="table"><table><thead><tr><th>I want to</th><th>bpg resource or argument</th><th>Note</th></tr></thead><tbody><tr><td>A container with a static IP</td><td><code>proxmox_virtual_environment_container</code> + <code>initialization.ip_config.ipv4</code></td><td><code>address</code> in CIDR, <code>gateway</code> separate</td></tr><tr><td>Docker inside an unprivileged LXC</td><td><code>features { nesting = true, keyctl = true }</code></td><td><code>keyctl</code> only settable as <code>root@pam</code></td></tr><tr><td>Tailscale in an LXC</td><td><code>device_passthrough { path = &quot;/dev/net/tun&quot; }</code></td><td>Works unprivileged</td></tr><tr><td>A VM from a cloud image</td><td><code>disk.import_from = &quot;local:import/&lt;file&gt;.qcow2&quot;</code></td><td>Uncompressed only; put the file in the <code>import</code> content type</td></tr><tr><td>User and SSH key via cloud-init</td><td><code>initialization.user_account</code></td><td>Conflicts with <code>user_data_file_id</code></td></tr><tr><td>Custom cloud-init YAML</td><td><code>initialization.user_data_file_id</code> + <code>proxmox_virtual_environment_file</code></td><td>Snippets need SSH to the node</td></tr><tr><td>Adopt an existing guest</td><td><code>import { to = ..., id = &quot;node/vmid&quot; }</code></td><td>Plan first, then add <code>ignore_changes</code> for creation-only inputs</td></tr><tr><td>Stop a plan from fighting a stopped VM</td><td><code>lifecycle { ignore_changes = [started] }</code></td><td>Same for <code>disk[0].import_from</code> and <code>template_file_id</code></td></tr><tr><td>Never lose a guest to a bad plan</td><td><code>lifecycle { prevent_destroy = true }</code></td><td>On every guest in my repo</td></tr></tbody></table></div>
+<p>If you are starting from zero on Proxmox VE 9:</p>
+<ol><li>Create <code>terraform@pve</code>, the <code>TerraformMin</code> role from the list above (not <code>PVEAdmin</code>), and a token with privilege separation. Keep the token in a gitignored <code>*.auto.tfvars</code>.</li><li>Download one cloud image to <code>/var/lib/vz/import/</code> on the host, verify the checksum, and bring up one VM with <code>import_from</code> and an <code>initialization</code> block.</li><li>If you already have guests, write the resource, add an <code>import</code> block, and read the plan before you apply. Add <code>ignore_changes</code> for the creation-only inputs it complains about.</li><li>Add <code>fmt</code>, <code>validate</code> and <code>tflint</code> to CI without credentials.</li><li>When state falls behind, converge with <code>-target</code> and saved plans, one resource at a time, until a full plan is empty again. Then stop using <code>-target</code>.</li></ol>
+<p>The full code is at <a href="https://github.com/kalikys/homelab/tree/main/terraform" target="_blank" rel="noopener">github.com/kalikys/homelab/tree/main/terraform</a>. The first apply under <code>TerraformMin</code> and the privsep token are next; if the role needs another line, this post gets it.</p>
+      </div>
+      <p class="tags"><span>terraform</span><span>proxmox</span><span>homelab</span><span>iac</span><span>lxc</span></p>
+      <aside class="author" aria-label="About the author">
+        <p class="label"><span class="label__dot" aria-hidden="true"></span>Written by</p>
+        <p class="author__name">Kalislav Smirnov</p>
+        <p class="author__role">DevOps engineer · open to remote work</p>
+        <p class="author__bio">4.5 years of Kubernetes, GitLab CI/CD, Ansible and Terraform for banks and government agencies, including fully air-gapped networks. Spacecraft engineer by degree.</p>
+        <div class="cta">
+          <a class="btn btn--sun" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=blog" target="_blank" rel="noopener">Hiring? Book a 20-min call</a>
+          <a class="btn" href="/Kalislav-Smirnov-CV.pdf" download>Download CV (PDF)</a>
+        </div>
+        <p class="cta__more">
+          <a href="/#cases">Case studies</a>
+          <a href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://www.linkedin.com/in/devops-kalislav-smirnov/" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="mailto:kalikys@outlook.com">Email</a>
+        </p>
+      </aside>
+    </article>
+      <nav class="pager" aria-label="More posts"><a class="pager__prev" href="/blog/air-gapped-nexus-gpg-signed-package-delivery/"><span class="label">← Older</span><span>Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</span></a><a class="pager__next" href="/blog/trivy-compromised-gitlab-ci-shared-template/"><span class="label">Newer →</span><span>Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</span></a></nav>
+      <section class="related" aria-labelledby="related-title">
+        <h2 class="block__title" id="related-title">Related field notes</h2>
+        <ul class="postlist"><li class="postcard"><a href="/blog/trivy-compromised-gitlab-ci-shared-template/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 15 min</p><h3 class="postcard__title">Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</h3><p class="postcard__desc">Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.</p></a><p class="tags"><span>trivy</span><span>gitlab-ci</span><span>supply-chain</span><span>devsecops</span><span>gitleaks</span></p></li><li class="postcard"><a href="/blog/air-gapped-nexus-gpg-signed-package-delivery/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 14 min</p><h3 class="postcard__title">Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</h3><p class="postcard__desc">How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.</p></a><p class="tags"><span>nexus</span><span>air-gapped</span><span>gpg</span><span>supply-chain</span><span>kubernetes</span></p></li></ul>
+      </section>
+  </main>
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov · <a href="/blog/feed.xml">RSS</a></span>
+      <span class="footer__mono">hosted at home, published via Cloudflare Tunnel</span>
+    </div>
+  </footer>
+  <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
+</body>
+</html>

@@ -207,7 +207,7 @@
         <a href="#origin" data-chapter="origin" data-i18n="nav.origin">Истоки</a>
         <a href="#ground" data-chapter="ground" data-i18n="nav.ground">ЦУП</a>
         <a href="#contact" data-chapter="contact" data-i18n="nav.contact">Связь</a>
-        <!-- blog:nav --><!-- /blog:nav -->
+        <!-- blog:nav --><a href="/blog/" data-i18n="nav.blog">Статьи</a><!-- /blog:nav -->
       </nav>
       <nav class="lang" id="lang-switch" aria-label="Language">
         <a href="/" hreflang="en" lang="en" data-lang="en">EN</a><span class="lang__sep" aria-hidden="true">/</span><a href="/ru/" hreflang="ru" lang="ru" data-lang="ru" class="is-active" aria-current="page">RU</a><span class="lang__sep" aria-hidden="true">/</span><a href="/sk/" hreflang="sk" lang="sk" data-lang="sk">SK</a>
@@ -649,7 +649,13 @@
           </div>
         </div>
       </section>
-      <!-- blog:latest --><!-- /blog:latest -->
+      <!-- blog:latest -->
+      <section class="block" id="field-notes" aria-labelledby="notes-title">
+        <h3 class="block__title reveal" id="notes-title" data-i18n="blog.latest">Свежие заметки</h3>
+        <ul class="postlist postlist--compact"><li class="postcard reveal"><a href="/blog/trivy-compromised-gitlab-ci-shared-template/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time></p><h4 class="postcard__title">Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</h4></a></li><li class="postcard reveal"><a href="/blog/proxmox-terraform-bpg-lxc-cloud-init/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time></p><h4 class="postcard__title">Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself</h4></a></li><li class="postcard reveal"><a href="/blog/air-gapped-nexus-gpg-signed-package-delivery/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time></p><h4 class="postcard__title">Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</h4></a></li></ul>
+        <a class="link-arrow" href="/blog/" data-i18n="blog.all">Все заметки →</a>
+      </section>
+      <!-- /blog:latest -->
     </section>
 
     <figure class="interlude" data-scene="contact" aria-hidden="true">

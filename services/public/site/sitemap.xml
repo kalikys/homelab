@@ -48,4 +48,20 @@
     <xhtml:link rel="alternate" hreflang="sk" href="https://kalik8s.com/sk/lab/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kalik8s.com/lab/"/>
   </url>
+  <url>
+    <loc>https://kalik8s.com/blog/</loc>
+    <lastmod>2026-10-21</lastmod>
+  </url>
+  <url>
+    <loc>https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/</loc>
+    <lastmod>2026-10-21</lastmod>
+  </url>
+  <url>
+    <loc>https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/</loc>
+    <lastmod>2026-10-21</lastmod>
+  </url>
+  <url>
+    <loc>https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/</loc>
+    <lastmod>2026-10-21</lastmod>
+  </url>
 </urlset>

@@ -28,10 +28,11 @@ class TerminalCV(unittest.TestCase):
         for section in re.findall(r"^## (.+)$", md, re.M):
             self.assertIn(f"== {section.upper()} ", OUT["cv-plain.txt"])
 
-    def test_positioning_is_remote_only(self):
+    def test_positioning_remote_or_relocation(self):
         for text in OUT.values():
-            self.assertIsNone(re.search(r"(?i)ko[sš]ic|relocat|blue card", text))
+            self.assertIsNone(re.search(r"(?i)ko[sš]ic", text))
         self.assertIn("Remote · any country", OUT["cv-plain.txt"])
+        self.assertRegex(OUT["cv-plain.txt"], r"(?i)relocation")
 
     def test_json_resume_shape(self):
         d = json.loads(OUT["cv.json"])

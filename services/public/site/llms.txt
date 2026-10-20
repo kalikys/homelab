@@ -15,7 +15,13 @@ Contact: kalikys@outlook.com · Telegram @kalikys · https://www.linkedin.com/in
 - [Kubernetes certification lab](https://kalik8s.com/lab/): live progress towards CKA, CKAD and CKS, practice activity, the lab VMs and a live terminal stream
 - [homelab repository](https://github.com/kalikys/homelab): Terraform, service configs and CI for the Proxmox home lab that hosts the site
 
-<!-- blog:llms --><!-- /blog:llms -->
+<!-- blog:llms -->
+## Field notes
+
+- [Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners](https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/): Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.
+- [Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself](https://kalik8s.com/blog/proxmox-terraform-bpg-lxc-cloud-init/): bpg/proxmox Terraform provider in a real homelab on Proxmox VE 9: least-privilege API token, LXC, cloud-init VMs, import blocks, targeted applies, CI.
+- [Air-gapped Nexus: delivering GPG-signed packages into a bank's closed network](https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/): How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.
+<!-- /blog:llms -->
 
 ## Optional
 
