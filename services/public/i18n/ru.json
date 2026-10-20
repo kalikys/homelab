@@ -189,5 +189,8 @@
   "ch.contact.lead": "Удалённо, на компанию из любой страны. Открыт к предложениям.",
   "sites.title": "Живые сайты",
   "sites.nodesize": "Калькулятор размера нод Kubernetes: доступные CPU/память и max pods для всех типов инстансов EKS, GKE и AKS.",
-  "sites.tapeclip": "Tapeclip — Mac-приложение, которое делает клип из трека."
+  "sites.tapeclip": "Tapeclip — Mac-приложение, которое делает клип из трека.",
+  "nav.blog": "Статьи",
+  "blog.latest": "Свежие заметки",
+  "blog.all": "Все заметки →"
 }
