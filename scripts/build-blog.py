@@ -337,6 +337,7 @@ def author_box():
           <a href="/#cases">Case studies</a>
           <a href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
           <a href="{LINKEDIN}" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://github.com/kalikys" target="_blank" rel="noopener">GitHub</a>
           <a href="mailto:kalikys@outlook.com">Email</a>
         </p>
       </aside>"""
