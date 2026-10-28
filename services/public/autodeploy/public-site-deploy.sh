@@ -5,12 +5,14 @@
 # syncs services/public/site/ plus the built CVs to the web root with --delete, so the live site is exactly
 # the commit. Only data/ (written live by the stats service) is left alone. Does nothing if the commit is
 # already deployed, unless FORCE=1. After a deploy it reinstalls itself from the repo.
+# DEST=/some/dir is a dry run: build and sync into that directory, no state, no self-install.
 #
 # Installed as /usr/local/sbin/public-site-deploy (see README.md next to it).
 set -euo pipefail
 
 main() {
-    local repo=/opt/public/repo dest=/opt/public/site state=/opt/public/.deployed-sha
+    local repo=/opt/public/repo dest=${DEST:-/opt/public/site} state=/opt/public/.deployed-sha
+    [ -z "${DEST:-}" ] || { state=$(mktemp); FORCE=1; }
     local url=https://github.com/kalikys/homelab.git branch=${BRANCH:-main}
     local pub=$repo/services/public
 
@@ -42,8 +44,8 @@ main() {
     rsync -a --delete --exclude=/data/ "$stage/" "$dest/"
 
     echo "$sha" > "$state"
-    install -m 0755 "$pub/autodeploy/public-site-deploy.sh" /usr/local/sbin/public-site-deploy
-    echo "deployed origin/$branch@${sha:0:7}"
+    [ -n "${DEST:-}" ] || install -m 0755 "$pub/autodeploy/public-site-deploy.sh" /usr/local/sbin/public-site-deploy
+    echo "deployed origin/$branch@${sha:0:7} to $dest"
 }
 
 main "$@"
