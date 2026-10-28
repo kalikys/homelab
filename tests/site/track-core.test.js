@@ -60,3 +60,12 @@ test("eventPath builds the same-origin beacon URL", () => {
   assert.equal(Track.eventPath("call", null, "ru"), "/e/call?src=direct&lang=ru");
   assert.equal(Track.eventPath("email", { src: "facebook.com", campaign: "", content: "" }, "en"), "/e/email?src=facebook.com&lang=en");
 });
+
+test("reachEvent names the chapters after the first screen and nothing else", () => {
+  assert.deepEqual(Track.CHAPTERS, ["launch", "payload", "flightlog", "origin", "ground", "contact"]);
+  assert.equal(Track.reachEvent("payload"), "reach_payload");
+  assert.equal(Track.reachEvent("contact"), "reach_contact");
+  assert.equal(Track.reachEvent("launch"), null);
+  assert.equal(Track.reachEvent("x"), null);
+  assert.equal(Track.reachEvent(undefined), null);
+});

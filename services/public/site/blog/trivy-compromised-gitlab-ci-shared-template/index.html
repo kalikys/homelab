@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners | Kalislav Smirnov</title>
+  <meta name="description" content="Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.">
+  <link rel="canonical" href="https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/">
+  <link rel="alternate" type="application/rss+xml" title="Field notes · Kalislav Smirnov" href="/blog/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="kalik8s.com">
+  <meta property="og:title" content="Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners | Kalislav Smirnov">
+  <meta property="og:description" content="Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.">
+  <meta property="og:url" content="https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/">
+  <meta property="og:image" content="https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/og.jpg">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/#post",
+      "headline": "Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners",
+      "description": "Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.",
+      "url": "https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/",
+      "mainEntityOfPage": "https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/",
+      "datePublished": "2026-10-21",
+      "dateModified": "2026-10-21",
+      "inLanguage": "en",
+      "keywords": "trivy, gitlab-ci, supply-chain, devsecops, gitleaks",
+      "image": "https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/og.jpg",
+      "wordCount": 3300,
+      "author": {
+        "@id": "https://kalik8s.com/#person",
+        "@type": "Person",
+        "name": "Kalislav Smirnov",
+        "url": "https://kalik8s.com/"
+      },
+      "publisher": {
+        "@id": "https://kalik8s.com/#person"
+      },
+      "isPartOf": {
+        "@id": "https://kalik8s.com/blog/#blog"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Kalislav Smirnov",
+          "item": "https://kalik8s.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Field notes",
+          "item": "https://kalik8s.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners",
+          "item": "https://kalik8s.com/blog/trivy-compromised-gitlab-ci-shared-template/"
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <meta name="theme-color" content="#fdf6ec">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202610211200">
+</head><body class="blog-page">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="/" aria-label="Kalislav Smirnov, home">
+        <span class="brand__mark">KS</span><span class="brand__mission" aria-hidden="true">mission</span>
+      </a>
+      <nav class="nav nav--blog" aria-label="Site">
+        <a href="/#payload">Cases</a>
+        <a href="/#flightlog">Experience</a>
+        <a href="/blog/" aria-current="true">Field notes</a>
+        <a href="/#contact">Contact</a>
+      </nav>
+      <a class="btn btn--sun btn--sm topbar__cta" href="/Kalislav-Smirnov-CV.pdf" download>CV (PDF)</a>
+    </div>
+  </header>
+  <main id="main" class="wrap post">
+    <article class="article">
+      <header class="article__head">
+        <p class="label"><a class="label__num" href="/blog/">Field notes</a> <span>trivy · gitlab-ci · supply-chain</span></p>
+        <h1 class="article__title">Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</h1>
+        <p class="article__lead">Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.</p>
+        <p class="article__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 15 min read</p>
+      </header>
+      <nav class="toc" aria-label="Contents">
+        <p class="label">Contents</p>
+        <ol><li class="toc__l2"><a href="#tldr-checklist">TL;DR checklist</a></li><li class="toc__l2"><a href="#what-actually-happened-to-trivy-in-2026">What actually happened to Trivy in 2026</a></li><li class="toc__l2"><a href="#why-a-shared-template-changes-the-risk">Why a shared template changes the risk</a></li><li class="toc__l2"><a href="#pin-the-scanner-image-by-digest">Pin the scanner image by digest</a></li><li class="toc__l3"><a href="#which-approach-would-have-survived-march-19">Which approach would have survived March 19</a></li><li class="toc__l2"><a href="#mirror-the-image-and-the-databases-into-your-own-registry">Mirror the image and the databases into your own registry</a></li><li class="toc__l2"><a href="#verify-the-signature-before-the-mirror-accepts-a-new-version">Verify the signature before the mirror accepts a new version</a></li><li class="toc__l2"><a href="#the-scanner-job-itself">The scanner job itself</a></li><li class="toc__l3"><a href="#least-privilege-what-a-stolen-job-gets">Least privilege: what a stolen job gets</a></li><li class="toc__l3"><a href="#fail-safe-behaviour-a-scanner-that-is-down-is-not-a-scan-that-passed">Fail-safe behaviour: a scanner that is down is not a scan that passed</a></li><li class="toc__l2"><a href="#next-steps">Next steps</a></li><li class="toc__l3"><a href="#was-i-affected-a-gitlab-specific-check">Was I affected? A GitLab-specific check</a></li><li class="toc__l3"><a href="#what-to-change-in-your-template-in-order">What to change in your template, in order</a></li></ol>
+      </nav>
+      <div class="prose">
+<p>In March 2026 the Trivy supply chain attack turned the scanner itself into the payload: a malicious Trivy release, poisoned GitHub Action tags and three bad Docker Hub images, including <code>latest</code>, shipped a credential stealer into CI pipelines. Almost every write-up covers GitHub Actions. I run security scanners from shared GitLab CI templates, and in a setup where one template feeds 90+ teams the question is different: how do you make sure that a compromised <code>aquasec/trivy:latest</code> never reaches a single pipeline, and that if it does, it finds nothing worth stealing?</p>
+<h2 id="tldr-checklist">TL;DR checklist</h2>
+<ul><li>Never run <code>aquasec/trivy:latest</code> or any floating tag in a shared template. Pin the scanner image by <code>@sha256:</code> digest.</li><li>Mirror the scanner image and its vulnerability databases into your own registry or Nexus. Pipelines pull from the mirror, never from Docker Hub or ghcr.io.</li><li>Verify the Trivy image signature with cosign before a new digest is allowed into the mirror.</li><li>Give scanner jobs a read-only job token and nothing else: no deploy keys, no cloud credentials, no registry push rights.</li><li>Separate "scanner failed" from "scanner found something" and decide in advance what each one does to the pipeline.</li><li>Treat Gitleaks and every other scanner image the same way, and roll out changes with one merge request in the template repository.</li></ul>
+<h2 id="what-actually-happened-to-trivy-in-2026">What actually happened to Trivy in 2026</h2>
+<p>The facts below come from Aqua's own <a href="https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23" target="_blank" rel="noopener">security advisory GHSA-69fq-xp46-6x23</a> (CVE-2026-33634), Aqua's <a href="https://www.aquasec.com/blog/trivy-supply-chain-attack-what-you-need-to-know" target="_blank" rel="noopener">incident blog post</a> and the write-ups by <a href="https://www.docker.com/blog/trivy-supply-chain-compromise-what-docker-hub-users-should-know/" target="_blank" rel="noopener">Docker</a> and <a href="https://socket.dev/blog/trivy-under-attack-again-github-actions-compromise" target="_blank" rel="noopener">Socket</a>.</p>
+<p>There were two incidents, and the second grew out of the first.</p>
+<p><strong>Incident one, late February 2026.</strong> According to Aqua, attackers exploited a misconfiguration in Trivy's GitHub Actions environment and extracted a privileged access token. Aqua disclosed this on March 1 and rotated credentials. The rotation was not atomic, and the attacker kept residual access through credentials that were still valid.</p>
+<p><strong>Incident two, March 19 to 23, 2026.</strong> With that access, the attacker:</p>
+<ul><li>force-pushed 76 of 77 version tags of <code>aquasecurity/trivy-action</code> and all 7 tags of <code>aquasecurity/setup-trivy</code> to malicious commits (around 17:43 UTC on March 19);</li><li>used the <code>aqua-bot</code> account to trigger release automation and publish a malicious <strong>Trivy v0.69.4</strong> to GitHub Releases, Docker Hub, GHCR and ECR, with <code>--skip=validate</code> added to goreleaser to bypass binary validation;</li><li>on March 22 pushed two more malicious images, <strong>0.69.5</strong> and <strong>0.69.6</strong>, straight to Docker Hub with separately stolen credentials, with no matching GitHub tag or release, and re-pointed <code>latest</code> at them.</li></ul>
+<p>Docker's timeline puts the Docker Hub exposure window at March 19, 18:24 UTC to March 23, 01:36 UTC. Anyone who pulled <code>aquasec/trivy:latest</code> in those four days could have received an infostealer. The payload ran before the real scan, so the job output looked normal, while it read secrets from the runner's process memory, collected SSH keys, cloud credentials, Kubernetes tokens, Docker configs and <code>.env</code> files, and posted them encrypted to a typosquatted domain, <code>scan.aquasecurtiy.org</code>.</p>
+<p>Safe versions after the incident: Trivy v0.69.2 or v0.69.3 (newer releases followed; v0.76.0 was published on October 14, 2026), <code>trivy-action</code> v0.35.0, <code>setup-trivy</code> v0.2.6.</p>
+<p>Two details matter for GitLab users. First, this was not a CVE in Trivy's code but stolen publishing credentials, so no vulnerability scanner would have flagged the bad image. Second, the official Trivy <a href="https://trivy.dev/docs/dev/tutorials/integrations/gitlab-ci/" target="_blank" rel="noopener">GitLab CI tutorial</a> still shows the container-scanning job as <code>name: docker.io/aquasec/trivy:latest</code>. Copied into a shared template, that is the exact configuration that would have been hit. GitLab's own <code>Container-Scanning.gitlab-ci.yml</code> does better: it uses a major-version tag, <code>$CI_TEMPLATE_REGISTRY_HOST/security-products/container-scanning:8</code>, and the <a href="https://docs.gitlab.com/user/application_security/container_scanning/" target="_blank" rel="noopener">documentation</a> says "Do not use the <code>:latest</code> tag with analyzer images provided by GitLab". A major tag is still mutable though.</p>
+<h2 id="why-a-shared-template-changes-the-risk">Why a shared template changes the risk</h2>
+<p>For one year I worked in a team of three engineers on a secure development process for a federal company with 90+ development teams and 200+ software products. We added Gitleaks, Trivy, SCA and OSA checks to the shared GitLab CI templates, put an OSA Firewall into the package supply chain so dependencies were checked before developers got them, and deployed an ASOC platform that collects findings from every scanner in one place. The result was security checks in 100% of pipelines. The details are in the <a href="https://kalik8s.com/#cases">case studies</a>.</p>
+<p>Two decisions from that project are relevant here. We ran our own feeds: the vulnerability databases the scanners used were mirrored and served from inside the company, so no pipeline downloaded a database from the internet. And we pinned scanner images by version, never <code>:latest</code>. A scanner bump was a merge request in the template repository with the version, a link to the upstream changelog and a note that the feed mirror had been synced for it; it was reviewed and then rolled out to every team at once.</p>
+<p>I want to be honest about what that would and would not have done in March 2026. Version pinning and our own feeds would have kept us away from <code>latest</code>, and the Docker Hub only images 0.69.5 and 0.69.6 would never have been referenced. But the attacker also published a real-looking <code>0.69.4</code> and force-pushed 76 existing <code>trivy-action</code> version tags. Anyone who had pinned <code>0.69.4</code> by version in good faith would have pulled the infostealer; version pinning alone cannot detect a tag that now points at different bytes. That is the gap between what we did and what I would add today: pin by digest, and verify the signature before a new version enters the mirror.</p>
+<p>That "100%" is the point. A shared template is a multiplier: one <code>image:</code> line becomes every pipeline run in the company, each with a job token and project variables next to it. If that line says <code>:latest</code>, the security team holds the most attractive supply chain target in the company. The same multiplier works in your favour once the template is right: fixing the pin in one repository fixes it for all 90 teams on their next run.</p>
+<h2 id="pin-the-scanner-image-by-digest">Pin the scanner image by digest</h2>
+<p>A tag is a pointer. A digest is content. The digest <code>sha256:27f4...beef3</code> that Docker published as an indicator of compromise is the only thing that identifies the bad bytes; <code>0.69.3</code> was clean that week, but nothing stops a registry account from re-pointing that tag later.</p>
+<p>GitLab CI supports <code>image: &lt;image-name&gt;@&lt;digest&gt;</code> natively, see <a href="https://docs.gitlab.com/ci/docker/using_docker_images/" target="_blank" rel="noopener">Run your CI/CD jobs in Docker containers</a>. Getting the digest for a tag takes one command:</p>
+<pre class="code"><span class="code__lang">bash</span><code class="language-bash"># any of these prints the manifest (list) digest of the tag
+crane digest registry.internal/mirror/aquasec/trivy:0.76.0
+docker buildx imagetools inspect registry.internal/mirror/aquasec/trivy:0.76.0
+skopeo inspect docker://registry.internal/mirror/aquasec/trivy:0.76.0 | jq -r .Digest</code></pre>
+<p>Take the digest of the multi-arch manifest list, not of a single platform image, so the same pin works on amd64 and arm64 runners.</p>
+<p>In the template the pin lives in one variable, with the human-readable version next to it as a comment:</p>
+<pre class="code"><span class="code__lang">yaml</span><code class="language-yaml"># .gitlab/ci/security.yml, included by every project
+variables:
+  # Trivy 0.76.0, verified with cosign on 2026-10-20, see MR !412
+  TRIVY_IMAGE: "registry.internal/mirror/aquasec/trivy@sha256:&lt;trivy-digest&gt;"
+  # Gitleaks 8.30.1
+  GITLEAKS_IMAGE: "registry.internal/mirror/gitleaks/gitleaks@sha256:&lt;gitleaks-digest&gt;"</code></pre>
+<p>Digests and versions here are placeholders. Resolve your own, and resolve them from the mirror, not from Docker Hub, so the pin and the pull come from the same registry.</p>
+<h3 id="which-approach-would-have-survived-march-19">Which approach would have survived March 19</h3>
+<div class="table"><table><thead><tr><th>Reference in the template</th><th>Pulled during the exposure window</th><th>Protects against a re-pointed tag</th><th>Needs a manual bump</th></tr></thead><tbody><tr><td><code>aquasec/trivy:latest</code></td><td>malicious image</td><td>no</td><td>no</td></tr><tr><td><code>aquasec/trivy:0.69.4</code></td><td>malicious image</td><td>no</td><td>yes</td></tr><tr><td><code>aquasec/trivy:0.69.3</code></td><td>clean, by luck of timing</td><td>no</td><td>yes</td></tr><tr><td><code>aquasec/trivy@sha256:&lt;digest&gt;</code> from Docker Hub</td><td>clean</td><td>yes</td><td>yes</td></tr><tr><td><code>registry.internal/.../trivy@sha256:&lt;digest&gt;</code> after cosign verify</td><td>clean</td><td>yes</td><td>yes, through a reviewed MR</td></tr></tbody></table></div>
+<p>Only in the last row does "clean" depend on your process rather than on the attacker's timing. Our federal template sat in the second or third row, and the second row is the uncomfortable one: a version pin looks disciplined and would have pulled the malicious image all the same. The manual bump is the feature, not the cost: a version change is a reviewed merge request in the template repository, with the signature check in its pipeline.</p>
+<h2 id="mirror-the-image-and-the-databases-into-your-own-registry">Mirror the image and the databases into your own registry</h2>
+<p>Trivy needs three things from the internet: the scanner image, the vulnerability database and the Java index database. In an air-gapped environment all three have to be mirrored anyway. On the federal project we mirrored the feeds on a connected network too, and I would do it again anywhere, for a different reason: the mirror is the one place where you can put a gate.</p>
+<p>A mirror also brings its own failure mode, which is worth knowing before you build one. If the feed sync job silently stops, the scanner keeps running against an ageing database and keeps reporting a clean image. The report looks fine and the gate passes; only the <code>metadata.json</code> date in the mirrored database says otherwise. The sync job needs its own alert on the database age, separate from the pipelines that consume it.</p>
+<p>Trivy's databases are OCI artifacts. The <a href="https://trivy.dev/docs/dev/advanced/self-hosting/" target="_blank" rel="noopener">self-hosting documentation</a> says to copy them with crane, ORAS or regclient, and the <a href="https://trivy.dev/latest/docs/configuration/db/" target="_blank" rel="noopener">database configuration page</a> lists the defaults Trivy tries in order: <code>mirror.gcr.io/aquasec/trivy-db:2</code>, then <code>ghcr.io/aquasecurity/trivy-db:2</code>, and <code>trivy-java-db:1</code> from the same two hosts. The flags that redirect them are <code>--db-repository</code> and <code>--java-db-repository</code>, and both accept a list in priority order.</p>
+<p>A sync job on the connected side, run on a schedule:</p>
+<pre class="code"><span class="code__lang">bash</span><code class="language-bash"># scanner image: copy by digest, never by tag
+crane copy docker.io/aquasec/trivy@sha256:&lt;trivy-digest&gt; \
+  registry.internal/mirror/aquasec/trivy:0.76.0
+
+# vulnerability DB and Java DB (schema tags :2 and :1 as of Trivy 0.76)
+crane copy ghcr.io/aquasecurity/trivy-db:2       registry.internal/mirror/aquasec/trivy-db:2
+crane copy ghcr.io/aquasecurity/trivy-java-db:1  registry.internal/mirror/aquasec/trivy-java-db:1</code></pre>
+<p>The database copy runs often and is boring. The scanner image copy is rare and must not be automatic: it runs only after the verification step below passes.</p>
+<p>On the air-gapped side the artifacts arrive the way everything else arrives. For a major bank I built a Python service on Kubernetes that delivers packages into the bank's air-gapped Nexus. Every package is GPG-signed on the connected side and the signature is checked before it lands in Nexus. A Trivy image or a <code>trivy-db</code> tarball is just another package in that flow: it crosses the boundary only with a valid signature from a key the bank controls.</p>
+<h2 id="verify-the-signature-before-the-mirror-accepts-a-new-version">Verify the signature before the mirror accepts a new version</h2>
+<p>Digest pinning gives you the same bytes every time. It does not tell you a trusted party built them. For that, Trivy images are signed with Sigstore keyless signing, and the <a href="https://trivy.dev/docs/latest/getting-started/signature-verification/" target="_blank" rel="noopener">signature verification page</a> gives the identity to check:</p>
+<pre class="code"><span class="code__lang">bash</span><code class="language-bash">cosign verify docker.io/aquasec/trivy:0.76.0 \
+  --certificate-identity-regexp 'https://github\.com/aquasecurity/trivy/\.github/workflows/.+' \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"</code></pre>
+<p>Release binaries are verified with <code>cosign verify-blob</code> against the <code>.sigstore.json</code> bundle that ships with every asset since v0.68.1, with the identity <code>https://github.com/aquasecurity/trivy/.github/workflows/reusable-release.yaml@refs/tags/&lt;release tag&gt;</code>.</p>
+<p>One honest caveat. A keyless signature proves the artifact was built by a workflow in <code>aquasecurity/trivy</code> through GitHub's OIDC. In March the attacker triggered the real release workflow, so for v0.69.4 the signature check alone would likely have passed. It does defend against the Docker Hub only images 0.69.5 and 0.69.6, pushed with stolen registry credentials and no release workflow behind them, and against any future re-pointing of a tag at the registry level. That is why the gate is signature check plus human review plus a delay: Aqua removed the malicious artifacts within hours, and a mirror that waits a few days before verifying and copying would have skipped the whole episode.</p>
+<p>The verification belongs in the pipeline of the template repository, so that bumping <code>TRIVY_IMAGE</code> is impossible without it:</p>
+<pre class="code"><span class="code__lang">yaml</span><code class="language-yaml"># pipeline of the template repository, runs on every MR that touches the pin
+verify-trivy-image:
+  stage: verify
+  image: registry.internal/mirror/sigstore/cosign@sha256:&lt;cosign-digest&gt;
+  variables:
+    NEW_IMAGE: "docker.io/aquasec/trivy:${TRIVY_VERSION}"
+  script:
+    - cosign verify "$NEW_IMAGE"
+        --certificate-identity-regexp 'https://github\.com/aquasecurity/trivy/\.github/workflows/.+'
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com
+    - test "$(crane digest "$NEW_IMAGE")" = "${TRIVY_IMAGE#*@}"
+  rules:
+    - changes: [.gitlab/ci/security.yml]</code></pre>
+<p>The second line of <code>script</code> catches the most common mistake: a digest in the variable that does not match the version named in the comment.</p>
+<h2 id="the-scanner-job-itself">The scanner job itself</h2>
+<p>This is the shape of the job in the shared template. Projects include the template and get it unchanged; they can only turn severity thresholds up, not off.</p>
+<pre class="code"><span class="code__lang">yaml</span><code class="language-yaml"># .gitlab/ci/security.yml
+spec:
+  inputs:
+    trivy_severity:
+      default: "HIGH,CRITICAL"
+    trivy_exit_code:
+      default: 3                    # findings exit with 3; Trivy's own errors exit with 1
+---
+trivy-image:
+  stage: security
+  image:
+    name: $TRIVY_IMAGE
+    entrypoint: [""]
+  variables:
+    GIT_STRATEGY: none              # the job does not need the source checkout
+    TRIVY_NO_PROGRESS: "true"
+    TRIVY_CACHE_DIR: ".trivycache/"
+    TRIVY_DB_REPOSITORY: "registry.internal/mirror/aquasec/trivy-db:2"
+    TRIVY_JAVA_DB_REPOSITORY: "registry.internal/mirror/aquasec/trivy-java-db:1"
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"   # read-only job token, scoped to this project
+  cache:
+    key: trivy-db
+    paths: [.trivycache/]
+  script:
+    # 1. report everything, never fail: this is what ASOC collects
+    - trivy image --exit-code 0 --format template --template "@/contrib/gitlab.tpl"
+        --output gl-container-scanning-report.json
+        "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # 2. gate on the agreed severity
+    - trivy image --exit-code $[[ inputs.trivy_exit_code ]]
+        --severity $[[ inputs.trivy_severity ]] --ignore-unfixed
+        "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+    expire_in: 1 week
+  allow_failure:
+    exit_codes: [1]                 # mirror down: warn, do not block developers; findings (3) still fail
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+
+trivy-image-release:
+  extends: trivy-image
+  allow_failure: false              # on release refs an infrastructure error fails the pipeline too
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG
+
+gitleaks:
+  stage: security
+  image:
+    name: $GITLEAKS_IMAGE
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: 0                    # full history, otherwise old leaks are invisible
+  script:
+    - gitleaks git --redact --exit-code 1
+        --report-format sarif --report-path gl-gitleaks.sarif .
+  artifacts:
+    when: always
+    paths: [gl-gitleaks.sarif]</code></pre>
+<p>Projects consume it with a pinned ref, not with a branch:</p>
+<pre class="code"><span class="code__lang">yaml</span><code class="language-yaml">include:
+  - project: platform/ci-templates
+    ref: v3.4.0                        # a tag, protected, never "main"
+    file: .gitlab/ci/security.yml
+    inputs:
+      trivy_severity: "CRITICAL"</code></pre>
+<p>On GitLab 17 or newer the same file works as a <a href="https://docs.gitlab.com/ci/components/" target="_blank" rel="noopener">CI/CD component</a>, <code>component: $CI_SERVER_FQDN/platform/ci-templates/security@3.4.0</code>. Either way the version is explicit and the template repository's tags are protected.</p>
+<p>Notes on what is deliberate here:</p>
+<ul><li><code>TRIVY_DB_REPOSITORY</code> and <code>TRIVY_JAVA_DB_REPOSITORY</code> are the environment forms of <code>--db-repository</code> and <code>--java-db-repository</code> (Trivy maps every flag to <code>TRIVY_</code> plus the upper-cased flag name, per its <a href="https://trivy.dev/latest/docs/configuration/" target="_blank" rel="noopener">configuration docs</a>). Setting them replaces the default list, so a pipeline cannot silently fall back to ghcr.io when the mirror is down and quietly undo the mirror.</li><li><code>entrypoint: [&quot;&quot;]</code> is required because the image's entrypoint is <code>trivy</code> itself. <code>GIT_STRATEGY: none</code> means a compromised image scanner would not even see the source tree; Gitleaks of course needs it.</li><li>The cache holds the database only, never the scanner binary, so the digest pin is the single source of the executable.</li></ul>
+<h3 id="least-privilege-what-a-stolen-job-gets">Least privilege: what a stolen job gets</h3>
+<p>Assume the scanner image is malicious anyway and ask what it can reach: <code>CI_JOB_TOKEN</code>, every CI/CD variable visible to the job, the checkout, and whatever the runner host exposes. The March payload collected exactly those things. The defence is to make that list short:</p>
+<ul><li><strong>Variables.</strong> Deploy keys, cloud credentials and registry push credentials are protected and masked, and they are defined only for the deploy stages, by environment scope, not globally for the project. The scanner stage sees the job token and the two Trivy repository variables, nothing else.</li><li><strong>Job token.</strong> <code>CI_JOB_TOKEN</code> is scoped to the project. The template never grants it access to other projects, and the registry login it performs is read-only pull of the image being scanned. Short-lived by design: it dies with the job.</li><li><strong>Runner.</strong> Scanners run on a dedicated runner pool with no Docker socket mounted and no host network. Docker's advisory says it plainly: if a Trivy container mounted <code>/var/run/docker.sock</code>, treat the whole host as compromised.</li><li><strong>Egress.</strong> The scanner runner can reach the internal registry and the ASOC endpoint, and nothing on the internet. In the air-gapped bank that was simply the network; on a connected network it is an egress allowlist on the runner pool, and the March payload would have failed at its first POST.</li></ul>
+<p>The template cannot enforce the runner and network parts itself, but it can select them: <code>tags: [security-scanners]</code> on every scanner job, with the runner pool registered only for those tags.</p>
+<h3 id="fail-safe-behaviour-a-scanner-that-is-down-is-not-a-scan-that-passed">Fail-safe behaviour: a scanner that is down is not a scan that passed</h3>
+<p>On the federal project the scanner reports were visible right in the pipeline, and quality gates decided pass or fail: a job went red because the gate said so, and the team could open the report next to it and see why. That only works if the gate can tell two situations apart:</p>
+<ol><li><strong>The scanner ran and found something.</strong> The job fails, the report goes to ASOC, and the team sees a red <code>trivy-image</code> job with findings they can act on. That is the point of the exercise.</li><li><strong>The scanner could not run.</strong> The mirror is down, the digest pull failed, the database is stale. This must not look like a green pipeline, and it must not look like a vulnerability either. A typical rollout conversation: a team writes that the security job broke their pipeline, the engineer on duty opens the job, and the first question is whether there is a report at all. No report means our problem; a report means theirs. The exit codes should answer that before anyone opens the log.</li></ol>
+<p>Trivy uses exit code 1 for its own errors and the value of <code>--exit-code</code> for findings, so the template gives findings a different code, 3, and GitLab's <a href="https://docs.gitlab.com/ci/yaml/#allow_failureexit_codes" target="_blank" rel="noopener"><code>allow_failure: exit_codes</code></a> can tell the two apart. In merge requests the job is allowed to fail on exit 1 only: the mirror being down shows as a warning, developers are not blocked by the platform team's outage, and the ASOC side alerts on the missing report. Findings still exit with 3 and fail the job. The <code>trivy-image-release</code> variant for the default branch and tags has no <code>allow_failure</code> at all: a release without a scan is not a release.</p>
+<p>Do not confuse fail-safe with <code>allow_failure: true</code> on the whole job. That setting is how 100% of pipelines come to run a scanner that nobody looks at.</p>
+<h2 id="next-steps">Next steps</h2>
+<h3 id="was-i-affected-a-gitlab-specific-check">Was I affected? A GitLab-specific check</h3>
+<p>The GitHub Actions indicators do not apply to GitLab pipelines, so the check is different:</p>
+<ol><li>Search every <code>.gitlab-ci.yml</code> and included template for <code>aquasec/trivy</code>. A reference to <code>latest</code>, <code>0.69.4</code>, <code>0.69.5</code>, <code>0.69.6</code> or no tag at all means exposed if a job ran between March 19, 18:24 UTC and March 23, 01:36 UTC. The GitLab jobs API filtered by date does this across a group.</li><li>Search your registry mirror, Nexus or Artifactory caches for the three digests Docker published: <code>sha256:27f446230c60bbf0b70e008db798bd4f33b7826f9f76f756606f5417100beef3</code>, <code>sha256:5aaa1d7cfa9ca4649d6ffad165435c519dc836fa6e21b729a2174ad10b057d2b</code> and <code>sha256:425cd3e1a2846ac73944e891250377d2b03653e6f028833e30fc00c1abbc6d33</code>.</li><li>Check the runner hosts' outbound logs for <code>scan.aquasecurtiy.org</code> and <code>45.148.10.212</code>.</li><li>If anything matched, rotate every secret the affected jobs could read, atomically: revoke everything first, then issue replacements. Aqua's incomplete rotation on March 1 is why there was a March 19.</li></ol>
+<h3 id="what-to-change-in-your-template-in-order">What to change in your template, in order</h3>
+<p>If you own a shared GitLab CI template, this is the order I would do it in. The first two we had on the federal project in the version-pinned form; the rest is what I would add today:</p>
+<ol><li>Replace every floating tag on a scanner image with a digest. Today. It is one merge request and it removes the <code>latest</code> problem for good; if you are already pinned by version, this is the step that closes the March 2026 gap.</li><li>Set up the mirror for the scanner images and the Trivy databases, point <code>TRIVY_DB_REPOSITORY</code> and <code>TRIVY_JAVA_DB_REPOSITORY</code> at it, block the public registries from the scanner runner pool, and alert on the database age.</li><li>Put the cosign verification and the digest consistency check into the template repository's own pipeline, so no pin can change without it.</li><li>Move the scanner jobs onto a tagged runner pool without a Docker socket and with an egress allowlist.</li><li>Write down the fail-safe rules per branch type as a one-page instruction for the teams. In the federal project the process documents were as much of the work as the YAML, and they were what made the 100% stick.</li></ol>
+<p>Pinning by digest is cheap. Mirroring and verification are a few days of platform work. Both are far cheaper than rotating every secret in 90 teams' pipelines after a four-day window you did not know you were in.</p>
+      </div>
+      <p class="tags"><span>trivy</span><span>gitlab-ci</span><span>supply-chain</span><span>devsecops</span><span>gitleaks</span></p>
+      <aside class="author" aria-label="About the author">
+        <p class="label"><span class="label__dot" aria-hidden="true"></span>Written by</p>
+        <p class="author__name">Kalislav Smirnov</p>
+        <p class="author__role">DevOps engineer · open to remote work</p>
+        <p class="author__bio">4.5 years of Kubernetes, GitLab CI/CD, Ansible and Terraform for banks and government agencies, including fully air-gapped networks. Spacecraft engineer by degree.</p>
+        <div class="cta">
+          <a class="btn btn--sun" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=blog" target="_blank" rel="noopener">Hiring? Book a 20-min call</a>
+          <a class="btn" href="/Kalislav-Smirnov-CV.pdf" download>Download CV (PDF)</a>
+        </div>
+        <p class="cta__more">
+          <a href="/#cases">Case studies</a>
+          <a href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://www.linkedin.com/in/devops-kalislav-smirnov/" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://github.com/kalikys" target="_blank" rel="noopener">GitHub</a>
+          <a href="mailto:kalikys@outlook.com">Email</a>
+        </p>
+      </aside>
+    </article>
+      <nav class="pager" aria-label="More posts"><a class="pager__prev" href="/blog/proxmox-terraform-bpg-lxc-cloud-init/"><span class="label">← Older</span><span>Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself</span></a><span></span></nav>
+      <section class="related" aria-labelledby="related-title">
+        <h2 class="block__title" id="related-title">Related field notes</h2>
+        <ul class="postlist"><li class="postcard"><a href="/blog/air-gapped-nexus-gpg-signed-package-delivery/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 14 min</p><h3 class="postcard__title">Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</h3><p class="postcard__desc">How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.</p></a><p class="tags"><span>nexus</span><span>air-gapped</span><span>gpg</span><span>supply-chain</span><span>kubernetes</span></p></li></ul>
+      </section>
+  </main>
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov · <a href="/blog/feed.xml">RSS</a></span>
+      <span class="footer__mono">hosted at home, published via Cloudflare Tunnel</span>
+    </div>
+  </footer>
+  <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
+</body>
+</html>

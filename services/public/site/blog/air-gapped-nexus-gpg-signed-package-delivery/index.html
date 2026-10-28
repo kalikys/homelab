@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network | Kalislav Smirnov</title>
+  <meta name="description" content="How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.">
+  <link rel="canonical" href="https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/">
+  <link rel="alternate" type="application/rss+xml" title="Field notes · Kalislav Smirnov" href="/blog/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="kalik8s.com">
+  <meta property="og:title" content="Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network | Kalislav Smirnov">
+  <meta property="og:description" content="How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.">
+  <meta property="og:url" content="https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/">
+  <meta property="og:image" content="https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/og.jpg">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/#post",
+      "headline": "Air-gapped Nexus: delivering GPG-signed packages into a bank's closed network",
+      "description": "How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.",
+      "url": "https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/",
+      "mainEntityOfPage": "https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/",
+      "datePublished": "2026-10-21",
+      "dateModified": "2026-10-21",
+      "inLanguage": "en",
+      "keywords": "nexus, air-gapped, gpg, supply-chain, kubernetes",
+      "image": "https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/og.jpg",
+      "wordCount": 3080,
+      "author": {
+        "@id": "https://kalik8s.com/#person",
+        "@type": "Person",
+        "name": "Kalislav Smirnov",
+        "url": "https://kalik8s.com/"
+      },
+      "publisher": {
+        "@id": "https://kalik8s.com/#person"
+      },
+      "isPartOf": {
+        "@id": "https://kalik8s.com/blog/#blog"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Kalislav Smirnov",
+          "item": "https://kalik8s.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Field notes",
+          "item": "https://kalik8s.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Air-gapped Nexus: delivering GPG-signed packages into a bank's closed network",
+          "item": "https://kalik8s.com/blog/air-gapped-nexus-gpg-signed-package-delivery/"
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <meta name="theme-color" content="#fdf6ec">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css?v=202610211200">
+</head><body class="blog-page">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="/" aria-label="Kalislav Smirnov, home">
+        <span class="brand__mark">KS</span><span class="brand__mission" aria-hidden="true">mission</span>
+      </a>
+      <nav class="nav nav--blog" aria-label="Site">
+        <a href="/#payload">Cases</a>
+        <a href="/#flightlog">Experience</a>
+        <a href="/blog/" aria-current="true">Field notes</a>
+        <a href="/#contact">Contact</a>
+      </nav>
+      <a class="btn btn--sun btn--sm topbar__cta" href="/Kalislav-Smirnov-CV.pdf" download>CV (PDF)</a>
+    </div>
+  </header>
+  <main id="main" class="wrap post">
+    <article class="article">
+      <header class="article__head">
+        <p class="label"><a class="label__num" href="/blog/">Field notes</a> <span>nexus · air-gapped · gpg</span></p>
+        <h1 class="article__title">Air-gapped Nexus: delivering GPG-signed packages into a bank&#x27;s closed network</h1>
+        <p class="article__lead">How packages get into an air gapped Nexus repository: sign on the connected side, verify before upload, keep an audit trail. Pattern, Python gate, Nexus API.</p>
+        <p class="article__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 14 min read</p>
+      </header>
+      <nav class="toc" aria-label="Contents">
+        <p class="label">Contents</p>
+        <ol><li class="toc__l2"><a href="#tldr">TL;DR</a></li><li class="toc__l2"><a href="#the-constraints-an-air-gapped-bank-actually-has">The constraints an air-gapped bank actually has</a></li><li class="toc__l3"><a href="#what-nexus-does-and-does-not-sign">What Nexus does and does not sign</a></li><li class="toc__l2"><a href="#the-two-zone-pattern">The two-zone pattern</a></li><li class="toc__l3"><a href="#what-goes-into-the-bundle">What goes into the bundle</a></li><li class="toc__l2"><a href="#the-verification-gate-illustrated">The verification gate, illustrated</a></li><li class="toc__l2"><a href="#key-management-and-the-audit-trail">Key management and the audit trail</a></li><li class="toc__l2"><a href="#scan-and-allowlist-before-you-sign">Scan and allowlist before you sign</a></li><li class="toc__l2"><a href="#gpg-detached-signatures-vs-repo-native-signing-vs-cosign">GPG detached signatures vs repo-native signing vs cosign</a></li><li class="toc__l3"><a href="#failure-cases-the-gate-must-handle-on-purpose">Failure cases the gate must handle on purpose</a></li><li class="toc__l2"><a href="#practical-next-steps">Practical next steps</a></li></ol>
+      </nav>
+      <div class="prose">
+<p>A bank's Nexus repository with no internet access does not solve supply-chain security. It moves the problem to the door. Every artifact that crosses into the closed network still comes from somewhere, and if nobody can prove where, the air gap is a formality. This post describes the pattern I use for that door: sign on the connected side, stage in a DMZ, verify at a gate on the closed side, and only then let the internal Nexus see the file. It applies to any artifact type, from <code>.deb</code> and <code>.whl</code> files to Docker images.</p>
+<h2 id="tldr">TL;DR</h2>
+<ul><li>Nexus Repository does not sign or verify individual packages. Sonatype's docs say so for both <a href="https://help.sonatype.com/en/gpg-signatures-for-yum-proxy-group.html" target="_blank" rel="noopener">Yum</a> and <a href="https://help.sonatype.com/en/apt-repositories.html" target="_blank" rel="noopener">APT</a>: it signs repository metadata only. Package signing and verification have to happen upstream of Nexus.</li><li>The pattern: a connected zone that fetches, scans and signs; a staging Nexus in a DMZ; a verification gate inside the closed zone that pulls from the DMZ; the internal Nexus behind the gate. Nothing writes to the internal Nexus except the gate.</li><li>Signing happens on the connected side after scanning and allowlist checks, with GPG detached signatures per artifact plus a signed manifest.</li><li>The gate on the closed side verifies against a pinned keyring of a few known fingerprints, not against "any good signature", then uploads through the Nexus REST API and records what it did.</li><li>In my case at a major bank, that gate was a Python service on Kubernetes. Every artifact was signed with GPG, the signing key was kept in HashiCorp Vault, and the signature was checked before the artifact landed in the internal Nexus. The delivery was format-agnostic: Docker images, apt packages and other formats went through the same channel.</li></ul>
+<h2 id="the-constraints-an-air-gapped-bank-actually-has">The constraints an air-gapped bank actually has</h2>
+<p>Air-gapped environments in banking and government share constraints that are well known there and rarely written down:</p>
+<ol><li><strong>No outbound connectivity from the closed zone.</strong> Not "restricted egress", none. Nexus in that zone cannot proxy anything. Every proxy repository you are used to becomes a hosted repository that somebody has to fill.</li><li><strong>Every incoming file needs a trusted origin.</strong> The security policy will say something like "software enters only from approved sources through an approved channel". The policy does not say how. That is the engineer's job.</li><li><strong>Traceability.</strong> When an auditor asks "who put this version of this library in the repository, and on what grounds", there must be an answer that does not depend on anybody's memory.</li><li><strong>Developers still need packages.</strong> If the channel is slow or painful, people build private workarounds, and the air gap becomes theatre.</li></ol>
+<p>Nexus itself offers two blunt tools here. In the Pro edition there are <a href="https://help.sonatype.com/en/repository-export.html" target="_blank" rel="noopener">Repository Export</a> and <a href="https://help.sonatype.com/en/repository-import.html" target="_blank" rel="noopener">Repository Import</a> tasks, "only available in Sonatype Nexus Repository Pro", which move content between instances as directories. That is how Sonatype staff answered a 2021 <a href="https://community.sonatype.com/t/nexus-repository-in-an-air-gapped-environment/7539" target="_blank" rel="noopener">community question about air-gapped Nexus</a>: "This is something you could do with Nexus Pro through the Export and the Import tasks." It works, but it is a bulk copy. It does not verify provenance, it does not enforce an allowlist, and it leaves no per-package audit trail.</p>
+<h3 id="what-nexus-does-and-does-not-sign">What Nexus does and does not sign</h3>
+<p>This is the point that catches teams off guard, so I will quote Sonatype directly.</p>
+<p>For Yum: "Nexus Repository uses GPG signatures to sign the metadata files that the Yum proxy and group repositories generate" and "Nexus Repository does not sign the actual RPM packages themselves" (<a href="https://help.sonatype.com/en/gpg-signatures-for-yum-proxy-group.html" target="_blank" rel="noopener">GPG signatures for Yum</a>).</p>
+<p>For APT hosted repositories: "Hosted APT repositories only sign the metadata" and "Nexus Repository does not sign packages" (<a href="https://help.sonatype.com/en/apt-repositories.html" target="_blank" rel="noopener">APT Repositories</a>). You give the hosted repo a GPG private key and passphrase, and it signs the <code>Release</code> file, which is what <code>apt</code> expects anyway.</p>
+<p>So Nexus will happily serve <code>apt</code> and <code>yum</code> clients a correctly signed index of whatever you uploaded. Whether what you uploaded is genuine is not its concern. For raw, PyPI, npm or Helm hosted repositories there is not even metadata signing to lean on. That is why the verification gate has to sit in front of Nexus, not inside it.</p>
+<h2 id="the-two-zone-pattern">The two-zone pattern</h2>
+<pre class="code"><code> CONNECTED ZONE                        |      DMZ        |   CLOSED ZONE (bank network)
+                                       |                 |
+ request (ticket / allowlist entry)    |                 |
+        |                              |                 |
+        v                              |                 |
+ fetch from upstream (pinned version)  |                 |
+ any format: deb, rpm, whl, npm,       |                 |
+ Helm chart, Docker image ...          |                 |
+        |                              |                 |
+        v                              |                 |
+ scan + SBOM + policy check            |                 |
+ (OSA Firewall / SCA / Trivy)          |                 |
+        |                              |                 |
+        v                              |                 |
+ GPG sign: artifact.sig + manifest.sig |                 |
+ (signing key in Vault,                |                 |
+  never leaves this zone)              |                 |
+        |                              |                 |
+        v        push                  |                 |      pull
+ upload to DMZ Nexus  ===============&gt; |  DMZ Nexus      | &lt;==============  verification gate (service)
+                                       |  (staging only, |                    - fingerprint pinned?
+                                       |   untrusted)    |                    - signature valid, not expired?
+                                       |                 |                    - sha256 matches manifest?
+                                       |                 |                    - in allowlist?
+                                       |                 |                         |  yes            no
+                                       |                 |                         v                 v
+                                       |                 |                 upload to internal   quarantine + alert
+                                       |                 |                 Nexus via REST API        |
+                                       |                 |                         |                 |
+                                       |                 |                         v                 v
+                                       |                 |                   audit log (who/what/sig/when)</code></pre>
+<p>The important properties:</p>
+<ul><li><strong>Signing and verification happen in different zones with different keys.</strong> The private signing key lives only on the connected side, in a secrets manager or on a hardware token. The closed side holds only public keys.</li><li><strong>The gate is the only writer to the internal Nexus.</strong> Upload credentials for it exist in one place: the gate's service account. Developers get read access. Humans with admin rights upload nothing by hand except in a documented break-glass procedure.</li><li><strong>The DMZ Nexus is a staging area, not a source of truth.</strong> In my case the connected side pushed signed artifacts into a Nexus instance in the DMZ, and the gate inside the closed network pulled from there. Nothing in the closed zone trusts the DMZ instance: the design assumes files on it can be altered or substituted, and the signatures make that irrelevant.</li><li><strong>Pull, not push.</strong> The closed zone initiates the connection to the DMZ. Nothing on the connected side can open a connection into the bank network.</li><li><strong>Rejection is a first-class outcome.</strong> A package that fails any check goes to quarantine with the reason attached. It does not get retried silently.</li></ul>
+<p>In our case the gate was a Python service on Kubernetes, and GPG signatures were verified before upload. The channel carried any package format: Docker images, apt packages and others went through the same signing and verification steps. The reasons for that stack are mundane and I would pick it again: GPG tooling exists on every Linux host a bank already runs, Python with <a href="https://github.com/vsajip/python-gnupg" target="_blank" rel="noopener">python-gnupg</a> (a wrapper that spawns the <code>gpg</code> binary, so you depend on GnuPG itself rather than a reimplementation) needs no exotic dependencies, and Kubernetes gives the service a restart policy, secrets handling for the Nexus token, and a place to ship logs from.</p>
+<h3 id="what-goes-into-the-bundle">What goes into the bundle</h3>
+<p>Signing "the package" is not enough on its own. A detached signature over a <code>.whl</code> file proves the file was signed; it does not prove this file was supposed to arrive today, for this request, in this repository. The bundle that goes through the DMZ should carry:</p>
+<ul><li>the artifacts themselves, unchanged from upstream so that upstream checksums still match; for a container image that means the saved image archive or its OCI layout, treated as one more file to sign, so the gate does not need to understand any format</li><li>one detached signature per artifact (<code>gpg --detach-sign</code>, documented in the <a href="https://www.gnupg.org/documentation/manuals/gnupg/Operational-GPG-Commands.html" target="_blank" rel="noopener">GnuPG manual</a> as "Make a detached signature")</li><li>a manifest listing every artifact with its SHA-256, target repository, target path, requester, ticket reference, and the scan verdict</li><li>a detached signature over the manifest</li></ul>
+<p>The manifest is what turns a bag of signed files into a delivery. Verify it first; then verify each artifact against both its own signature and the hash in the manifest. If somebody removes one file from the bundle or swaps an old signed version in, the manifest check catches it even though every individual signature is "good".</p>
+<h2 id="the-verification-gate-illustrated">The verification gate, illustrated</h2>
+<p>The code below is a simplified illustration of the gate's core, not the bank's code. It uses <code>python-gnupg</code> for verification and the Nexus Components API for upload. Error handling, retries, the quarantine path and the audit sink are left out to keep it readable.</p>
+<p>Two details matter more than the rest. First, the gate verifies against its own dedicated keyring under a dedicated <code>gnupghome</code> that contains only the delivery keys. Second, it compares the signing key's full fingerprint with a pinned set. A signature from any other key in the world is a rejection, even if it is cryptographically valid.</p>
+<pre class="code"><span class="code__lang">python</span><code class="language-python"># gate.py - simplified illustration, not the bank's code
+import hashlib
+import json
+import os
+import pathlib
+import gnupg          # pip install python-gnupg; needs the gpg binary
+import requests
+
+GNUPGHOME = "/var/lib/gate/gnupg"             # contains only delivery public keys
+ALLOWED_FPRS = set(os.environ["ALLOWED_FPRS"].split(","))
+NEXUS = os.environ["NEXUS_URL"]               # the internal Nexus, e.g. https://nexus.internal
+NEXUS_AUTH = (os.environ["NEXUS_USER"], os.environ["NEXUS_TOKEN"])
+
+gpg = gnupg.GPG(gnupghome=GNUPGHOME)
+
+
+def verify_detached(sig_path: pathlib.Path, data_path: pathlib.Path) -&gt; str:
+    """Return the signer fingerprint, or raise."""
+    with open(sig_path, "rb") as sig:
+        result = gpg.verify_file(sig, str(data_path))
+    if not result:                                  # bad sig, no key, expired key...
+        raise ValueError(f"{data_path.name}: signature invalid ({result.status})")
+    if result.fingerprint not in ALLOWED_FPRS:
+        raise ValueError(f"{data_path.name}: signed by unexpected key {result.fingerprint}")
+    return result.fingerprint
+
+
+def sha256(path: pathlib.Path) -&gt; str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 &lt;&lt; 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def upload_raw(repo: str, directory: str, path: pathlib.Path) -&gt; None:
+    # POST /service/rest/v1/components?repository=&lt;repo&gt;  (multipart form)
+    r = requests.post(
+        f"{NEXUS}/service/rest/v1/components",
+        params={"repository": repo},
+        auth=NEXUS_AUTH,
+        files={
+            "raw.directory": (None, directory),
+            "raw.asset1": (path.name, open(path, "rb")),
+            "raw.asset1.filename": (None, path.name),
+        },
+        timeout=120,
+    )
+    r.raise_for_status()
+
+
+def process_bundle(bundle: pathlib.Path) -&gt; None:
+    # `bundle` is a directory already pulled from the DMZ staging Nexus
+    manifest_path = bundle / "manifest.json"
+    manifest_fpr = verify_detached(bundle / "manifest.json.sig", manifest_path)
+    manifest = json.loads(manifest_path.read_text())
+
+    for item in manifest["artifacts"]:
+        artifact = bundle / item["file"]
+        fpr = verify_detached(bundle / (item["file"] + ".sig"), artifact)
+        digest = sha256(artifact)
+        if digest != item["sha256"]:
+            raise ValueError(f"{artifact.name}: sha256 mismatch")
+        upload_raw(item["repository"], item["directory"], artifact)
+        print(json.dumps({
+            "event": "delivered", "file": artifact.name, "sha256": digest,
+            "signer": fpr, "manifest_signer": manifest_fpr,
+            "ticket": manifest["ticket"], "repository": item["repository"],
+        }))</code></pre>
+<p>Notes on the pieces you would verify yourself before trusting this:</p>
+<ul><li><code>python-gnupg</code>'s <code>verify_file(stream, data_filename)</code> is the documented call for detached signatures; the returned object is falsy on failure and exposes <code>fingerprint</code>, <code>key_id</code>, <code>trust_level</code> and <code>trust_text</code> (<a href="https://gnupg.readthedocs.io/en/latest/" target="_blank" rel="noopener">python-gnupg docs</a>). If you prefer no library, run <code>gpg --batch --status-fd 1 --verify file.sig file</code> as a subprocess and parse the <code>VALIDSIG</code> line, which GnuPG's <a href="https://raw.githubusercontent.com/gpg/gnupg/master/doc/DETAILS" target="_blank" rel="noopener">DETAILS</a> file describes as "cryptographically valid" with the fingerprint as its first argument. <code>gpgv</code> is a third option: a verification-only binary that "assumes that all keys in the keyring are trustworthy" (<a href="https://www.gnupg.org/documentation/manuals/gnupg/gpgv.html" target="_blank" rel="noopener">gpgv manual</a>), which is what you want when the keyring is pinned.</li><li>The Nexus upload endpoint is <code>POST /service/rest/v1/components</code> with a <code>repository</code> query parameter and format-specific multipart fields: <code>raw.directory</code>, <code>raw.assetN</code>, <code>raw.assetN.filename</code> for raw; <code>apt.asset</code>, <code>pypi.asset</code>, <code>npm.asset</code> and so on for those formats (<a href="https://help.sonatype.com/en/components-api.html" target="_blank" rel="noopener">Components API</a>). The Components API page lists upload fields for Maven, APT, Composer, Helm, npm, NuGet, PyPI, R, Raw and RubyGems. Yum is not on that list; hosted Yum repositories take a plain HTTP <code>PUT</code> to <code>/repository/&lt;repo&gt;/&lt;path&gt;/&lt;file&gt;.rpm</code>, and Nexus regenerates repodata about 60 seconds later (<a href="https://help.sonatype.com/en/yum-repositories.html" target="_blank" rel="noopener">Yum Repositories</a>). Raw hosted repositories accept the same <code>PUT</code> form (<a href="https://help.sonatype.com/en/raw-repositories.html" target="_blank" rel="noopener">Raw Repositories</a>).</li><li>After upload, the <a href="https://help.sonatype.com/en/search-api.html" target="_blank" rel="noopener">Search API</a> (<code>GET /service/rest/v1/search/assets</code>) returns each asset's <code>checksum</code> object. Reading it back and comparing with the manifest closes the loop: what Nexus stores is what was signed.</li></ul>
+<h2 id="key-management-and-the-audit-trail">Key management and the audit trail</h2>
+<p>The signature is only as meaningful as the key behind it.</p>
+<ul><li><strong>One key per purpose, with a short list of fingerprints pinned in the gate.</strong> Rotating a key means adding the new fingerprint to the gate's allowlist through a reviewed change, not importing whatever public key rides along in the bundle. Public keys never travel with the packages they vouch for.</li><li><strong>Expiry dates on signing keys.</strong> GnuPG distinguishes <code>GOODSIG</code> from <code>EXPKEYSIG</code>, "good, but the signature was made by an expired key". The gate should treat the second as a rejection and page somebody, because it means the rotation calendar slipped.</li><li><strong>Private key on the connected side only.</strong> In my case the signing key was kept in HashiCorp Vault. As general advice, independent of that setup: give the signing job a short-lived Vault token through its platform identity (a Kubernetes service account, for example), let it read or use the key only for the duration of a signing run, and keep the key out of container images, CI variables and developer laptops. Vault's audit log then shows every time the key was touched.</li><li><strong>Structured audit events.</strong> Each delivery produces one record: file, SHA-256, signer fingerprint, manifest fingerprint, ticket, target repository, timestamp, outcome. Ship it somewhere append-only inside the closed zone. This is the record that lets you answer "where did this come from" months later, and it is what the result in my case came down to: developers in the closed network got the packages they needed, and each one could be traced to a signature.</li></ul>
+<h2 id="scan-and-allowlist-before-you-sign">Scan and allowlist before you sign</h2>
+<p>A signature says "the connected side approved this". It should not be the first thing the connected side does. The order that makes a signature mean something:</p>
+<ol><li>The request names a package, a version and a reason, and lands on an allowlist (or in a ticket) that someone other than the requester approves.</li><li>The connected side fetches exactly that version from the upstream registry and checks the upstream's own integrity data where it exists: RPMs carry embedded OpenPGP signatures that <code>rpmkeys --checksig</code> verifies "to ensure the integrity and origin of the package" (<a href="https://rpm-software-management.github.io/rpm/man/rpmkeys.8.html" target="_blank" rel="noopener">rpmkeys(8)</a>); <code>apt</code> repositories sign the <code>Release</code> file and chain checksums down to each <code>.deb</code>, and "apt-secure does not review signatures at a package level" (<a href="https://manpages.debian.org/trixie/apt/apt-secure.8.en.html" target="_blank" rel="noopener">apt-secure(8)</a>); the npm registry signs tarballs with ECDSA keys served from <code>/-/npm/v1/keys</code> (<a href="https://docs.npmjs.com/about-registry-signatures" target="_blank" rel="noopener">npm docs</a>); PyPI removed PGP signature uploads in 2023 because "the continued support of uploading PGP signatures to PyPI is no longer defensible" (<a href="https://blog.pypi.org/posts/2023-05-23-removing-pgp/" target="_blank" rel="noopener">PyPI blog</a>), so for Python you rely on hashes pinned at request time.</li><li>SCA and vulnerability scanning run on the fetched files, with an SBOM produced and stored next to the manifest. At another client I deployed OSA Firewall into the package supply chain for exactly this step: open-source dependencies are checked before developers get them.</li><li>Only artifacts that pass get signed. The signature then encodes "fetched the pinned version, upstream checks passed, scanned, approved".</li></ol>
+<p>Put differently: upstream ecosystems sign the repository or the registry, not the file you hold. Your own signature is the one that is uniform across ecosystems and that your closed-side gate can verify without any of their infrastructure.</p>
+<h2 id="gpg-detached-signatures-vs-repo-native-signing-vs-cosign">GPG detached signatures vs repo-native signing vs cosign</h2>
+<div class="table"><table><thead><tr><th></th><th>GPG detached signatures (your key)</th><th>Repo-native signing (apt Release, Yum repodata, npm registry)</th><th>Sigstore cosign</th></tr></thead><tbody><tr><td>What is signed</td><td>The exact file you transfer, plus a manifest</td><td>Repository metadata (apt, Yum) or registry-side tarball record (npm); Nexus signs only metadata</td><td>Container images, or any blob via <code>sign-blob</code></td></tr><tr><td>Who signs</td><td>Your connected-side process</td><td>Upstream distro or registry; Nexus for its own hosted metadata</td><td>Your process, with a key pair or keyless via Fulcio</td></tr><tr><td>Works for raw / PyPI / Helm / internal builds</td><td>Yes, format-agnostic</td><td>No; only where the format defines it</td><td>Yes, blobs and OCI artifacts</td></tr><tr><td>Verification offline</td><td>Yes: <code>gpg</code>, <code>gpgv</code> or <code>python-gnupg</code> with a local keyring, no network needed</td><td>Yes for clients once keys are installed, but proves the metadata, not your provenance</td><td>Yes with a key pair: <code>cosign verify --key cosign.pub --offline --local-image ./dir</code> (<a href="https://raw.githubusercontent.com/sigstore/cosign/main/README.md" target="_blank" rel="noopener">cosign README</a>); keyless needs a TUF trusted root fetched in advance, and the README marks its air-gap section "out of date"</td></tr><tr><td>Audit trail</td><td>You build it (manifest + log)</td><td>None at package level</td><td>Rekor transparency log by default, which the closed zone cannot reach; bundles carry inclusion proofs</td></tr><tr><td>Fits a bank's existing tooling</td><td>GnuPG is already on every Linux host; auditors know it</td><td>Already there, but insufficient alone</td><td>Newer; needs policy sign-off for a new trust root</td></tr></tbody></table></div>
+<p>I would still choose GPG detached signatures for the channel into a closed network today, for one reason: the closed side needs nothing but <code>gpg</code> and a keyring to check them. Cosign with a self-managed key pair is a credible second option if the organisation already runs it for container images and wants one tool. Repo-native signing is not an alternative; it is what Nexus does for <code>apt</code> and <code>yum</code> clients after your gate has already done its work.</p>
+<h3 id="failure-cases-the-gate-must-handle-on-purpose">Failure cases the gate must handle on purpose</h3>
+<ul><li><strong>Bad signature.</strong> Reject, quarantine, alert. Never upload.</li><li><strong>Good signature from an unknown key.</strong> Reject. This is the case that distinguishes a gate from a demo.</li><li><strong>Expired or revoked signing key.</strong> Reject and page the key owner. <code>python-gnupg</code> surfaces this through <code>key_status</code> and <code>problems</code>.</li><li><strong>Manifest and artifact disagree.</strong> Reject the whole bundle, not just the file. Something changed between signing and arrival.</li><li><strong>Already present in Nexus with a different checksum.</strong> Reject and raise a ticket. Overwriting a release artifact silently is how "the build was green yesterday" happens.</li><li><strong>Upload succeeded but readback differs.</strong> Treat as a failed delivery and investigate the Nexus side.</li><li><strong>Gate itself unavailable.</strong> Packages wait in the DMZ Nexus. Nothing bypasses the gate.</li></ul>
+<p>In practice the gate never had to reject a package. That is not a sign that it was unnecessary. It means the scan, the allowlist and the signing step on the connected side did their job, and the gate stood there as the proof that nothing else could get through. A control that never fires is still the control an auditor asks about.</p>
+<h2 id="practical-next-steps">Practical next steps</h2>
+<ol><li>Read Sonatype's <a href="https://help.sonatype.com/en/gpg-signatures-for-yum-proxy-group.html" target="_blank" rel="noopener">Yum</a> and <a href="https://help.sonatype.com/en/apt-repositories.html" target="_blank" rel="noopener">APT</a> signing pages with your security team, so that nobody expects Nexus to verify packages for you.</li><li>Decide how artifacts cross the boundary (a DMZ staging Nexus that the closed side pulls from worked for me; others use media or a diode) and get it approved in writing before you build anything around it.</li><li>Generate a dedicated signing key with an expiry date, keep the private half on the connected side only, and pin its fingerprint in the gate's configuration.</li><li>Build the gate as the only writer to the internal Nexus: a small service with a service-account token, a dedicated <code>gnupghome</code>, structured logs, and a quarantine directory. Start with raw repositories through the Components API, then add formats; container images and apt packages fit the same flow because the gate signs and verifies files, not formats.</li><li>Define the manifest format and make the signing side produce it after scanning, never before.</li><li>Run a tampered bundle through the gate before go-live: a flipped byte, a swapped signature, a removed file. Keep the rejection logs as evidence for the auditors.</li></ol>
+<p>If you are hiring for exactly this kind of work in banking or government, the signed-delivery case and the rest of my platform work are summarised at <a href="https://kalik8s.com/#cases">kalik8s.com/#cases</a>.</p>
+      </div>
+      <p class="tags"><span>nexus</span><span>air-gapped</span><span>gpg</span><span>supply-chain</span><span>kubernetes</span></p>
+      <aside class="author" aria-label="About the author">
+        <p class="label"><span class="label__dot" aria-hidden="true"></span>Written by</p>
+        <p class="author__name">Kalislav Smirnov</p>
+        <p class="author__role">DevOps engineer · open to remote work</p>
+        <p class="author__bio">4.5 years of Kubernetes, GitLab CI/CD, Ansible and Terraform for banks and government agencies, including fully air-gapped networks. Spacecraft engineer by degree.</p>
+        <div class="cta">
+          <a class="btn btn--sun" href="https://cal.com/kalikys/intro?utm_source=cv_site&amp;utm_medium=blog" target="_blank" rel="noopener">Hiring? Book a 20-min call</a>
+          <a class="btn" href="/Kalislav-Smirnov-CV.pdf" download>Download CV (PDF)</a>
+        </div>
+        <p class="cta__more">
+          <a href="/#cases">Case studies</a>
+          <a href="https://t.me/kalikys" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://www.linkedin.com/in/devops-kalislav-smirnov/" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://github.com/kalikys" target="_blank" rel="noopener">GitHub</a>
+          <a href="mailto:kalikys@outlook.com">Email</a>
+        </p>
+      </aside>
+    </article>
+      <nav class="pager" aria-label="More posts"><span></span><a class="pager__next" href="/blog/proxmox-terraform-bpg-lxc-cloud-init/"><span class="label">Newer →</span><span>Proxmox Terraform with bpg: 5 LXC containers, 6 cloud-init VMs and the state drift I caused myself</span></a></nav>
+      <section class="related" aria-labelledby="related-title">
+        <h2 class="block__title" id="related-title">Related field notes</h2>
+        <ul class="postlist"><li class="postcard"><a href="/blog/trivy-compromised-gitlab-ci-shared-template/"><p class="postcard__meta"><time datetime="2026-10-21">21 Oct 2026</time> · 15 min</p><h3 class="postcard__title">Trivy was compromised twice in 2026. How a shared GitLab CI template for 90+ teams should run security scanners</h3><p class="postcard__desc">Trivy compromised in 2026 shows why a shared GitLab CI template must pin scanners by digest, mirror images and DBs into Nexus, and verify signatures.</p></a><p class="tags"><span>trivy</span><span>gitlab-ci</span><span>supply-chain</span><span>devsecops</span><span>gitleaks</span></p></li></ul>
+      </section>
+  </main>
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span>© 2026 Kalislav Smirnov · <a href="/blog/feed.xml">RSS</a></span>
+      <span class="footer__mono">hosted at home, published via Cloudflare Tunnel</span>
+    </div>
+  </footer>
+  <!-- Cloudflare Web Analytics: cookie-free; the beacon token is public by design. -->
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dac8ddebf99f4dea8a1c2deaabc561d5"}'></script> <!-- gitleaks:allow -->
+</body>
+</html>
