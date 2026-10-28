@@ -141,16 +141,18 @@ Client names are left out on purpose.
 
 Personal engineering in 2026. I build autonomous agents, MCP servers and RAG
 systems on Claude, with the same security discipline as my platform work:
-least privilege, sandboxing, human approval and guards against data leaks.
+least privilege, sandboxing, human review and guards against data leaks.
 · Autonomous "AI employee" in GitLab: Claude Code runs as a sandboxed worker
-  (bubblewrap and a custom AppArmor profile, shell with no network access)
-  under a dedicated GitLab service account. It picks up labelled issues,
-  proposes a plan, works in the repo and writes to the team knowledge base
-  only after human approval, with per-run time and budget caps and
-  auto-escalation to a human after repeated failures. The agent and the team
-  work through a custom MCP server I built (Python, OAuth) that exposes tasks,
-  threads, decisions and the knowledge base, two-way-synced with GitLab
-  issues.
+  (Claude Code's bubblewrap sandbox, shell with no network access) under a
+  dedicated GitLab service account. It picks up labelled issues, proposes a
+  plan, works in the repo and opens merge requests that people review; results
+  of its work reach the team knowledge base only after a team member approves
+  them, and every knowledge-base commit links its source. Per-run time and
+  budget caps, auto-escalation to a human after repeated failures. The agent
+  and the team work through a custom MCP server I built (Python, OAuth) that
+  exposes tasks, threads, decisions and the knowledge base, two-way-synced
+  with GitLab issues. Open source:
+  https://github.com/kalikys/claude-gitlab-agent
 · RAG document-automation service: a remote MCP service (Python, FastAPI,
   OAuth 2.1 over Streamable HTTP) with retrieval over a curated knowledge base
   — local BGE-M3 embeddings and a reranker served on my own GPU, a

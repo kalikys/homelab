@@ -95,12 +95,12 @@ EN = {
     ],
     "agents": [
         ("Autonomous “AI employee” in GitLab",
-         "Runs Claude Code as a sandboxed worker (bubblewrap and a custom AppArmor profile, shell with no "
-         "network access) under a dedicated GitLab service account: it picks up labelled issues, proposes a "
-         "plan, works in the repo and writes to the team knowledge base only after human approval. The agent "
-         "and the team work through a custom MCP server I built (Python, OAuth) that exposes tasks, threads, "
-         "decisions and the knowledge base, two-way-synced with GitLab issues. Per-run time and budget caps; "
-         "it calls a human after repeated failures."),
+         "Claude Code runs as a sandboxed worker (bubblewrap, shell with no network) under a dedicated GitLab "
+         "service account: it picks up labelled issues, plans, works in the repo and opens merge requests that "
+         "people review; results reach the team knowledge base after a team member approves them. The agent and "
+         "the team work through a custom MCP server I built (Python, OAuth) over tasks, threads, decisions and the "
+         "knowledge base. Per-run time and budget caps; it calls a human after repeated failures. "
+         "Open source: github.com/kalikys/claude-gitlab-agent."),
         ("RAG document-automation service",
          "Remote MCP service (Python, FastAPI, OAuth 2.1 over Streamable HTTP) with retrieval over a curated "
          "knowledge base: local BGE-M3 embeddings and a reranker served on my own GPU, a PII-anonymization "
@@ -200,11 +200,11 @@ SK = {
     ],
     "agents": [
         ("Autonómny „AI zamestnanec“ v GitLabe",
-         "Spúšťa Claude Code ako izolovaného workera (bubblewrap a vlastný AppArmor profil) pod vyhradeným "
-         "servisným účtom GitLabu: preberá označené úlohy, navrhne plán, pracuje v repozitári a do bázy znalostí "
-         "zapíše až po schválení človekom. Agent aj tím pracujú cez vlastný MCP server (Python, OAuth) pre úlohy, "
+         "Spúšťa Claude Code ako izolovaného workera (sandbox bubblewrap) pod vyhradeným servisným účtom "
+         "GitLabu: preberá označené úlohy, navrhne plán, pracuje v repozitári a otvára merge requesty na kontrolu; "
+         "výsledky do bázy znalostí idú až po schválení členom tímu. Agent aj tím pracujú cez vlastný MCP server (Python, OAuth) pre úlohy, "
          "vlákna, rozhodnutia a bázu znalostí, obojsmerne zosynchronizovaný s GitLab issues. Limity času a "
-         "rozpočtu, po opakovaných zlyhaniach volá človeka."),
+         "rozpočtu, po opakovaných zlyhaniach volá človeka. Open source: github.com/kalikys/claude-gitlab-agent."),
         ("Služba na tvorbu dokumentov s RAG",
          "Remote MCP služba (Python, FastAPI, OAuth 2.1) s vyhľadávaním nad kurovanou bázou znalostí: lokálne "
          "embeddingy BGE-M3 a reranker na mojom GPU, anonymizácia osobných údajov a strážca výstupu (podobnosť "
@@ -238,8 +238,8 @@ ENG = {
     "agents": [
         ("Autonomous AI agents",
          "Built a sandboxed Claude-based worker that picks up tasks in GitLab, plans the work and edits code "
-         "under strict guardrails (isolated sandbox, time and budget limits, human approval before anything "
-         "is published)."),
+         "under strict guardrails (isolated sandbox, time and budget limits, people review and merge every "
+         "change). Open source: github.com/kalikys/claude-gitlab-agent."),
         ("Document-automation service (RAG)",
          "A Python and FastAPI backend that retrieves from a knowledge base using local machine-learning models "
          "on a GPU and checks every answer with safety filters before it is returned."),
