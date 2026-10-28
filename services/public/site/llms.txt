@@ -1,6 +1,6 @@
 # Kalislav Smirnov, DevOps Engineer and Aerospace Engineer
 
-> DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines. Aerospace engineer by degree (Bauman Moscow State Technical University, spacecraft design; SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Based in Tbilisi, Georgia (GMT+4). Open to offers now: remote work for a company in any country, or relocation to the US, the EU (Cyprus included) or another popular destination (needs a work permit such as the EU Blue Card); full-time as an employee, B2B or contract; can start right away.
+> DevOps engineer with 4.5 years of experience in Kubernetes, GitLab CI/CD, Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. Also integrates SAST, DAST and SCA scanning into pipelines, and builds autonomous AI agents, MCP servers and RAG systems on Claude. Aerospace engineer by degree (Bauman Moscow State Technical University, spacecraft design; SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Based in Tbilisi, Georgia (GMT+4). Open to offers now: remote work for a company in any country, or relocation to the US, the EU (Cyprus included) or another popular destination (needs a work permit such as the EU Blue Card); full-time as an employee, B2B or contract; can start right away.
 
 Book a 20-minute intro call: https://cal.com/kalikys/intro
 

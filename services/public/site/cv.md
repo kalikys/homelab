@@ -2,7 +2,7 @@
 
 Updated: 2026-10-20 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
 
-DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU or Cyprus.
+DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU or Cyprus.
 
 ## Hiring details
 
@@ -86,12 +86,24 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 - Led the containerization of 20+ legacy Java microservices using Docker, standardizing environments and eliminating configuration drift between staging and production.
 - Managed and maintained the company's production infrastructure, consisting of 50+ Linux servers across two data centers.
 
+## AI agents and automation
+
+Personal engineering in 2026. I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline as my platform work: least privilege, sandboxing, human approval and guards against data leaks.
+
+- Autonomous "AI employee" in GitLab: Claude Code runs as a sandboxed worker (bubblewrap and a custom AppArmor profile, shell with no network access) under a dedicated GitLab service account. It picks up labelled issues, proposes a plan, works in the repo and writes to the team knowledge base only after human approval, with per-run time and budget caps and auto-escalation to a human after repeated failures. The agent and the team work through a custom MCP server I built (Python, OAuth) that exposes tasks, threads, decisions and the knowledge base, two-way-synced with GitLab issues.
+- RAG document-automation service: a remote MCP service (Python, FastAPI, OAuth 2.1 over Streamable HTTP) with retrieval over a curated knowledge base — local BGE-M3 embeddings and a reranker served on my own GPU, a PII-anonymization stage and an output guard (n-gram and embedding similarity, canary markers, a judge model) so source material never leaks.
+- LLM risk guard over a trading bot: a Claude news-and-risk gate wraps a Freqtrade bot in paper mode, reading market and news feeds every 30 minutes and throttling or stopping trading, with a weekly self-review. Research only, no real funds.
+- Agent orchestration dashboard: a self-hosted tracker (FastAPI, SQLite, React) where my agents log work, decisions and findings across sessions, wired in through a CLI and a session-end hook so long-running projects keep context between runs.
+- Telegram security bots: CVE alerts from the CISA KEV feed and a Kubernetes "cluster snapshot" that parses kubectl/helm output and returns affected CVEs with fix commands; React Mini Apps.
+- Stack: Claude API, Model Context Protocol (MCP) servers, Claude Code, RAG (embeddings + reranker), Python, FastAPI, Docker.
+
 ## Skills
 
 - Platform: Kubernetes, Helm, Docker, Linux, microservices, disaster recovery
 - Automation & IaC: Ansible, Terraform, Python, Bash, OOP
 - CI/CD: GitLab CI, Jenkins, Nexus, Git, acceptance testing
 - Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub, AppSec.Track, GPG, OSA Firewall
+- AI agents & LLM automation: Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code
 - Observability: Prometheus, Grafana, Alertmanager, ELK
 - Data & messaging: PostgreSQL, ClickHouse, RabbitMQ, Airflow
 - Engineering: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink, strength analysis
