@@ -192,7 +192,46 @@
         description: Proxmox и ВМ лабы Kubernetes
         server: local
         container: pulse
+    - Проекты:
+        icon: mdi-view-dashboard-outline
+        href: https://projects.home.kalik8s.ru
+        description: Где я остановился, что ждёт меня
+        server: local
+        container: projects
     - Контейнер apps:
         icon: mdi-docker
         description: Docker, 192.168.1.10
         ping: 192.168.1.10
+
+- Игры:
+    - Nap Spots:
+        icon: mdi-cat
+        href: http://192.168.1.10:8090/nap-spots/
+        description: Пазл «уложи питомцев спать» · прототип GAME-001
+        server: local
+        container: games
+
+- Крипто:
+    - Крипто-боты:
+        icon: mdi-bitcoin
+        href: https://crypto.home.kalik8s.ru
+        description: Paper-торговля на Bybit · 4 бота по $50 (Откаты — на странице)
+        widget:
+          type: customapi
+          url: http://192.168.1.40:8091/api/widget
+          refreshInterval: 60000
+          mappings:
+            - field: trend
+              label: Тренд
+              format: float
+              suffix: " $"
+            - field: trend2
+              label: Тренд+
+              format: float
+              suffix: " $"
+            - field: risk
+              label: Плечо ×2
+              format: float
+              suffix: " $"
+            - field: news
+              label: Новости

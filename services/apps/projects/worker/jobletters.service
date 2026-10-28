@@ -1,0 +1,14 @@
+[Unit]
+Description=Cover-letter worker for the job applications dashboard
+After=network-online.target
+
+[Service]
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=JOBS_URL=http://192.168.1.10:8790
+WorkingDirectory=%h/jobletters
+ExecStart=/usr/bin/python3 %h/jobletters/letters.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,13 +1,14 @@
 # Hermes Agent: read-only homelab on-call bot in Telegram. See docs/superpowers/specs/2026-09-29-hermes-agent-design.md.
 locals {
   agent = {
-    vm_id     = 220
-    ip        = "192.168.1.40"
-    mac       = "BC:24:11:4B:38:40"
-    cores     = 2
-    memory_mb = 4096
-    disk_gb   = 30
-    role      = "AI ops agent (Telegram), read-only"
+    vm_id      = 220
+    ip         = "192.168.1.40"
+    mac        = "BC:24:11:4B:38:40"
+    cores      = 2
+    memory_mb  = 3072
+    balloon_mb = 1536
+    disk_gb    = 30
+    role       = "AI ops agent (Telegram), read-only"
   }
 }
 
@@ -37,6 +38,7 @@ resource "proxmox_virtual_environment_vm" "agent" {
 
   memory {
     dedicated = local.agent.memory_mb
+    floating  = local.agent.balloon_mb
   }
 
   disk {

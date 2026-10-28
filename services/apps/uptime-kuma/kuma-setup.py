@@ -108,6 +108,7 @@ GROUPS = [
         http("Документы (Paperless)", "http://192.168.1.10:8000"),
         http("Homepage", "http://192.168.1.10:3000"),
         http("Speedtest Tracker", "http://192.168.1.10:8081"),
+        http("Проекты", "http://192.168.1.10:8790/api/health"),
     ]),
     ("Публичное", [
         http("Визитка kalik8s.com", "https://kalik8s.com", expiryNotification=True, interval=300),

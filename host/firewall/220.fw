@@ -14,3 +14,4 @@ macfilter: 1
 [RULES]
 IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 22 # SSH from the LAN (Tailscale clients arrive through the subnet router)
 IN ACCEPT -p icmp # ping for Gatus / Uptime Kuma
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 8091 # crypto bot dashboard, LAN only (read-only page)

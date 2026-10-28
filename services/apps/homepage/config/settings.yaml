@@ -43,3 +43,11 @@ layout:
     tab: Инфраструктура
     style: row
     columns: 5
+  Игры:
+    tab: Игры
+    style: row
+    columns: 3
+  Крипто:
+    tab: Крипто
+    style: row
+    columns: 2
