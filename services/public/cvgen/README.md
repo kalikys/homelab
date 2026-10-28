@@ -1,18 +1,21 @@
 # CV generator for the public site
 
-Source of truth for the downloadable CVs on https://kalik8s.com.
+Source of truth for the CVs on https://kalik8s.com.
 
-- `cv_data.py` — all CV content (facts), in English (`EN`), Slovak (`SK`) and an
-  engineering-first variant (`ENG`). Edit facts here.
-- `build_cv.py` — renders each variant to HTML + A4 PDF with headless Chrome into `out/`.
+- `cv_data.py` — all CV content (facts): English (`EN`), Slovak (`SK`), engineering-first (`ENG`) and the
+  role variants in `ROLE_CVS` (DevOps, DevSecOps, Platform-SRE, Master), which reuse the `EN` facts and
+  change only the headline, the summary and the order of bullets. Edit facts once, every CV follows.
+- `build_cv.py` — renders them with headless Chrome:
+  - `out/Kalislav-Smirnov-CV{,-SK,-Engineering}.pdf` → site root
+  - `out/cv/Kalislav-Smirnov-<Role>.{pdf,txt,docx}` → `/cv/`
+- `Dockerfile` — the build environment used by the autodeploy (Chromium, Inter, python-docx).
+
+Local preview on the Mac:
 
 ```sh
-python3 build_cv.py   # -> out/Kalislav-Smirnov-CV{,-SK,-Engineering}.pdf
+uv run --no-project --with python-docx python3 build_cv.py
 ```
 
-The PDFs are build artifacts (git-ignored). Publishing is done by `../deploy.sh`,
-which rebuilds them and ships the site + PDFs to the `public` container — the live
-site is always reproducible from this repo, nothing is hand-edited on the server.
+The outputs are git-ignored build artifacts; the autodeploy rebuilds them from the merged commit.
 
-Note: per-vacancy tailored CVs for job applications live separately in
-`services/jobwatch/cv/` (same base content, chosen/reordered per vacancy).
+Note: per-vacancy tailored CVs for job applications live separately in `services/jobwatch/cv/`.

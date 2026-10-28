@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-"""Renders the CV (EN and SK) to HTML and PDF with headless Chrome.
+"""Renders the CVs to HTML and PDF with headless Chrome, and the role CVs also to TXT and DOCX.
 
-Usage: python3 build_cv.py            -> out/Kalislav-Smirnov-CV.pdf, out/Kalislav-Smirnov-CV-SK.pdf, out/Kalislav-Smirnov-CV-Engineering.pdf
+Usage: python3 build_cv.py
+  out/Kalislav-Smirnov-CV{,-SK,-Engineering}.pdf     downloadable CVs (site root)
+  out/cv/Kalislav-Smirnov-<Role>.{pdf,txt,docx}       role CVs served from /cv/
+
+DOCX needs python-docx (`uv run --no-project --with python-docx python3 build_cv.py`); without it the
+DOCX files are skipped with a warning. Set CHROME to the browser binary when it is not found on its own.
 """
 import html
+import os
 import pathlib
+import shutil
 import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from cv_data import CONTACTS, EN, ENG, SK, SKILLS_TAGS  # noqa: E402
+from cv_data import CONTACTS, EN, ENG, ROLE_CVS, SK, SKILLS_TAGS  # noqa: E402
 
 HERE = pathlib.Path(__file__).parent
 OUT = HERE / "out"
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+MAC_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME = (os.environ.get("CHROME") or (MAC_CHROME if os.path.exists(MAC_CHROME) else None)
+          or shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome"))
 
 CSS = """
 @page { size: A4; margin: 14mm 15mm 14mm; }
@@ -95,17 +104,91 @@ def render(d):
 </body></html>"""
 
 
+def outline(d):
+    """The CV as (heading, [(kind, text)]) blocks for the plain renderers; kind is sub, p or li."""
+    exp = []
+    for j in d["jobs"]:
+        exp.append(("sub", f'{j["role"]} | {j["company"]}' + (f' | {j["type"]}' if j["type"] else "") + f' | {j["period"]}'))
+        exp += [("p", j["intro"])] if j["intro"] else []
+        exp += [("li", p) for p in j["points"]]
+        exp.append(("p", f'{d["stack_label"]}: {j["stack"]}'))
+    edu = [("sub", d["degree"]), ("p", d["degree_note"]), ("p", d["field"]),
+           *[("li", p) for p in d["aero_points"]], ("p", d["aero_tools"])]
+    agents = [("li", f"{t}. {body}") for t, body in d.get("agents", [])]
+    h = d["h"]
+    middle = [(h["exp"], exp)] + ([(h["agents"], agents)] if agents else []) + [(h["aero"], edu)]
+    if d.get("edu_first"):
+        middle = [middle[-1], *middle[:-1]]
+    tags = sorted(SKILLS_TAGS.items(), key=lambda kv: kv[0] != "eng") if d.get("edu_first") else SKILLS_TAGS.items()
+    return [(h["summary"], [("p", p) for p in d["summary"]]), *middle,
+            (h["skills"], [("p", f'{d["skills"][k]}: {v}') for k, v in tags]),
+            (h["lab"], [("li", p) for p in d["lab"]]), (h["lang"], [("p", d["languages"])])]
+
+
+def contact_line():
+    return " | ".join(t if u.startswith("mailto:") or t.startswith("Telegram") else u.split("?")[0].rstrip("/")
+                      for t, u in CONTACTS)
+
+
+def render_txt(d):
+    lines = ["Kalislav Smirnov", "", d["role"], "", d["location"], contact_line()]
+    for heading, items in outline(d):
+        lines += ["", heading]
+        for kind, text in items:
+            lines += ["", f"- {text}" if kind == "li" else text]
+    return "\n".join(lines) + "\n"
+
+
+def render_docx(d, path):
+    try:
+        import docx
+        from docx.shared import Cm, Pt
+    except ImportError:
+        print(f"skip {path.name}: python-docx is not installed", file=sys.stderr)
+        return
+    doc = docx.Document()
+    for s in doc.sections:
+        s.left_margin = s.right_margin = Cm(1.8)
+        s.top_margin = s.bottom_margin = Cm(1.6)
+    doc.styles["Normal"].font.name = "Calibri"
+    doc.styles["Normal"].font.size = Pt(10.5)
+    doc.add_heading("Kalislav Smirnov", level=0)
+    doc.add_paragraph().add_run(d["role"]).bold = True
+    doc.add_paragraph(f'{d["location"]}\n{contact_line()}')
+    for heading, items in outline(d):
+        doc.add_heading(heading, level=1)
+        for kind, text in items:
+            if kind == "li":
+                doc.add_paragraph(text, style="List Bullet")
+            else:
+                doc.add_paragraph().add_run(text).bold = kind == "sub"
+    doc.save(path)
+
+
+def pdf(d, folder, name):
+    if not CHROME:
+        sys.exit("Chrome/Chromium not found: set CHROME")
+    src = folder / f"{name}.html"
+    src.write_text(render(d))
+    out = folder / f"{name}.pdf"
+    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-pdf-header-footer",
+                    f"--user-data-dir={OUT / '.chrome'}", "--virtual-time-budget=4000",
+                    f"--print-to-pdf={out}", src.as_uri()],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("wrote", out)
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     for d, name in [(EN, "Kalislav-Smirnov-CV"), (SK, "Kalislav-Smirnov-CV-SK"), (ENG, "Kalislav-Smirnov-CV-Engineering")]:
-        src = OUT / f"{name}.html"
-        src.write_text(render(d))
-        pdf = OUT / f"{name}.pdf"
-        subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
-                        f"--user-data-dir={OUT / '.chrome'}", "--virtual-time-budget=4000",
-                        f"--print-to-pdf={pdf}", src.as_uri()],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("wrote", pdf)
+        pdf(d, OUT, name)
+    roles = OUT / "cv"
+    roles.mkdir(exist_ok=True)
+    for name, d in ROLE_CVS.items():
+        pdf(d, roles, name)
+        (roles / f"{name}.txt").write_text(render_txt(d))
+        render_docx(d, roles / f"{name}.docx")
+        (roles / f"{name}.html").unlink()
 
 
 if __name__ == "__main__":
