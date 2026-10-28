@@ -274,3 +274,44 @@ ENG = {
         ]},
     ],
 }
+
+# Role variants served from /cv/ (2026-10-29). Same facts as EN; only the headline, the first summary
+# paragraph and the order of the Swordfish bullets change. Indexes into EN["jobs"][0]["points"]:
+# 0 platform implementations, 1 HA GitLab/Nexus/PostgreSQL, 2 GPG delivery, 3 SAST/DAST/SCA,
+# 4 Ansible roles, 5 multi-datacenter Kubernetes, 6 demos and acceptance testing.
+AGENTS_LINE = ("I also build and run AI agents on Claude: a sandboxed Claude Code worker in GitLab, my own MCP "
+               "servers and a RAG service (details below).")
+
+
+def _role(role, summary, order):
+    job0 = {**EN["jobs"][0], "points": [EN["jobs"][0]["points"][i] for i in order]}
+    return {**EN, "title": f"Kalislav Smirnov, CV ({role})", "role": role,
+            "summary": [f"{summary} {AGENTS_LINE}", EN["summary"][2]], "jobs": [job0, *EN["jobs"][1:]]}
+
+
+ROLE_CVS = {
+    "Kalislav-Smirnov-DevOps": _role(
+        "DevOps Engineer",
+        "DevOps engineer focused on Kubernetes, GitLab CI/CD, Linux and infrastructure automation with Ansible and "
+        "Terraform. Cut the release cycle for 20+ microservices from two weeks to three days and automated edge-device "
+        "setup from ten hours to 20 minutes. Professional experience since April 2022.",
+        [0, 4, 1, 5, 2, 3, 6]),
+    "Kalislav-Smirnov-DevSecOps": _role(
+        "DevSecOps Engineer",
+        "DevSecOps engineer with five end-to-end platform implementations for banking and government clients. Built "
+        "GPG-signed package delivery for an air-gapped Nexus repository and integrated SAST, DAST and SCA checks into "
+        "GitLab CI. Combines security automation with Kubernetes operations and repeatable Ansible deployments.",
+        [3, 2, 0, 4, 1, 5, 6]),
+    "Kalislav-Smirnov-Platform-SRE": _role(
+        "DevOps Engineer · Platform and SRE",
+        "DevOps engineer with experience in platform engineering and site reliability: multi-datacenter Kubernetes "
+        "platforms with 100+ VMs, disaster recovery, Helm-based deployments and observability with Prometheus, Grafana "
+        "and ELK. Professional experience since April 2022, including financial and air-gapped environments.",
+        [5, 1, 0, 4, 2, 3, 6]),
+    "Kalislav-Smirnov-Master": _role(
+        "DevOps and DevSecOps Engineer",
+        "DevOps and DevSecOps engineer with professional experience since April 2022. Built Kubernetes platforms, "
+        "GitLab CI/CD pipelines and infrastructure automation for banking, fintech and government environments, "
+        "including air-gapped networks. Experience spans platform delivery, observability and security checks in CI/CD.",
+        [0, 1, 2, 3, 4, 5, 6]),
+}

@@ -1,0 +1,9 @@
+[Unit]
+Description=Deploy kalik8s.com from origin/main (GitOps pull)
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/public-site-deploy
+Nice=10

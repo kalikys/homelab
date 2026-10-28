@@ -1,29 +1,24 @@
 # Public site (kalik8s.com)
 
-Static CV site served by nginx in the `public` container (LXC 104) at `/opt/public/site`,
+Static CV site served by nginx in the `public` container (LXC 104) from `/opt/public/site`,
 published through a Cloudflare Tunnel.
 
 ## Layout
 
-- `site/` — the static site (HTML, `cv.md`, `llms.txt`, assets). **Source of truth is this repo.**
-- `cvgen/` — the CV generator: `cv_data.py` (facts) + `build_cv.py` → PDF. See `cvgen/README.md`.
-- `deploy.sh` — publishes `site/` + freshly built CV PDFs to the container.
-- `nginx/`, `docker-compose.yml` — container config.
+- `site/` — the static site (HTML, `cv.md`, `llms.txt`, `ads.txt`, assets). **Source of truth is this repo.**
+- `cvgen/` — the CV generator: `cv_data.py` (facts) + `build_cv.py` → downloadable PDFs and the role CVs
+  in `/cv/` (PDF, TXT, DOCX). See `cvgen/README.md`.
+- `autodeploy/` — GitOps pull deploy that runs on LXC 104. See `autodeploy/README.md`.
+- `deploy.sh` — deploy `origin/main` now, without waiting for the timer.
+- `nginx/`, `docker-compose.yml` — container config (not covered by the autodeploy).
 
-## Deploying
+## Changing the site
 
-Everything the site serves is reproducible from this repo. **Never hand-edit files on the
-server** — changes there are invisible to git and get overwritten on the next deploy.
+1. Branch off `origin/main`, change the sources, open a PR. CI checks that the generated files are fresh:
+   after editing `site/cv.md` run `python3 scripts/build-cv-terminal.py`; after blog/i18n changes run
+   `scripts/build-blog.py` / `scripts/build-i18n.py`.
+2. Merge. Within 5 minutes LXC 104 builds the CVs and syncs the site (`./deploy.sh` to do it at once).
 
-1. Make changes on a branch off `origin/main` and open a PR (the site is developed PR-by-PR).
-2. After merge, from a clean checkout of `main`:
-
-   ```sh
-   services/public/deploy.sh
-   ```
-
-   It rebuilds the CV PDFs from `cvgen/` and ships `site/` + the PDFs to LXC 104
-   (additive sync; live-only paths `data/` and `cv/` are left untouched). Needs Chrome
-   for the PDF build and ssh access to `homeserver` (pve, which has `sudo pct`).
-
-Build artifacts (PDFs, `cvgen/out/`) are git-ignored on purpose: they are generated, not committed.
+Never edit files on the server: the next deploy replaces the web root with the commit (`--delete`),
+except `data/`, which the stats service writes live. Build artifacts (PDFs, DOCX, `cvgen/out/`) are
+git-ignored: they are generated, not committed.
