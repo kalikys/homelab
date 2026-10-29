@@ -38,3 +38,9 @@ variable "lab_ssh_public_key" {
   type        = string
   default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB35wNepEsb8AdYVR/g7VwgKj93mQlByi6E9ecBZSabl kalikys@Kalislavs-MacBook-Pro.local"
 }
+
+variable "ci_template_build" {
+  description = "Set to true only for the build boot of the CI job template (VM 9100); false converts it into a template."
+  type        = bool
+  default     = false
+}

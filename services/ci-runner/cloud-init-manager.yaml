@@ -1,0 +1,55 @@
+#cloud-config
+# User-data for VM 290 `ci-runner` (GitLab Runner manager). Proxmox snippet: local:snippets/ci-runner-manager.yaml
+# Installs gitlab-runner and the guest agent. The executor, config and reaper come from services/ci-runner/install.sh.
+
+hostname: ci-runner
+fqdn: ci-runner.home.kalik8s.ru
+timezone: Asia/Tbilisi
+ssh_pwauth: false
+disable_root: true
+
+users:
+  - name: kalikys
+    groups: [sudo]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      # same key as var.lab_ssh_public_key in terraform/variables.tf
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB35wNepEsb8AdYVR/g7VwgKj93mQlByi6E9ecBZSabl kalikys@Kalislavs-MacBook-Pro.local
+
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - gnupg
+  - openssh-client
+  - python3
+  - qemu-guest-agent
+  - unattended-upgrades
+
+write_files:
+  - path: /usr/local/sbin/ci-runner-bootstrap
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      install -d -m 0755 /etc/apt/keyrings
+      # shellcheck disable=SC1091
+      codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+      curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey | gpg --dearmor > /etc/apt/keyrings/gitlab-runner.gpg
+      gpg --show-keys --with-colons /etc/apt/keyrings/gitlab-runner.gpg | awk -F: '$1 == "fpr" {print "gitlab-runner apt key: " $10}'
+      echo "deb [signed-by=/etc/apt/keyrings/gitlab-runner.gpg] https://packages.gitlab.com/runner/gitlab-runner/ubuntu/ $codename main" \
+        > /etc/apt/sources.list.d/gitlab-runner.list
+      apt-get update -q
+      # The custom executor needs no helper images (they are for the docker executor).
+      apt-get install -y -q --no-install-recommends gitlab-runner
+      install -d -m 0700 /etc/ci-runner /etc/ci-runner/ssh /var/lib/ci-runner /var/lib/ci-runner/jobs
+      echo "ci-runner bootstrap done; next: services/ci-runner/install.sh"
+
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]
+  - [/usr/local/sbin/ci-runner-bootstrap]

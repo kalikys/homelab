@@ -1,0 +1,111 @@
+#cloud-config
+# User-data for the ONE build boot of VM 9100 (the CI job template). Proxmox snippet: local:snippets/ci-template.yaml
+# The VM boots on vmbr9 (10.99.0.9, NAT to the internet), installs the job toolchain, cleans itself and powers off;
+# terraform then converts it to a template. Clones never run this file: pvejob.py removes `cicustom` from every clone,
+# so a clone boots with the Proxmox-generated user-data instead (user `ci`, the manager's key, its own IP).
+# Rebuild = destroy 9100 and run the build steps in services/ci-runner/README.md again; never edit the template by hand.
+
+hostname: ci-template
+timezone: Etc/UTC
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - gnupg
+  - jq
+  - python3
+  - shellcheck
+  - qemu-guest-agent   # pvejob.py reads each clone's SSH host key through the agent
+
+write_files:
+  # Every clone's cloud-init makes the default user `ci` (name set by Proxmox `ciuser`) with these properties.
+  # docker group = root on this VM, which is fine: the VM is single-use and has no route to the LAN.
+  - path: /etc/cloud/cloud.cfg.d/90-ci-job.cfg
+    permissions: "0644"
+    content: |
+      system_info:
+        default_user:
+          name: ci
+          groups: [docker]
+          sudo: "ALL=(ALL) NOPASSWD:ALL"
+          shell: /bin/bash
+          lock_passwd: true
+      ssh_pwauth: false
+      disable_root: true
+      ssh_deletekeys: true
+      ssh_genkeytypes: [ed25519]
+
+  - path: /etc/ssh/sshd_config.d/90-ci-job.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      AllowUsers ci
+      HostKey /etc/ssh/ssh_host_ed25519_key
+
+  # Jobs start their own containers (postgres, python, node); keep their logs from filling the disk.
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {"log-driver": "local", "log-opts": {"max-size": "20m"}}
+
+  - path: /usr/local/sbin/ci-template-build
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # Runs once from runcmd. Any failure leaves the VM running (no ok-marker -> no poweroff) for inspection:
+      #   qm guest exec 9100 -- tail -n 50 /var/log/cloud-init-output.log
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      install -d -m 0755 /etc/apt/keyrings
+      # shellcheck disable=SC1091
+      codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+      arch=$(dpkg --print-architecture)
+
+      # Docker CE from Docker's repository; the signing key must match Docker's published fingerprint.
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.asc
+      fpr=$(gpg --show-keys --with-colons /tmp/docker.asc | awk -F: '$1 == "fpr" {print $10; exit}')
+      if [ "$fpr" != "9DC858229FC7DD38854AE2D88D81803C0EBFCD88" ]; then
+        echo "docker apt key fingerprint mismatch: $fpr" >&2
+        exit 1
+      fi
+      install -m 0644 /tmp/docker.asc /etc/apt/keyrings/docker.asc
+      echo "deb [arch=$arch signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $codename stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+      # gitlab-runner binary only (the custom executor calls it inside the job for artifacts and cache); no service.
+      curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey | gpg --dearmor > /etc/apt/keyrings/gitlab-runner.gpg
+      gpg --show-keys --with-colons /etc/apt/keyrings/gitlab-runner.gpg | awk -F: '$1 == "fpr" {print "gitlab-runner apt key: " $10}'
+      echo "deb [signed-by=/etc/apt/keyrings/gitlab-runner.gpg] https://packages.gitlab.com/runner/gitlab-runner/ubuntu/ $codename main" \
+        > /etc/apt/sources.list.d/gitlab-runner.list
+
+      apt-get update -q
+      apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      apt-get install -y -q --no-install-recommends gitlab-runner
+      systemctl disable --now gitlab-runner.service 2>/dev/null || true
+      systemctl mask gitlab-runner.service
+      systemctl enable docker.service containerd.service qemu-guest-agent.service
+
+      # Smoke test: what the hub jobs rely on.
+      docker version --format '{{.Server.Version}}'
+      docker buildx version
+      docker buildx create --name probe --driver docker-container >/dev/null && docker buildx rm probe >/dev/null
+      git --version; python3 --version; shellcheck --version | head -n 2; gitlab-runner --version | head -n 1
+
+      # Leave nothing instance-specific behind: each clone gets new host keys, machine-id and cloud-init state.
+      apt-get clean
+      rm -f /etc/ssh/ssh_host_*
+      cloud-init clean --logs --machine-id
+      touch /var/lib/ci-template.ok
+
+runcmd:
+  - [/usr/local/sbin/ci-template-build]
+
+power_state:
+  mode: poweroff
+  message: ci template built, powering off
+  timeout: 60
+  condition: "test -f /var/lib/ci-template.ok"

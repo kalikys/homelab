@@ -1,0 +1,32 @@
+# GitLab Runner config for VM 290 `ci-runner`. Rendered by install.sh into /etc/gitlab-runner/config.toml (0600);
+# __RUNNER_TOKEN__ is replaced with the glrt- token from /etc/ci-runner/runner-token. The token is never in git.
+# Tags (hub-vm), "run untagged jobs = off", "lock to project" and the 60 min maximum timeout are properties of the
+# runner in GitLab (set when it is created in vardhold/hub > Settings > CI/CD > Runners), not of this file.
+
+concurrent = 1          # one job at a time: one 4 vCPU / 4 GB VM fits next to production
+check_interval = 5
+shutdown_timeout = 300  # let a running job reach cleanup (VM destroy) on service stop
+log_level = "info"
+
+[[runners]]
+  name = "homelab-ci-runner-290"
+  url = "https://gitlab.com"
+  token = "__RUNNER_TOKEN__"
+  executor = "custom"
+  shell = "bash"
+  limit = 1
+  request_concurrency = 1
+  # Paths inside the job VM (home of the job user `ci`). The VM is destroyed after the job, and so is this cache dir:
+  # there is no shared or distributed cache ([runners.cache] is deliberately absent). This is the custom-executor
+  # form of `disable_cache = true`, a key that exists only for the docker executor.
+  builds_dir = "/home/ci/builds"
+  cache_dir = "/home/ci/cache"
+
+  [runners.custom]
+    prepare_exec = "/opt/ci-runner/executor/prepare.sh"
+    prepare_exec_timeout = 420   # prepare.sh gives up (and destroys the VM) after 300 s
+    run_exec = "/opt/ci-runner/executor/run.sh"
+    cleanup_exec = "/opt/ci-runner/executor/cleanup.sh"
+    cleanup_exec_timeout = 300
+    graceful_kill_timeout = 60
+    force_kill_timeout = 30
