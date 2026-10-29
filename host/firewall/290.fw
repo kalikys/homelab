@@ -1,0 +1,23 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+dhcp: 0
+ndp: 0
+radv: 0
+ipfilter: 1
+macfilter: 1
+
+# VM 290 ci-runner: net0 = LAN (192.168.1.42), net1 = CI bridge vmbr9 (10.99.0.2).
+# Job VMs on net1 can never open a connection to the manager; the manager may only ssh out to them on net1.
+[IPSET ipfilter-net0]
+192.168.1.42
+
+[IPSET ipfilter-net1]
+10.99.0.2
+
+[RULES]
+IN ACCEPT -i net0 -source 192.168.1.0/24 -p tcp -dport 22 # SSH from the LAN (Tailscale clients arrive through the subnet router)
+IN ACCEPT -i net0 -p icmp # ping for Gatus / Uptime Kuma
+OUT ACCEPT -i net1 -dest 10.99.0.0/24 -p tcp -dport 22 # ssh to job VMs
+OUT DROP -i net1 # nothing else into the CI bridge

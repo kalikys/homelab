@@ -1,0 +1,13 @@
+# /etc/systemd/system/ci-nat.service on the Proxmox host. See host/ci-nat.sh.
+[Unit]
+Description=NAT + LAN isolation for the CI bridge vmbr9
+After=network-online.target pve-firewall.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ci-nat.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
