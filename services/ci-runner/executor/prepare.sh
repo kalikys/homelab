@@ -2,7 +2,7 @@
 # prepare_exec: clone a fresh VM from template 9100, start it, wait until the job user can run docker over ssh.
 # Gives up after 5 minutes and destroys whatever it created.
 set -euo pipefail
-# shellcheck source=common.sh
+# shellcheck source=SCRIPTDIR/common.sh
 . "$(dirname "$0")/common.sh"
 
 DEADLINE=$((SECONDS + ${CI_PREPARE_TIMEOUT:-300}))

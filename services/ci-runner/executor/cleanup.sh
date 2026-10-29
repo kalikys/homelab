@@ -2,7 +2,7 @@
 # cleanup_exec: runs after every job (success, failure, cancel, timeout). Always destroys the job VM.
 # Idempotent: a VM that is already gone counts as success. If Proxmox refuses, the reaper retries later.
 set -uo pipefail
-# shellcheck source=common.sh
+# shellcheck source=SCRIPTDIR/common.sh
 . "$(dirname "$0")/common.sh"
 
 rc=0
