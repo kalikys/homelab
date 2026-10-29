@@ -52,6 +52,7 @@ flowchart LR
 | `sandbox` | 200 (VM) | Public web terminal (ttyd), see below |
 | `agent` | 220 (VM) | Hermes agent in Telegram: startup farm and content questions, read-only |
 | `content` | 250 (VM) | Content pipeline: scheduled short videos and article drafts |
+| `ci-runner` | 290 (VM) | GitLab Runner for vardhold/hub: every job in a throwaway VM on the isolated bridge `vmbr9`, see [services/ci-runner](services/ci-runner/README.md) |
 
 ## Public sandbox
 
