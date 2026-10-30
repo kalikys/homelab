@@ -3,8 +3,10 @@
 
   pvejob.py clone --job-id ID                  linked clone of template 9100 -> prints "VMID IP"
   pvejob.py wait --vmid V --known-hosts FILE   wait for the guest agent, pin the VM's SSH host key
-  pvejob.py destroy (--vmid V | --job-id ID)   stop + purge; "absent" when already gone
-  pvejob.py reap [--max-age 7200] [--dry-run]  destroy ci-* VMs in pool ci-jobs older than max-age
+  pvejob.py destroy (--vmid V [--expect-job ID] | --job-id ID)   stop + purge; "absent" when already gone
+  pvejob.py reap [--max-age 7200] [--except-job ID] [--dry-run]
+                                               destroy ci-* VMs in pool ci-jobs older than max-age;
+                                               --max-age 0 = every one of them except --except-job (sweep)
 
 Safety rails, independent of the token's Proxmox permissions:
   * only VMIDs 9200-9299 are ever cloned to, stopped or destroyed;
@@ -31,6 +33,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 TEMPLATE_VMID = 9100
 VMID_MIN, VMID_MAX = 9200, 9299
@@ -42,6 +45,7 @@ IP_OFFSET = 100  # 9200 -> 10.99.0.100 ... 9299 -> 10.99.0.199
 NAMESERVERS = "1.1.1.1 9.9.9.9"  # public resolvers: the LAN DNS (AdGuard) is out of reach on purpose
 JOB_USER = "ci"
 HOST_KEY_PATH = "/etc/ssh/ssh_host_ed25519_key.pub"
+BOOT_FINISHED = "/var/lib/cloud/instance/boot-finished"  # written by cloud-init at the very end
 DEFAULT_MAX_AGE = 2 * 3600
 
 TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+![A-Za-z0-9._-]+=[A-Za-z0-9-]{8,}$")
@@ -49,6 +53,7 @@ JOB_ID_RE = re.compile(r"^[0-9]{1,20}$")
 HOST_KEY_RE = re.compile(r"^(ssh-ed25519) ([A-Za-z0-9+/=]{20,})(?: .*)?$")
 CREATED_RE = re.compile(r"\bci-created=([0-9]{9,12})\b")
 CTIME_RE = re.compile(r"\bctime=([0-9]{9,12})\b")
+MARKER_RE = re.compile(r"(?:^|\s)(ci-[a-z]+)=(\S+)")
 
 
 class PVEError(Exception):
@@ -198,6 +203,21 @@ class Jobs:
             raise PVEError(f"refusing VMID {vmid}: outside {VMID_MIN}-{VMID_MAX}")
 
     # clone ---------------------------------------------------------------------------
+    def _markers(self, vmid):
+        cfg = self.client.request("GET", self._qemu(vmid, "/config")) or {}
+        return dict(MARKER_RE.findall(urllib.parse.unquote(str(cfg.get("description") or ""))))
+
+    def _destroy_own(self, vmid, job_id, nonce):
+        """Failure path of clone: destroy only a VM that carries this call's job id AND nonce."""
+        try:
+            marks = self._markers(vmid)
+            if marks.get("ci-job") != job_id or marks.get("ci-nonce") != nonce:
+                log(f"not destroying {vmid}: it was not created by this clone call")
+                return
+            self.destroy(vmid=vmid, expect_job=job_id)
+        except PVEError as e:
+            log(f"cleanup of {vmid} after failed clone also failed: {e}")
+
     def clone(self, job_id):
         job_id = str(job_id)
         if not JOB_ID_RE.match(job_id):
@@ -205,6 +225,7 @@ class Jobs:
         with open(self.cfg.ssh_pubkey_file, encoding="utf-8") as f:
             pubkey = f.read().strip()
         name = f"{NAME_PREFIX}{job_id}"
+        nonce = uuid.uuid4().hex  # proves, on the failure path, that a VM at this VMID is ours
         for vmid in range(VMID_MIN, VMID_MAX + 1):
             try:
                 self.client.request("GET", "/cluster/nextid", {"vmid": vmid})
@@ -213,14 +234,21 @@ class Jobs:
             try:
                 upid = self.client.request("POST", self._qemu(TEMPLATE_VMID, "/clone"), {
                     "newid": vmid, "name": name, "pool": POOL, "full": 0,
-                    "description": f"ci-job={job_id} ci-created={int(self.now())}",
+                    "description": f"ci-job={job_id} ci-nonce={nonce} ci-created={int(self.now())}",
                 })
             except PVEError as e:
-                if "exists" in str(e):
-                    continue  # lost a race for this VMID
+                if "already exists" in str(e):
+                    continue  # lost a race for this VMID (synchronous check)
                 raise
             try:
                 self._wait_task(upid)
+            except PVEError as e:
+                if "already exists" in str(e):
+                    log(f"lost the race for {vmid}, trying the next VMID")
+                    continue  # the clone task failed because someone else took the VMID: not ours
+                self._destroy_own(vmid, job_id, nonce)
+                raise
+            try:
                 ip = ip_for(vmid)
                 self._wait_task(self.client.request("PUT", self._qemu(vmid, "/config"), {
                     "delete": "cicustom",  # the template's build user-data must not run again
@@ -232,10 +260,7 @@ class Jobs:
                 }))
                 self._wait_task(self.client.request("POST", self._qemu(vmid, "/status/start")))
             except PVEError:
-                try:
-                    self.destroy(vmid=vmid)
-                except PVEError as e2:
-                    log(f"cleanup of {vmid} after failed clone also failed: {e2}")
+                self._destroy_own(vmid, job_id, nonce)
                 raise
             log(f"cloned {name} as {vmid} ({ip})")
             return vmid, ip
@@ -251,6 +276,13 @@ class Jobs:
         while self.now() < deadline:
             try:
                 self.client.request("POST", self._qemu(vmid, "/agent/ping"))
+                # cloud-init must be completely done (user, key, host keys) before the key is trusted.
+                try:
+                    self.client.request("GET", self._qemu(vmid, "/agent/file-read"), {"file": BOOT_FINISHED})
+                except PVEError:
+                    last = "cloud-init not finished yet"
+                    self.sleep(3)
+                    continue
                 res = self.client.request("GET", self._qemu(vmid, "/agent/file-read"), {"file": HOST_KEY_PATH})
                 m = HOST_KEY_RE.match(((res or {}).get("content") or "").strip())
                 if m:
@@ -267,7 +299,7 @@ class Jobs:
         raise PVEError(f"timed out after {timeout}s waiting for VM {vmid}: {last}")
 
     # destroy -------------------------------------------------------------------------
-    def destroy(self, vmid=None, job_id=None):
+    def destroy(self, vmid=None, job_id=None, expect_job=None):
         members = self._members()
         if vmid is None:
             name = f"{NAME_PREFIX}{job_id}"
@@ -285,6 +317,8 @@ class Jobs:
             raise PVEError(f"refusing VMID {vmid}: name {member.get('name')!r} does not start with ci-")
         if int(member.get("template") or 0):
             raise PVEError(f"refusing VMID {vmid}: it is a template")
+        if expect_job is not None and self._markers(vmid).get("ci-job") != str(expect_job):
+            raise PVEError(f"refusing VMID {vmid}: it does not belong to job {expect_job}")
         status = (self.client.request("GET", self._qemu(vmid, "/status/current")) or {}).get("status")
         if status != "stopped":
             self._wait_task(self.client.request("POST", self._qemu(vmid, "/status/stop"), {"timeout": 30}))
@@ -303,7 +337,10 @@ class Jobs:
                 return int(m.group(1))
         return None
 
-    def reap(self, max_age=DEFAULT_MAX_AGE, dry_run=False):
+    def reap(self, max_age=DEFAULT_MAX_AGE, dry_run=False, except_job=None):
+        """max_age=0 is a sweep: every ci-* VM in the pool and range except except_job's, whatever its age
+        (prepare.sh runs it before each clone: with concurrent = 1 any other job VM is a leftover)."""
+        keep = None if except_job is None else f"{NAME_PREFIX}{except_job}"
         now = self.now()
         reaped, errors = [], []
         for m in self._members():
@@ -311,7 +348,15 @@ class Jobs:
             name = str(m.get("name", ""))
             if not (VMID_MIN <= vmid <= VMID_MAX and name.startswith(NAME_PREFIX)) or int(m.get("template") or 0):
                 continue
+            if name == keep:
+                continue
             try:
+                if max_age == 0:
+                    log(f"{'would sweep' if dry_run else 'sweeping'} leftover {vmid} {name}")
+                    if not dry_run:
+                        self.destroy(vmid=vmid)
+                    reaped.append(vmid)
+                    continue
                 created = self._created(vmid)
                 if created is None:
                     log(f"skip {vmid} {name}: creation time unknown")
@@ -353,8 +398,10 @@ def main(argv=None):
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--vmid", type=int)
     g.add_argument("--job-id")
+    p.add_argument("--expect-job", help="with --vmid: refuse unless the VM carries ci-job=<this id>")
     p = sub.add_parser("reap")
-    p.add_argument("--max-age", type=int, default=DEFAULT_MAX_AGE)
+    p.add_argument("--max-age", type=int, default=DEFAULT_MAX_AGE, help="0 = sweep regardless of age")
+    p.add_argument("--except-job", help="never touch ci-<this id>")
     p.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
 
@@ -368,11 +415,18 @@ def main(argv=None):
         elif args.cmd == "wait":
             jobs.wait(args.vmid, args.known_hosts, args.timeout)
         elif args.cmd == "destroy":
-            if args.job_id is not None and not JOB_ID_RE.match(args.job_id):
-                raise PVEError("job id must be numeric")
-            print(jobs.destroy(vmid=args.vmid, job_id=args.job_id))
+            for j in (args.job_id, args.expect_job):
+                if j is not None and not JOB_ID_RE.match(j):
+                    raise PVEError("job id must be numeric")
+            if args.expect_job is not None and args.vmid is None:
+                raise PVEError("--expect-job goes with --vmid")
+            print(jobs.destroy(vmid=args.vmid, job_id=args.job_id, expect_job=args.expect_job))
         elif args.cmd == "reap":
-            reaped = jobs.reap(args.max_age, args.dry_run)
+            if args.except_job is not None and not JOB_ID_RE.match(args.except_job):
+                raise PVEError("job id must be numeric")
+            if args.max_age < 0:
+                raise PVEError("--max-age must be >= 0")
+            reaped = jobs.reap(args.max_age, args.dry_run, args.except_job)
             print(" ".join(map(str, reaped)) or "nothing to reap")
         return 0
     except Exception as e:  # noqa: BLE001

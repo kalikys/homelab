@@ -15,6 +15,11 @@ fail() {
 }
 
 install -d -m 700 "$STATE_ROOT" "$JOB_DIR"
+# concurrent = 1, so any other ci-* VM on vmbr9 is a leftover whose cleanup failed. It shares L2 with the new job
+# VM (it could ARP-spoof 10.99.0.1 or attack the next job), so it goes now, not when the 2 h reaper gets to it.
+# A failed sweep fails this job: better no CI than a job next to a hostile leftover.
+"${PVEJOB[@]}" reap --max-age 0 --except-job "$JOB_ID" >/dev/null \
+  || fail "could not remove leftover job VMs from pool ci-jobs; refusing to start next to them"
 # A retried prepare for the same job must not leave the first VM behind.
 "${PVEJOB[@]}" destroy --job-id "$JOB_ID" >/dev/null || fail "could not clear an old VM for job $JOB_ID"
 

@@ -30,6 +30,9 @@ class FakePVE:
         }
         self.calls = []
         self.fail = {}  # (method, path) -> (status, message)
+        self.task_exit = {}  # upid -> exitstatus (default "OK")
+        self.async_clone_fail = {}  # newid -> exitstatus of the clone task (VM not created by us)
+        self.files = {"/var/lib/cloud/instance/boot-finished": "1800000000.00 - v. 24.4\n"}
 
     # helpers -----------------------------------------------------------------
     def add(self, vmid, name, *, pool=POOL, status="stopped", created=None, description=None, template=0):
@@ -62,7 +65,8 @@ class FakePVE:
             ]
             return [{"poolid": params.get("poolid"), "members": members}]
         if parts[:2] == ["nodes", "pve"] and parts[2] == "tasks":
-            return {"status": "stopped", "exitstatus": "OK"}
+            upid = urllib.parse.unquote(parts[3])
+            return {"status": "stopped", "exitstatus": self.task_exit.get(upid, "OK")}
         if parts[:3] == ["nodes", "pve", "qemu"]:
             vmid = int(parts[3])
             rest = parts[4:]
@@ -72,6 +76,10 @@ class FakePVE:
                 raise pvejob.HTTPFailure(403, "Permission check failed (/vms/%d, VM.Audit)" % vmid)
             if rest == ["clone"] and method == "POST":
                 newid = int(params["newid"])
+                if newid in self.async_clone_fail:
+                    upid = self._task("qmclone")
+                    self.task_exit[upid] = self.async_clone_fail[newid]
+                    return upid
                 if newid in self.vms:
                     raise pvejob.HTTPFailure(500, f"unable to create VM {newid}: config file already exists")
                 self.vms[newid] = dict(name=params["name"], status="stopped", pool=params.get("pool"),
@@ -103,7 +111,11 @@ class FakePVE:
             if rest == ["agent", "ping"]:
                 return None
             if rest == ["agent", "file-read"]:
-                return {"content": f"ssh-ed25519 AAAAC3NzaFAKEHOSTKEY{vmid} root@ci-{vmid}\n"}
+                if params["file"] == "/etc/ssh/ssh_host_ed25519_key.pub":
+                    return {"content": f"ssh-ed25519 AAAAC3NzaFAKEHOSTKEY{vmid} root@ci-{vmid}\n"}
+                if params["file"] in self.files:
+                    return {"content": self.files[params["file"]]}
+                raise pvejob.HTTPFailure(500, "guest-file-open: No such file or directory")
         raise AssertionError(f"unexpected call {method} {path} {params}")
 
 
@@ -349,3 +361,131 @@ def test_ip_for_vmid():
 def test_fake_pool_json_roundtrip(api):
     # guard: the fake returns JSON-serialisable data like the real API
     json.dumps(api("GET", "/pools", {"poolid": POOL}))
+
+
+# fix round 1 -----------------------------------------------------------------------
+
+
+def test_clone_writes_job_and_nonce_markers(api, job):
+    job.clone("42")
+    desc = api.vms[9200]["description"]
+    assert "ci-job=42" in desc and "ci-nonce=" in desc and f"ci-created={NOW}" in desc
+
+
+def test_clone_async_already_exists_is_a_lost_race_not_destroyed(api, job):
+    # Someone else's VM 9200 appears between nextid and the clone task; the task fails with "already exists".
+    api.async_clone_fail[9200] = "unable to create VM 9200: config file already exists"
+    api.add(9200, "ci-41", created=NOW, description="ci-job=41 ci-nonce=theirs ci-created=1")
+    api.calls.clear()
+    real = api.__call__
+
+    def nextid_says_free(method, path, params):
+        if path == "/cluster/nextid" and int(params["vmid"]) == 9200:
+            return 9200
+        return real(method, path, params)
+
+    job.client.transport = nextid_says_free
+    vmid, _ = job.clone("42")
+    assert vmid == 9201
+    assert 9200 in api.vms and api.vms[9200]["name"] == "ci-41"
+    assert not any(m == "DELETE" and p.endswith("/9200") for m, p, _ in api.calls)
+
+
+def test_clone_failure_path_spares_vm_without_our_nonce(api, job):
+    api.fail[("POST", "/nodes/pve/qemu/9200/status/start")] = (500, "start failed")
+    real = api.__call__
+
+    def swap_owner(method, path, params):
+        if path == "/nodes/pve/qemu/9200/status/start":
+            api.vms[9200]["description"] = "ci-job=42 ci-nonce=someone-else ci-created=1"
+        return real(method, path, params)
+
+    job.client.transport = swap_owner
+    with pytest.raises(pvejob.PVEError):
+        job.clone("42")
+    assert 9200 in api.vms
+
+
+def test_destroy_expect_job(api, job):
+    api.add(9230, "ci-5", description="ci-job=5 ci-nonce=x ci-created=1")
+    with pytest.raises(pvejob.PVEError, match="does not belong to job 6"):
+        job.destroy(vmid=9230, expect_job="6")
+    assert 9230 in api.vms
+    assert job.destroy(vmid=9230, expect_job="5") == "destroyed"
+    assert job.destroy(vmid=9230, expect_job="5") == "absent"
+
+
+def test_destroy_expect_job_no_prefix_confusion(api, job):
+    api.add(9231, "ci-55", description="ci-job=55 ci-created=1")
+    with pytest.raises(pvejob.PVEError):
+        job.destroy(vmid=9231, expect_job="5")
+
+
+def test_wait_requires_cloud_init_boot_finished(api, job, tmp_path):
+    api.add(9203, "ci-42", status="running", created=NOW)
+    del api.files["/var/lib/cloud/instance/boot-finished"]
+    clock = iter(range(NOW, NOW + 10_000, 10))
+    job.now = lambda: next(clock)
+    kh = tmp_path / "known_hosts"
+    with pytest.raises(pvejob.PVEError, match="cloud-init not finished"):
+        job.wait(9203, str(kh), timeout=60)
+    assert not kh.exists()
+    host_key_reads = [c for c in api.calls if c[1].endswith("/agent/file-read")
+                      and c[2]["file"] == "/etc/ssh/ssh_host_ed25519_key.pub"]
+    assert host_key_reads == []
+
+
+def test_wait_pins_once_boot_finished_appears(api, job, tmp_path):
+    api.add(9203, "ci-42", status="running", created=NOW)
+    del api.files["/var/lib/cloud/instance/boot-finished"]
+    sleeps = []
+
+    def sleep(_):
+        sleeps.append(1)
+        if len(sleeps) == 2:
+            api.files["/var/lib/cloud/instance/boot-finished"] = "done\n"
+
+    job.sleep = sleep
+    kh = tmp_path / "known_hosts"
+    job.wait(9203, str(kh), timeout=300)
+    assert kh.read_text().startswith("10.99.0.103 ssh-ed25519 ")
+
+
+def test_sweep_removes_every_other_ci_vm_whatever_its_age(api, job):
+    api.add(9200, "ci-1", status="running", created=NOW)        # brand new leftover -> swept
+    api.add(9201, "ci-2", description="")                       # unknown age -> swept in a sweep
+    api.add(9202, "ci-42", status="running", created=NOW)       # the current job -> kept
+    api.add(9203, "build-box", created=NOW - 9999)              # not ci-* -> kept
+    api.add(9150, "ci-low", created=NOW - 9999)                 # below range -> kept
+    api.add(9300, "ci-high", created=NOW - 9999)                # above range -> kept
+    api.add(9204, "ci-elsewhere", pool=None, created=NOW - 9999)  # outside pool -> kept
+    api.add(9205, "ci-tmpl", created=NOW - 9999, template=1)    # template -> kept
+
+    swept = job.reap(max_age=0, except_job="42")
+
+    assert sorted(swept) == [9200, 9201]
+    for v in (9202, 9203, 9150, 9300, 9204, 9205, 9100, 220):
+        assert v in api.vms, v
+
+
+def test_sweep_without_except_job_and_dry_run(api, job):
+    api.add(9200, "ci-1", created=NOW)
+    assert job.reap(max_age=0, dry_run=True) == [9200]
+    assert 9200 in api.vms
+
+
+def test_cli_sweep_and_expect_job(api, tmp_path, monkeypatch, capsys):
+    token_file = tmp_path / "pve-token"
+    token_file.write_text(TOKEN + "\n")
+    os.chmod(token_file, 0o600)
+    monkeypatch.setattr(pvejob, "default_transport", lambda cfg: api)
+    monkeypatch.setenv("PVE_TOKEN_FILE", str(token_file))
+    api.add(9200, "ci-1", created=NOW)
+    api.add(9201, "ci-42", description="ci-job=42 ci-created=1")
+    assert pvejob.main(["reap", "--max-age", "0", "--except-job", "42"]) == 0
+    assert capsys.readouterr().out.strip() == "9200"
+    assert pvejob.main(["destroy", "--vmid", "9201", "--expect-job", "41"]) == 1
+    assert 9201 in api.vms
+    assert pvejob.main(["destroy", "--vmid", "9201", "--expect-job", "42"]) == 0
+    assert pvejob.main(["reap", "--max-age", "-1"]) == 1
+    assert pvejob.main(["reap", "--max-age", "0", "--except-job", "4;2"]) == 1

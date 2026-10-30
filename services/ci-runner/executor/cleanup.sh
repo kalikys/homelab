@@ -8,7 +8,7 @@ set -uo pipefail
 rc=0
 "${PVEJOB[@]}" destroy --job-id "$JOB_ID" >/dev/null || rc=$?
 if [ -r "$JOB_DIR/vm" ] && load_vm 2>/dev/null; then
-  "${PVEJOB[@]}" destroy --vmid "$VM_ID" >/dev/null || rc=$?
+  "${PVEJOB[@]}" destroy --vmid "$VM_ID" --expect-job "$JOB_ID" >/dev/null || rc=$?
 fi
 rm -rf "$JOB_DIR"
 if [ "$rc" -ne 0 ]; then
