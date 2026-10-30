@@ -1,0 +1,19 @@
+# Installed as /etc/systemd/system/ci-reaper.service by install.sh.
+# Destroys CI job VMs that cleanup missed: name ci-*, member of pool ci-jobs, VMID 9200-9299, older than 2 h
+# (job timeout is 60 min, so a live job is never touched).
+[Unit]
+Description=Reap orphaned CI job VMs on Proxmox
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/ci-runner/executor/pvejob.py reap --max-age 7200
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
