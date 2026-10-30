@@ -95,6 +95,12 @@ these are `CI-*`):
 - `INPUT -i vmbr9 → CI-HOST`: the host accepts nothing new from vmbr9 on any of its addresses (10.99.0.1,
   192.168.1.52, port 8006, ssh); logged as `ci-drop-host`.
 - `POSTROUTING -s 10.99.0.0/24 -o vmbr0 MASQUERADE`; IPv4 forwarding on; rp_filter on vmbr9.
+- **Fail closed.** `CI_EXTRA_DROP` is validated as IPv4 CIDRs before anything is touched; a bad word is named in
+  the error and no rule changes (if no isolation rules exist yet, as at boot, vmbr9 is taken down instead). The IPv6 drops and the host guard (`CI-HOST` + INPUT hook) go in first. Every
+  `CI-*` chain is reduced to a lone `DROP` before it is hooked, then filled above that DROP, so an aborted run
+  leaves chains that end in DROP. IPv4 forwarding is enabled last. Any error after validation takes **vmbr9 down**
+  and exits non-zero, which marks `ci-nat.service` failed. `ci-nat.sh --check` verifies hooks, the final DROPs,
+  every private and extra DROP target, MASQUERADE, the IPv6 drops and ip_forward.
 - No IPv6 on vmbr9: disabled on the bridge and dropped in ip6tables, because the host's link-local address would
   otherwise expose pveproxy and ssh.
 - The manager is the only other member of vmbr9. Its ssh sessions to job VMs never touch the host's routing
@@ -255,6 +261,11 @@ ssh ci-runner 'sudo systemctl list-timers ci-reaper.timer; sudo journalctl -u ci
 ssh ci-runner 'sudo python3 /opt/ci-runner/executor/pvejob.py reap --dry-run'
 ssh homeserver 'sudo /usr/local/sbin/ci-nat.sh --check; sudo journalctl -k | grep ci-drop | tail'
 ```
+
+**After every host reboot** (or a change to `/etc/default/ci-nat`), check that isolation came up:
+`ssh homeserver 'systemctl is-failed ci-nat; sudo /usr/local/sbin/ci-nat.sh --check'`. If `ci-nat` failed, vmbr9
+is down on purpose and every CI job fails in prepare, so CI is closed rather than open. Fix the cause shown by
+`journalctl -u ci-nat`, then `ip link set dev vmbr9 up && systemctl restart ci-nat`, and check again.
 
 Rebuild the template (new packages, new base image): `terraform state rm proxmox_virtual_environment_vm.ci_template`,
 `ssh homeserver 'sudo qm destroy 9100'` (Terraform never destroys it: `prevent_destroy`), copy the snippet again if it

@@ -6,7 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Optional: CI_EXTRA_DROP="<public IP>/32 ..." (see host/ci-nat.sh)
+# Optional: CI_EXTRA_DROP="<public IP>/32 ..." (IPv4 CIDRs, validated; see host/ci-nat.sh)
+# On failure vmbr9 is taken down and this unit is failed: check `systemctl is-failed ci-nat` after boot.
 EnvironmentFile=-/etc/default/ci-nat
 ExecStart=/usr/local/sbin/ci-nat.sh
 RemainAfterExit=yes
