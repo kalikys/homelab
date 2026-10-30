@@ -2,6 +2,8 @@
 [Unit]
 Description=NAT + LAN isolation for the CI bridge vmbr9
 After=network-online.target pve-firewall.service
+# Rules must be in place before any guest (the manager VM 290, job VMs) starts on vmbr9.
+Before=pve-guests.service
 Wants=network-online.target
 
 [Service]
