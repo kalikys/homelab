@@ -45,13 +45,19 @@ VMIDs 290, 9100 and 9200–9299, IP 192.168.1.42 and MAC `BC:24:11:4B:38:42` are
 ## How a job runs
 
 1. **prepare** (`prepare.sh`, gives up after 5 min and destroys what it made)
+   - `pvejob.py reap --max-age 0 --except-job N` (sweep): destroys every other `ci-*` VM in pool `ci-jobs` within
+     9200–9299, whatever its age. With `concurrent = 1` any such VM is a leftover whose cleanup failed, and it
+     would share vmbr9 with the new job. If the sweep fails, the job fails as a system failure.
    - `pvejob.py destroy --job-id N`: a retried prepare never leaves the first VM behind.
    - `pvejob.py clone`: asks `/cluster/nextid?vmid=X` for X = 9200… until one is free (this sees VMIDs the token
-     cannot otherwise see), linked-clones 9100 into pool `ci-jobs` as `ci-N` with `ci-created=<epoch>` in the
-     description, then sets on the clone: `delete=cicustom` (the template's build user-data must not run again),
+     cannot otherwise see), linked-clones 9100 into pool `ci-jobs` as `ci-N` with
+     `ci-job=N ci-nonce=<uuid4 of this call> ci-created=<epoch>` in the description, then sets on the clone: `delete=cicustom` (the template's build user-data must not run again),
      `ciuser=ci`, `sshkeys=<manager job key>`, `ipconfig0=ip=10.99.0.X/24,gw=10.99.0.1`, public nameservers,
-     `ciupgrade=0`; starts it. Any failure after the clone exists destroys it.
-   - `pvejob.py wait`: reads the clone's `/etc/ssh/ssh_host_ed25519_key.pub` through the QEMU guest agent and writes
+     `ciupgrade=0`; starts it. A clone task that fails with "already exists" is a lost race for that VMID: the
+     VM there is someone else's, it is left alone and the next VMID is tried. Any other failure destroys the VM,
+     but only after re-reading its config and finding both this job's `ci-job` and this call's `ci-nonce`.
+   - `pvejob.py wait`: waits until `/var/lib/cloud/instance/boot-finished` exists (cloud-init fully done, so the
+     host keys are final), then reads the clone's `/etc/ssh/ssh_host_ed25519_key.pub` through the QEMU guest agent and writes
      it as the only entry of the job's `known_hosts`.
    - ssh in (`StrictHostKeyChecking=yes`, ed25519 only, that `known_hosts` only) until
      `cloud-init status --wait; docker info` succeeds.
@@ -59,8 +65,8 @@ VMIDs 290, 9100 and 9200–9299, IP 192.168.1.42 and MAC `BC:24:11:4B:38:42` are
    ssh lost (255 and a follow-up `ssh true` fails) → `$SYSTEM_FAILURE_EXIT_CODE`; anything else →
    `$BUILD_FAILURE_EXIT_CODE`. The checkout (`get_sources`), artifacts and cache stages also run on the VM, which
    is why the template carries git and the `gitlab-runner` binary.
-3. **cleanup** (`cleanup.sh`, always): destroy by job name and by the recorded VMID (stop, then delete with
-   `purge=1`). A VM that is already gone counts as success. If Proxmox refuses, the reaper retries.
+3. **cleanup** (`cleanup.sh`, always): destroy by job name and by the recorded VMID, the latter with
+   `--expect-job N` so it refuses a VM whose description is not `ci-job=N` (stop, then delete with `purge=1`). A VM that is already gone counts as success. If Proxmox refuses, the reaper retries.
 
 State between the stages lives in `/var/lib/ci-runner/jobs/<job id>/` (`vm`, `known_hosts`), root-only.
 
@@ -93,11 +99,23 @@ these are `CI-*`):
   otherwise expose pveproxy and ssh.
 - The manager is the only other member of vmbr9. Its ssh sessions to job VMs never touch the host's routing
   (same bridge), and `host/firewall/290.fw` drops anything a job VM opens towards it on net1, while it may only
-  ssh out on net1. One job runs at a time, so there is no other job VM to attack.
+  ssh out on net1.
+- Job VMs share L2 on vmbr9 without a per-VM firewall, so a job VM could ARP-spoof 10.99.0.1 or attack another job
+  VM if two were ever up at once. `concurrent = 1` alone does not guarantee that: a VM whose cleanup failed stays
+  up until the reaper (2 h). That is why prepare **sweeps every other `ci-*` VM before cloning** and refuses to
+  start the job when it can't, so a new job never shares the bridge with a leftover. The reaper stays as the
+  backstop for when no job comes. Bridge-port isolation (`bridge link set dev tap<vmid>i0 isolated on`) was
+  considered and left out: it would need a Proxmox hookscript on the template, and only `root@pam` may set
+  `hookscript`, which neither Terraform's nor the runner's token is.
+- **WAN side.** Job traffic leaves through the home's double NAT. Isolation from the LAN through that path relies
+  on the Keenetic having **no port forwards to LAN hosts and NAT loopback (hairpin) off**; otherwise a job VM
+  could reach a forwarded LAN service through the home's public IP. To block that IP explicitly as well, put
+  `CI_EXTRA_DROP="<public IP>/32"` (space-separated CIDRs) into `/etc/default/ci-nat` on the host and restart
+  `ci-nat`; those targets get the same LOG+DROP in `CI-OUT`. A dynamic public IP has to be kept up to date by hand.
 
-**Secrets are root-only files on VM 290, not in git.** This repo has no SOPS setup (the Hub repo does), so none is
-introduced here; this deviates from the spec's "SOPS for the runner's age key" and keeps the secrets out of git
-entirely instead. Files (all placed by the owner, `root:root 0600`):
+**Decision (controller ruling R22): the runner's secrets are root-only files on VM 290, not SOPS in git.** This
+repo has no SOPS setup (the Hub repo does) and none is introduced for two tokens that live in exactly one place;
+this replaces the spec's "SOPS for the runner's age key" and keeps the secrets out of git entirely. Files (all placed by the owner, `root:root 0600`):
 
 | File | Content |
 |---|---|
@@ -111,6 +129,16 @@ entirely instead. Files (all placed by the owner, `root:root 0600`):
 skip TLS verification: it talks to `https://192.168.1.52:8006` and checks the certificate against that CA file
 (the default `pve-ssl.pem` is signed by it and lists the node's IP). If the host ever gets a custom certificate,
 point `PVE_URL`/`PVE_CA_FILE` at matching values instead.
+
+**If VM 290 is lost (or a token may have leaked)**, nothing is recovered from it. Both tokens are re-issued:
+1. Proxmox: `ssh homeserver 'sudo pveum user token remove ci@pve runner && sudo pveum user token add ci@pve runner --privsep 0 --comment "ci-runner VM 290"'`
+   (removing the token also revokes the old secret; user, roles and ACLs stay).
+2. GitLab: `vardhold/hub` → Settings → CI/CD → Runners → delete the old runner (this revokes its `glrt-` token),
+   then create a new one with the settings in checklist step 6.
+3. Recreate VM 290 if needed (targeted apply of `proxmox_virtual_environment_vm.ci_runner`), run `install.sh`
+   (it generates a new job ssh key; job VMs receive it per clone, so the template needs no change), place both
+   tokens and the CA file as in step 5, run `install.sh` again.
+4. Sweep anything the old manager left: `python3 /opt/ci-runner/executor/pvejob.py reap --max-age 0`.
 
 **Proxmox permissions.** The template is outside the pool, so the token can clone it and nothing more. Inside pool
 `ci-jobs` it can create, configure, start, stop, read the guest agent of and delete VMs. Proxmox ACLs cannot
@@ -144,6 +172,8 @@ Do these in order. Nothing here was done by the agent that wrote it.
       && sudo install -m 0644 /tmp/ci-nat.service /etc/systemd/system/ci-nat.service \
       && sudo systemctl daemon-reload && sudo systemctl enable --now ci-nat.service && sudo /usr/local/sbin/ci-nat.sh --check'
   ```
+- [ ] Keenetic: confirm there are **no port forwards** to LAN hosts and **NAT loopback is off**. Optionally put the
+  public IP in `/etc/default/ci-nat` as `CI_EXTRA_DROP="<ip>/32"` and `systemctl restart ci-nat` (see Design decisions).
 - [ ] Manager firewall: `scp host/firewall/290.fw homeserver:/tmp/ && ssh homeserver 'sudo cp /tmp/290.fw /etc/pve/firewall/290.fw'`
 - [ ] Snippets: make sure storage `local` allows them (`grep -A3 '^dir: local' /etc/pve/storage.cfg`; if `snippets` is
   missing, `pvesm set local --content <the existing list>,snippets`), then copy the user-data:

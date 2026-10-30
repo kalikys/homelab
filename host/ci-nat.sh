@@ -5,6 +5,10 @@
 #   * the host itself (10.99.0.1, 192.168.1.52, the Proxmox API, ssh) is unreachable from vmbr9;
 #   * no IPv6 on vmbr9 at all (otherwise the host's link-local address would expose pveproxy/ssh).
 # The manager VM 290 talks to job VMs inside the bridge (L2, never routed by the host); host/firewall/290.fw guards it.
+# WAN side: the uplink is double NAT (ISP router, then Keenetic) and this relies on the Keenetic having NO port
+# forwards to LAN hosts and NAT loopback (hairpin) OFF; otherwise a job VM could reach a LAN service through the
+# home's public IP. To also block that IP explicitly, list it (space-separated CIDRs) in CI_EXTRA_DROP, e.g. in
+# /etc/default/ci-nat:  CI_EXTRA_DROP="203.0.113.7/32"   (read by host/systemd/ci-nat.service).
 # Idempotent: own chains are flushed and refilled, hooks are added once. `ci-nat.sh --check` only verifies.
 # Installed as /usr/local/sbin/ci-nat.sh, run at boot by host/systemd/ci-nat.service.
 set -euo pipefail
@@ -13,6 +17,7 @@ BR=${CI_BRIDGE:-vmbr9}
 NET=${CI_NET:-10.99.0.0/24}
 WAN=${CI_WAN:-vmbr0}
 PRIVATE=(10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 169.254.0.0/16 224.0.0.0/4 240.0.0.0/4)
+read -r -a EXTRA <<<"${CI_EXTRA_DROP:-}"
 IPT=(iptables -w)
 IP6T=(ip6tables -w)
 
@@ -46,7 +51,7 @@ hook() {  # insert a rule at the top once
 chain CI-OUT
 "${IPT[@]}" -A CI-OUT -s "$NET" -d "$NET" -j RETURN   # bridged job <-> manager frames (br_netfilter); not routed
 "${IPT[@]}" -A CI-OUT ! -s "$NET" -j DROP              # spoofed source
-for dst in "${PRIVATE[@]}"; do
+for dst in "${PRIVATE[@]}" "${EXTRA[@]}"; do
   "${IPT[@]}" -A CI-OUT -d "$dst" -m limit --limit 6/min -j LOG --log-prefix "ci-drop-lan " --log-level 4
   "${IPT[@]}" -A CI-OUT -d "$dst" -j DROP
 done
@@ -76,4 +81,4 @@ hook INPUT -i "$BR" -j CI-HOST
 "${IP6T[@]}" -C FORWARD -i "$BR" -j DROP 2>/dev/null || "${IP6T[@]}" -I FORWARD 1 -i "$BR" -j DROP
 "${IP6T[@]}" -C FORWARD -o "$BR" -j DROP 2>/dev/null || "${IP6T[@]}" -I FORWARD 1 -o "$BR" -j DROP
 
-echo "ci-nat: $NET on $BR -> internet via $WAN; LAN and host blocked"
+echo "ci-nat: $NET on $BR -> internet via $WAN; LAN and host blocked${EXTRA[*]:+; also dropped: ${EXTRA[*]}}"
