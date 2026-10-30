@@ -166,6 +166,8 @@ never reruns on a job VM; a clone boots in well under a minute (linked ZFS clone
 Do these in order. Nothing here was done by the agent that wrote it.
 
 ### 1. Host: bridge and isolation
+- [ ] Proxmox firewall is on: `ssh homeserver 'sudo pve-firewall status'` must say `Status: enabled/running`
+  (the manager's `290.fw` below does nothing otherwise).
 - [ ] Create the bridge (shows up in the GUI like vmbr1):
   ```sh
   ssh homeserver 'sudo pvesh create /nodes/pve/network --iface vmbr9 --type bridge --cidr 10.99.0.1/24 --autostart 1 \
@@ -265,7 +267,9 @@ ssh homeserver 'sudo /usr/local/sbin/ci-nat.sh --check; sudo journalctl -k | gre
 **After every host reboot** (or a change to `/etc/default/ci-nat`), check that isolation came up:
 `ssh homeserver 'systemctl is-failed ci-nat; sudo /usr/local/sbin/ci-nat.sh --check'`. If `ci-nat` failed, vmbr9
 is down on purpose and every CI job fails in prepare, so CI is closed rather than open. Fix the cause shown by
-`journalctl -u ci-nat`, then `ip link set dev vmbr9 up && systemctl restart ci-nat`, and check again.
+`journalctl -u ci-nat`, then **first** `systemctl restart ci-nat` (rules in place, unit active) and **only then**
+`ip link set dev vmbr9 up` (in this order: a bridge brought up before the rules would be open), and check again.
+`ci-nat.service` runs `Before=pve-guests.service`, so on a normal boot the rules exist before VM 290 starts.
 
 Rebuild the template (new packages, new base image): `terraform state rm proxmox_virtual_environment_vm.ci_template`,
 `ssh homeserver 'sudo qm destroy 9100'` (Terraform never destroys it: `prevent_destroy`), copy the snippet again if it
