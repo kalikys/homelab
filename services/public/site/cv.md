@@ -2,14 +2,14 @@
 
 Updated: 2026-10-20 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
 
-DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU or Cyprus.
+DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU, Cyprus or Kazakhstan.
 
 ## Hiring details
 
 - Status: open to offers now, can start right away.
 - Location: Tbilisi, Georgia (GMT+4).
 - Remote: open to remote work for a company in any country; no visa is needed for remote work.
-- Relocation: open to relocation to the US, the EU (Cyprus included) or another popular destination; needs a work permit such as the EU Blue Card or a US work visa.
+- Relocation: open to relocation to the US, the EU (Cyprus included), Kazakhstan or another popular destination; needs a work permit such as the EU Blue Card or a US work visa.
 - Employment: full-time as an employee, B2B or contract.
 - Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD, Ansible, Terraform, security checks in pipelines), especially in banking, fintech and government projects. Also engineering roles where software meets physical systems: automotive, manufacturing, space.
 - Languages: English (B2), Russian.
