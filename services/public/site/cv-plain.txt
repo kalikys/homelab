@@ -15,7 +15,7 @@ Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB,
 Simulink). Outside that I build autonomous agents, MCP servers and RAG systems
 on Claude, with the same security discipline. I live in Tbilisi, Georgia, and
 I am open to remote work for companies in any country or to relocation to the
-US, the EU or Cyprus.
+US, the EU, Cyprus or Kazakhstan.
 
 == HIRING DETAILS ============================================================
 
@@ -23,9 +23,9 @@ US, the EU or Cyprus.
 · Location: Tbilisi, Georgia (GMT+4).
 · Remote: open to remote work for a company in any country; no visa is needed
   for remote work.
-· Relocation: open to relocation to the US, the EU (Cyprus included) or
-  another popular destination; needs a work permit such as the EU Blue Card or
-  a US work visa.
+· Relocation: open to relocation to the US, the EU (Cyprus included),
+  Kazakhstan or another popular destination; needs a work permit such as the
+  EU Blue Card or a US work visa.
 · Employment: full-time as an employee, B2B or contract.
 · Best fit: DevOps and platform engineering roles (Kubernetes, GitLab CI/CD,
   Ansible, Terraform, security checks in pipelines), especially in banking,

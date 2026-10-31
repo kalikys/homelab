@@ -24,7 +24,7 @@ EN = {
     "stack_label": "Stack",
     "title": "Kalislav Smirnov, CV",
     "role": "DevOps Engineer · Aerospace Engineer",
-    "location": "Tbilisi, Georgia (GMT+4) · remote, any country · relocation: US, EU, Cyprus",
+    "location": "Tbilisi, Georgia (GMT+4) · remote, any country · relocation: US, EU, Cyprus, Kazakhstan",
     "h": {"summary": "Summary", "exp": "Experience", "agents": "AI agents and automation",
           "aero": "Aerospace engineering", "lab": "Homelab", "skills": "Skills", "lang": "Languages"},
     "summary": [
@@ -34,7 +34,7 @@ EN = {
         "from 10 hours to 20 minutes.",
         "Alongside that work I completed an integrated Master's degree in spacecraft engineering at Bauman Moscow State "
         "Technical University (thesis: a suborbital spaceplane for intercontinental flights).",
-        "I am looking for a long-term role, remote with a company in any country or with relocation to the US, the EU or Cyprus: DevOps or platform engineering, "
+        "I am looking for a long-term role, remote with a company in any country or with relocation to the US, the EU, Cyprus or Kazakhstan: DevOps or platform engineering, "
         "or engineering where software meets physical systems (automotive, manufacturing, space).",
     ],
     "jobs": [
@@ -129,7 +129,7 @@ SK = {
     "stack_label": "Technológie",
     "title": "Kalislav Smirnov, životopis",
     "role": "DevOps inžinier · inžinier kozmickej techniky",
-    "location": "Tbilisi, Gruzínsko (GMT+4) · na diaľku, akákoľvek krajina · relokácia: USA, EÚ, Cyprus",
+    "location": "Tbilisi, Gruzínsko (GMT+4) · na diaľku, akákoľvek krajina · relokácia: USA, EÚ, Cyprus, Kazachstan",
     "h": {"summary": "Profil", "exp": "Pracovné skúsenosti", "agents": "AI agenti a automatizácia",
           "aero": "Kozmická technika", "lab": "Homelab", "skills": "Zručnosti", "lang": "Jazyky"},
     "summary": [
@@ -139,7 +139,7 @@ SK = {
         "zariadení z 10 hodín na 20 minút.",
         "Popri práci som dokončil integrovaný inžiniersky titul v odbore kozmická technika na Moskovskej štátnej "
         "technickej univerzite N. E. Baumana (diplomová práca: suborbitálny raketoplán na medzikontinentálne lety).",
-        "Hľadám dlhodobú prácu na diaľku pre firmu z akejkoľvek krajiny alebo s relokáciou do USA, EÚ či na Cyprus: DevOps alebo platform engineering, prípadne "
+        "Hľadám dlhodobú prácu na diaľku pre firmu z akejkoľvek krajiny alebo s relokáciou do USA, EÚ, na Cyprus či do Kazachstanu: DevOps alebo platform engineering, prípadne "
         "inžiniersku pozíciu, kde sa stretáva softvér s fyzickými systémami (automotive, výroba, kozmonautika).",
     ],
     "jobs": [
