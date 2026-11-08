@@ -5,7 +5,7 @@
     "label": "DevOps Engineer and Aerospace Engineer",
     "email": "kalikys@outlook.com",
     "url": "https://kalik8s.com/",
-    "summary": "DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU, Cyprus or Kazakhstan.",
+    "summary": "DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure as code with Terraform and Ansible, deliver with GitOps (ArgoCD), most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU, Cyprus or Kazakhstan.",
     "location": {
       "city": "Tbilisi",
       "countryCode": "GE"
@@ -42,7 +42,8 @@
         "Developed a suite of 15+ reusable Ansible roles to standardize deployments across client environments, reducing setup time for new projects by an estimated 30%.",
         "Designed and managed multi-datacenter Kubernetes platforms (100+ VMs) with disaster recovery protocols for high-availability financial systems.",
         "Prepared and conducted product demonstrations and acceptance testing (Nexus, GitLab, DevSecOps products).",
-        "Maintained internal infrastructure: GitLab, proprietary products, RnD and PROD environments"
+        "Maintained internal infrastructure: GitLab, proprietary products, RnD and PROD environments",
+        "Stack: Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, Python, Bash, Linux, SAST/DAST/SCA scanners"
       ]
     },
     {
@@ -87,9 +88,10 @@
     {
       "name": "Platform",
       "keywords": [
-        "Kubernetes",
+        "Kubernetes (kubeadm)",
         "Helm",
         "Docker",
+        "Docker Compose",
         "Linux",
         "microservices",
         "disaster recovery"
@@ -98,17 +100,29 @@
     {
       "name": "Automation & IaC",
       "keywords": [
-        "Ansible",
         "Terraform",
+        "Ansible",
         "Python",
         "Bash",
         "OOP"
       ]
     },
     {
+      "name": "Cloud",
+      "keywords": [
+        "AWS (basic)",
+        "Yandex Cloud",
+        "Timeweb Cloud",
+        "S3",
+        "VPC"
+      ]
+    },
+    {
       "name": "CI/CD",
       "keywords": [
         "GitLab CI",
+        "GitOps",
+        "ArgoCD",
         "Jenkins",
         "Nexus",
         "Git",
@@ -184,7 +198,7 @@
     {
       "name": "homelab",
       "url": "https://github.com/kalikys/homelab",
-      "description": "This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.com)."
+      "description": "This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.com). Kubernetes clusters in the lab are deployed with kubeadm. In my own projects I brought in a GitOps approach: signed, digest-pinned images rolled out from git. The cloud infrastructure is described in Terraform (servers, VPC, managed PostgreSQL, S3, firewall, DNS), with Prometheus, Grafana, Loki, Tempo and OpenTelemetry for observability."
     }
   ],
   "meta": {

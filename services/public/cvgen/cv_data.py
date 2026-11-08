@@ -9,10 +9,11 @@ CONTACTS = [
 ]
 
 SKILLS_TAGS = {
-    "platform": "Kubernetes, Helm, Docker, Linux, Proxmox, ZFS, disaster recovery",
+    "platform": "Kubernetes (kubeadm), Helm, Docker, Docker Compose, Linux, Proxmox, ZFS, disaster recovery",
     "ai": "Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code, Python",
-    "iac": "Ansible, Terraform, Python, Bash",
-    "cicd": "GitLab CI, GitLab, Jenkins, Nexus, Git",
+    "iac": "Terraform, Ansible, Python, Bash",
+    "cloud": "AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC",
+    "cicd": "GitLab CI, GitOps, ArgoCD, GitLab, Jenkins, Nexus, Git",
     "obs": "Prometheus, Grafana, Alertmanager, ELK, Loki, OpenTelemetry",
     "data": "PostgreSQL, ClickHouse, RabbitMQ, Airflow",
     "sec": "SAST, DAST, SCA, Semgrep, Trivy, GPG",
@@ -26,7 +27,7 @@ EN = {
     "role": "DevOps Engineer · Aerospace Engineer",
     "location": "Tbilisi, Georgia (GMT+4) · remote, any country · relocation: US, EU, Cyprus, Kazakhstan",
     "h": {"summary": "Summary", "exp": "Experience", "agents": "AI agents and automation",
-          "aero": "Aerospace engineering", "lab": "Homelab", "skills": "Skills", "lang": "Languages"},
+          "aero": "Aerospace engineering", "lab": "Homelab and projects", "skills": "Skills", "lang": "Languages"},
     "summary": [
         "Engineer with two backgrounds. For 4.5 years I have built and run on-prem platforms for banks and government "
         "agencies, including fully air-gapped networks: HA GitLab, Nexus and PostgreSQL clusters automated with Ansible, "
@@ -52,7 +53,7 @@ EN = {
                 "Designed and ran multi-datacenter Kubernetes platforms (100+ VMs) with disaster recovery for financial systems.",
                 "Ran product demonstrations and acceptance testing (Nexus, GitLab, DevSecOps products).",
             ],
-            "stack": "Docker, Kubernetes, Helm, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
+            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
         },
         {
             "role": "DevOps Engineer", "company": "Sinara Investment Bank", "type": "",
@@ -89,9 +90,11 @@ EN = {
     ],
     "aero_tools": "Tools: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink",
     "lab": [
-        "Proxmox VE on ZFS managed with Terraform: LXC containers, VMs and a Kubernetes cluster for practice.",
-        "Hosts my own production projects: a macOS app's API server and a 12-microservice Python platform with "
-        "Prometheus, Grafana, Loki, Tempo and OpenTelemetry. My CV site runs on it.",
+        "Proxmox VE on ZFS managed with Terraform: LXC containers, VMs and Kubernetes clusters deployed with kubeadm. "
+        "My CV site runs on it.",
+        "Brought a GitOps approach into my own projects: signed, digest-pinned images rolled out from git. Terraform for "
+        "cloud infrastructure (servers, VPC, managed PostgreSQL, S3, firewall, DNS), GitLab CI, Docker Compose, "
+        "Prometheus, Grafana, Loki, Tempo, OpenTelemetry.",
     ],
     "agents": [
         ("Autonomous “AI employee” in GitLab",
@@ -117,7 +120,7 @@ EN = {
          "snapshot” that parses kubectl/helm output and returns affected CVEs with fix commands."),
     ],
     "skills": {
-        "platform": "Platform", "ai": "AI and agents", "iac": "Automation and IaC", "cicd": "CI/CD",
+        "platform": "Platform", "ai": "AI and agents", "iac": "Automation and IaC", "cloud": "Cloud", "cicd": "CI/CD",
         "obs": "Observability", "data": "Data and messaging", "sec": "Security in pipelines",
         "eng": "Engineering (CAD/CAE)",
     },
@@ -131,7 +134,7 @@ SK = {
     "role": "DevOps inžinier · inžinier kozmickej techniky",
     "location": "Tbilisi, Gruzínsko (GMT+4) · na diaľku, akákoľvek krajina · relokácia: USA, EÚ, Cyprus, Kazachstan",
     "h": {"summary": "Profil", "exp": "Pracovné skúsenosti", "agents": "AI agenti a automatizácia",
-          "aero": "Kozmická technika", "lab": "Homelab", "skills": "Zručnosti", "lang": "Jazyky"},
+          "aero": "Kozmická technika", "lab": "Homelab a projekty", "skills": "Zručnosti", "lang": "Jazyky"},
     "summary": [
         "Inžinier s dvoma odbornosťami. 4,5 roka staviam a prevádzkujem on-prem platformy pre banky a štátne inštitúcie, "
         "vrátane úplne izolovaných sietí: HA klastre GitLab, Nexus a PostgreSQL automatizované cez Ansible, Kubernetes "
@@ -157,7 +160,7 @@ SK = {
                 "Navrhoval a prevádzkoval som platformy Kubernetes vo viacerých dátových centrách (100+ VM) s plánom obnovy po havárii pre finančné systémy.",
                 "Viedol som produktové ukážky a akceptačné testy (Nexus, GitLab, DevSecOps produkty).",
             ],
-            "stack": "Docker, Kubernetes, Helm, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
+            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
         },
         {
             "role": "DevOps inžinier", "company": "Sinara Investment Bank", "type": "",
@@ -194,9 +197,10 @@ SK = {
     ],
     "aero_tools": "Nástroje: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink",
     "lab": [
-        "Proxmox VE na ZFS spravovaný cez Terraform: LXC kontajnery, VM a klaster Kubernetes na tréning.",
-        "Bežia na ňom moje vlastné produkčné projekty: API server pre aplikáciu na macOS a Python platforma "
-        "s 12 mikroslužbami a monitoringom (Prometheus, Grafana, Loki, Tempo, OpenTelemetry).",
+        "Proxmox VE na ZFS spravovaný cez Terraform: LXC kontajnery, VM a klastre Kubernetes nasadené cez kubeadm.",
+        "Do vlastných projektov som zaviedol prístup GitOps: podpísané obrazy pripnuté cez digest sa nasadzujú z gitu. "
+        "Terraform pre cloudovú infraštruktúru (servery, VPC, spravovaný PostgreSQL, S3, firewall, DNS), GitLab CI, "
+        "Docker Compose, Prometheus, Grafana, Loki, Tempo, OpenTelemetry.",
     ],
     "agents": [
         ("Autonómny „AI zamestnanec“ v GitLabe",
@@ -220,7 +224,7 @@ SK = {
          "(parsuje kubectl/helm a vráti dotknuté CVE s príkazmi na opravu)."),
     ],
     "skills": {
-        "platform": "Platforma", "ai": "AI a agenti", "iac": "Automatizácia a IaC", "cicd": "CI/CD",
+        "platform": "Platforma", "ai": "AI a agenti", "iac": "Automatizácia a IaC", "cloud": "Cloud", "cicd": "CI/CD",
         "obs": "Monitoring", "data": "Dáta a správy", "sec": "Bezpečnosť v pipeline",
         "eng": "Inžinierstvo (CAD/CAE)",
     },
