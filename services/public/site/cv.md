@@ -2,7 +2,7 @@
 
 Updated: 2026-10-20 · Website: https://kalik8s.com/ · Russian version: https://kalik8s.com/ru/ · Slovak version: https://kalik8s.com/sk/
 
-DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure automation with Ansible and Terraform, most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU, Cyprus or Kazakhstan.
+DevOps engineer with 4.5 years of experience. I build Kubernetes platforms, GitLab CI/CD pipelines and infrastructure as code with Terraform and Ansible, deliver with GitOps (ArgoCD), most recently for banks and government agencies, including fully air-gapped environments. I also integrate SAST, DAST and SCA scanning into pipelines. By degree I am a spacecraft engineer from Bauman Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG systems on Claude, with the same security discipline. I live in Tbilisi, Georgia, and I am open to remote work for companies in any country or to relocation to the US, the EU, Cyprus or Kazakhstan.
 
 ## Hiring details
 
@@ -71,6 +71,7 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 - Designed and managed multi-datacenter Kubernetes platforms (100+ VMs) with disaster recovery protocols for high-availability financial systems.
 - Prepared and conducted product demonstrations and acceptance testing (Nexus, GitLab, DevSecOps products).
 - Maintained internal infrastructure: GitLab, proprietary products, RnD and PROD environments
+- Stack: Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, Python, Bash, Linux, SAST/DAST/SCA scanners
 
 ### DevOps Engineer, Sinara Investment Bank (Oct 2024 - Feb 2025)
 
@@ -99,9 +100,10 @@ Personal engineering in 2026. I build autonomous agents, MCP servers and RAG sys
 
 ## Skills
 
-- Platform: Kubernetes, Helm, Docker, Linux, microservices, disaster recovery
-- Automation & IaC: Ansible, Terraform, Python, Bash, OOP
-- CI/CD: GitLab CI, Jenkins, Nexus, Git, acceptance testing
+- Platform: Kubernetes (kubeadm), Helm, Docker, Docker Compose, Linux, microservices, disaster recovery
+- Automation & IaC: Terraform, Ansible, Python, Bash, OOP
+- Cloud: AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC
+- CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing
 - Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub, AppSec.Track, GPG, OSA Firewall
 - AI agents & LLM automation: Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code
 - Observability: Prometheus, Grafana, Alertmanager, ELK
@@ -122,4 +124,6 @@ Personal engineering in 2026. I build autonomous agents, MCP servers and RAG sys
 
 ## Home lab
 
-This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.com).
+This site runs on a Proxmox VE mini-PC at home, managed with Terraform (https://github.com/kalikys/homelab). No open ports: the site is published through Cloudflare Tunnel, and the page includes a public sandbox shell in an isolated, throwaway VM (https://shell.kalik8s.com). Kubernetes clusters in the lab are deployed with kubeadm.
+
+In my own projects I brought in a GitOps approach: signed, digest-pinned images rolled out from git. The cloud infrastructure is described in Terraform (servers, VPC, managed PostgreSQL, S3, firewall, DNS), with Prometheus, Grafana, Loki, Tempo and OpenTelemetry for observability.

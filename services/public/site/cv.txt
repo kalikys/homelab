@@ -7,15 +7,15 @@
 [38;5;208m        /\/\    .[0m
 
 DevOps engineer with [38;5;208m4.5[0m years of experience. I build Kubernetes platforms,
-GitLab CI/CD pipelines and infrastructure automation with Ansible and
-Terraform, most recently for banks and government agencies, including fully
-air-gapped environments. I also integrate SAST, DAST and SCA scanning into
-pipelines. By degree I am a spacecraft engineer from Bauman Moscow State
-Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS, MATLAB,
-Simulink). Outside that I build autonomous agents, MCP servers and RAG systems
-on Claude, with the same security discipline. I live in Tbilisi, Georgia, and
-I am open to remote work for companies in any country or to relocation to the
-US, the EU, Cyprus or Kazakhstan.
+GitLab CI/CD pipelines and infrastructure as code with Terraform and Ansible,
+deliver with GitOps (ArgoCD), most recently for banks and government agencies,
+including fully air-gapped environments. I also integrate SAST, DAST and SCA
+scanning into pipelines. By degree I am a spacecraft engineer from Bauman
+Moscow State Technical University (CAD/CAE: SolidWorks, KOMPAS-3D, ANSYS,
+MATLAB, Simulink). Outside that I build autonomous agents, MCP servers and RAG
+systems on Claude, with the same security discipline. I live in Tbilisi,
+Georgia, and I am open to remote work for companies in any country or to
+relocation to the US, the EU, Cyprus or Kazakhstan.
 
 [1m[38;5;208m== HIRING DETAILS ============================================================[0m
 
@@ -111,6 +111,8 @@ Client names are left out on purpose.
      (Nexus, GitLab, DevSecOps products).
    · Maintained internal infrastructure: GitLab, proprietary products, RnD and
      PROD environments
+   · Stack: Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus,
+     Python, Bash, Linux, SAST/DAST/SCA scanners
 
 [1m>> DevOps Engineer, Sinara Investment Bank (Oct 2024 - Feb 2025)[0m
    · Automated the entire infrastructure deployment process for edge devices
@@ -174,9 +176,11 @@ least privilege, sandboxing, human review and guards against data leaks.
 
 [1m[38;5;208m== SKILLS ====================================================================[0m
 
-· Platform: Kubernetes, Helm, Docker, Linux, microservices, disaster recovery
-· Automation & IaC: Ansible, Terraform, Python, Bash, OOP
-· CI/CD: GitLab CI, Jenkins, Nexus, Git, acceptance testing
+· Platform: Kubernetes (kubeadm), Helm, Docker, Docker Compose, Linux,
+  microservices, disaster recovery
+· Automation & IaC: Terraform, Ansible, Python, Bash, OOP
+· Cloud: AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC
+· CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing
 · Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub,
   AppSec.Track, GPG, OSA Firewall
 · AI agents & LLM automation: Claude API, MCP servers, RAG (embeddings +
@@ -212,7 +216,12 @@ least privilege, sandboxing, human review and guards against data leaks.
 This site runs on a Proxmox VE mini-PC at home, managed with Terraform
 ([38;5;245mhttps://github.com/kalikys/homelab).[0m No open ports: the site is published
 through Cloudflare Tunnel, and the page includes a public sandbox shell in an
-isolated, throwaway VM ([38;5;245mhttps://shell.kalik8s.com).[0m
+isolated, throwaway VM ([38;5;245mhttps://shell.kalik8s.com).[0m Kubernetes clusters in the
+lab are deployed with kubeadm.
+In my own projects I brought in a GitOps approach: signed, digest-pinned
+images rolled out from git. The cloud infrastructure is described in Terraform
+(servers, VPC, managed PostgreSQL, S3, firewall, DNS), with Prometheus,
+Grafana, Loki, Tempo and OpenTelemetry for observability.
 
 ------------------------------------------------------------------------------
 Same CV:  [38;5;245mhttps://kalik8s.com[0m   ·   curl [38;5;245mkalik8s.com/cv.json[0m
