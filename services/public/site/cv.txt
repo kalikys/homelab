@@ -141,43 +141,30 @@ Client names are left out on purpose.
 
 [1m[38;5;208m== AI AGENTS AND AUTOMATION ==================================================[0m
 
-Personal engineering in [38;5;208m2026.[0m I build autonomous agents, MCP servers and RAG
-systems on Claude, with the same security discipline as my platform work:
-least privilege, sandboxing, human review and guards against data leaks.
-· Autonomous "AI employee" in GitLab: Claude Code runs as a sandboxed worker
-  (Claude Code's bubblewrap sandbox, shell with no network access) under a
-  dedicated GitLab service account. It picks up labelled issues, proposes a
-  plan, works in the repo and opens merge requests that people review; results
-  of its work reach the team knowledge base only after a team member approves
-  them, and every knowledge-base commit links its source. Per-run time and
-  budget caps, auto-escalation to a human after repeated failures. The agent
-  and the team work through a custom MCP server I built (Python, OAuth) that
-  exposes tasks, threads, decisions and the knowledge base, two-way-synced
-  with GitLab issues. Open source:
+My own projects in [38;5;208m2026.[0m I build agents, MCP servers and RAG on Claude and
+treat them like production systems: least privilege, a sandbox, a person
+reviews the result.
+· Claude Code agent in GitLab. Picks up labelled issues, works in a sandbox
+  with no network access and opens merge requests for the team to review. It
+  reaches tasks and the team wiki through an MCP server I wrote in Python.
+  Every run has a time and budget limit. Open source:
   [38;5;245mhttps://github.com/kalikys/claude-gitlab-agent[0m
-· RAG document-automation service: a remote MCP service (Python, FastAPI,
-  OAuth [38;5;208m2.1[0m over Streamable HTTP) with retrieval over a curated knowledge base
-  — local BGE-M3 embeddings and a reranker served on my own GPU, a
-  PII-anonymization stage and an output guard (n-gram and embedding
-  similarity, canary markers, a judge model) so source material never leaks.
-· LLM risk guard over a trading bot: a Claude news-and-risk gate wraps a
-  Freqtrade bot in paper mode, reading market and news feeds every [38;5;208m30 minutes[0m
-  and throttling or stopping trading, with a weekly self-review. Research
-  only, no real funds.
-· Agent orchestration dashboard: a self-hosted tracker (FastAPI, SQLite,
-  React) where my agents log work, decisions and findings across sessions,
-  wired in through a CLI and a session-end hook so long-running projects keep
-  context between runs.
-· Telegram security bots: CVE alerts from the CISA KEV feed and a Kubernetes
-  "cluster snapshot" that parses kubectl/helm output and returns affected CVEs
-  with fix commands; React Mini Apps.
+· RAG service for documents. An MCP service in Python and FastAPI with OAuth
+  [38;5;208m2.1.[0m Search runs on local embeddings and a reranker on my own GPU; personal
+  data is masked and every answer is checked so source text does not leak.
+· News filter for a trading bot. Every [38;5;208m30 minutes[0m Claude reads market news and
+  can slow down or stop a Freqtrade bot. Paper trading only.
+· Tracker for agents. FastAPI, SQLite and React. My agents log their work and
+  decisions there, so long projects keep context between sessions.
+· Telegram CVE bots. Alerts from the CISA KEV feed, and a bot that reads
+  kubectl and helm output and lists affected CVEs with fix commands.
 · Stack: Claude API, Model Context Protocol (MCP) servers, Claude Code, RAG
   (embeddings + reranker), Python, FastAPI, Docker.
 
 [1m[38;5;208m== SKILLS ====================================================================[0m
 
-· Platform: Kubernetes (kubeadm), Helm, Docker, Docker Compose, Linux,
-  microservices, disaster recovery
+· Platform: Kubernetes, Helm, Docker, Docker Compose, Linux, microservices,
+  disaster recovery
 · Automation & IaC: Terraform, Ansible, Python, Bash, OOP
 · Cloud: AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC
 · CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing

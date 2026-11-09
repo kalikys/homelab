@@ -88,7 +88,7 @@
     {
       "name": "Platform",
       "keywords": [
-        "Kubernetes (kubeadm)",
+        "Kubernetes",
         "Helm",
         "Docker",
         "Docker Compose",
