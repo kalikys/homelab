@@ -34,7 +34,7 @@ h1 { margin: 0; font-size: 21pt; letter-spacing: -0.02em; color: #111827; }
 .meta a { color: #1d4ed8; text-decoration: none; }
 .meta span + span::before { content: "·"; margin: 0 6px; color: #9ca3af; }
 h2 { margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #d1d5db; font-size: 10.5pt;
-     text-transform: uppercase; letter-spacing: 0.06em; color: #111827; }
+     text-transform: uppercase; letter-spacing: 0.06em; color: #111827; break-after: avoid; }
 p { margin: 0 0 5px; }
 .job { margin: 0 0 9px; break-inside: avoid; }
 .job__head { display: flex; justify-content: space-between; gap: 12px; }
