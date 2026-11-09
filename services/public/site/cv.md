@@ -89,13 +89,13 @@ Deploying and maintaining DevSecOps platforms for enterprise clients in banking,
 
 ## AI agents and automation
 
-My own projects in 2026. I build agents, MCP servers and RAG on Claude and treat them like production systems: least privilege, a sandbox, a person reviews the result.
+My own projects in 2026. I build autonomous agents, MCP servers and RAG systems on Claude with the same security habits as in platform work: least privilege, sandboxing, human review and guards against data leaks.
 
-- Claude Code agent in GitLab. Picks up labelled issues, works in a sandbox with no network access and opens merge requests for the team to review. It reaches tasks and the team wiki through an MCP server I wrote in Python. Every run has a time and budget limit. Open source: https://github.com/kalikys/claude-gitlab-agent
-- RAG service for documents. An MCP service in Python and FastAPI with OAuth 2.1. Search runs on local embeddings and a reranker on my own GPU; personal data is masked and every answer is checked so source text does not leak.
-- News filter for a trading bot. Every 30 minutes Claude reads market news and can slow down or stop a Freqtrade bot. Paper trading only.
-- Tracker for agents. FastAPI, SQLite and React. My agents log their work and decisions there, so long projects keep context between sessions.
-- Telegram CVE bots. Alerts from the CISA KEV feed, and a bot that reads kubectl and helm output and lists affected CVEs with fix commands.
+- Claude Code agent in GitLab. Runs as a sandboxed worker (Claude Code's bubblewrap sandbox, no network in the shell) under its own GitLab service account. It takes labelled issues, plans, works in the repo and opens merge requests that people review. Its results reach the team knowledge base only after a team member approves them, and every knowledge-base commit links its source. Tasks, threads, decisions and the knowledge base go through my MCP server (Python, OAuth), synced both ways with GitLab issues. Time and budget caps per run, escalation to a human after repeated failures. Open source: https://github.com/kalikys/claude-gitlab-agent
+- RAG document-automation service. Remote MCP service (Python, FastAPI, OAuth 2.1 over Streamable HTTP). Retrieval runs over a curated knowledge base with local BGE-M3 embeddings and a reranker on my own GPU. A PII-anonymization stage and an output guard (n-gram and embedding similarity, canary markers, a judge model) keep source material from leaking.
+- LLM risk guard for a trading bot. A Claude news-and-risk gate around a Freqtrade bot in paper mode. Every 30 minutes it reads market and news feeds and can throttle or stop trading; it also writes a weekly self-review. No real funds.
+- Agent orchestration dashboard. Self-hosted tracker (FastAPI, SQLite, React). Agents log work, decisions and findings through a CLI and a session-end hook, so long-running projects keep context between sessions.
+- Telegram security bots. React Mini Apps. CVE alerts from the CISA KEV feed, and a Kubernetes cluster snapshot: it parses kubectl and helm output and returns affected CVEs with fix commands.
 - Stack: Claude API, Model Context Protocol (MCP) servers, Claude Code, RAG (embeddings + reranker), Python, FastAPI, Docker.
 
 ## Skills

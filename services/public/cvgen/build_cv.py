@@ -25,7 +25,7 @@ CHROME = (os.environ.get("CHROME") or (MAC_CHROME if os.path.exists(MAC_CHROME) 
           or shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome"))
 
 CSS = """
-@page { size: A4; margin: 14mm 15mm 14mm; }
+@page { size: A4; margin: 12mm 15mm 12mm; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 9.6pt/1.42 Inter, "Helvetica Neue", Arial, sans-serif; color: #1f2937; }
 h1 { margin: 0; font-size: 21pt; letter-spacing: -0.02em; color: #111827; }
@@ -33,10 +33,10 @@ h1 { margin: 0; font-size: 21pt; letter-spacing: -0.02em; color: #111827; }
 .meta { margin: 6px 0 0; color: #4b5563; font-size: 9pt; }
 .meta a { color: #1d4ed8; text-decoration: none; }
 .meta span + span::before { content: "·"; margin: 0 6px; color: #9ca3af; }
-h2 { margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #d1d5db; font-size: 10.5pt;
+h2 { margin: 11px 0 5px; padding-bottom: 3px; border-bottom: 1px solid #d1d5db; font-size: 10.5pt;
      text-transform: uppercase; letter-spacing: 0.06em; color: #111827; break-after: avoid; }
 p { margin: 0 0 5px; }
-.job { margin: 0 0 9px; break-inside: avoid; }
+.job { margin: 0 0 7px; break-inside: avoid; }
 .job__head { display: flex; justify-content: space-between; gap: 12px; }
 .job__role { font-weight: 700; color: #111827; }
 .job__company { color: #0f766e; font-weight: 600; }

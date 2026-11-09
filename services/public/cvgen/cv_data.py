@@ -98,20 +98,24 @@ EN = {
     ],
     "agents": [
         ("Claude Code agent in GitLab",
-         "Picks up labelled issues, works in a sandbox with no network access and opens merge requests for the "
-         "team to review. It reaches tasks and the team wiki through an MCP server I wrote in Python. Every run has "
-         "a time and budget limit. Open source: github.com/kalikys/claude-gitlab-agent."),
-        ("RAG service for documents",
-         "An MCP service in Python and FastAPI with OAuth 2.1. Search runs on local embeddings and a reranker on my "
-         "own GPU; personal data is masked and every answer is checked so source text does not leak."),
-        ("News filter for a trading bot",
-         "Every 30 minutes Claude reads market news and can slow down or stop a Freqtrade bot. Paper trading only."),
-        ("Tracker for agents",
-         "FastAPI, SQLite and React. My agents log their work and decisions there, so long projects keep context "
-         "between sessions."),
-        ("Telegram CVE bots",
-         "Alerts from the CISA KEV feed, and a bot that reads kubectl and helm output and lists affected CVEs "
-         "with fix commands."),
+         "Runs as a sandboxed worker (bubblewrap, no network in the shell) under its own GitLab service account. "
+         "It takes labelled issues, plans, works in the repo and opens merge requests that people review. Tasks, "
+         "threads, decisions and the knowledge base go through my MCP server (Python, OAuth), synced both ways "
+         "with GitLab issues. Time and budget caps per run, escalation to a human after repeated failures. "
+         "Open source: github.com/kalikys/claude-gitlab-agent."),
+        ("RAG document-automation service",
+         "Remote MCP service (Python, FastAPI, OAuth 2.1 over Streamable HTTP). Retrieval uses local BGE-M3 "
+         "embeddings and a reranker on my own GPU. A PII-anonymization stage and an output guard (n-gram and "
+         "embedding similarity, canary markers, a judge model) keep source material from leaking."),
+        ("LLM risk guard for a trading bot",
+         "A Claude news-and-risk gate around a Freqtrade bot in paper mode. Every 30 minutes it reads market and "
+         "news feeds and can throttle or stop trading; it also writes a weekly self-review. No real funds."),
+        ("Agent orchestration dashboard",
+         "Self-hosted tracker (FastAPI, SQLite, React). Agents log work, decisions and findings through a CLI and "
+         "a session-end hook, so long-running projects keep context between sessions."),
+        ("Telegram security bots",
+         "React Mini Apps. CVE alerts from the CISA KEV feed, and a Kubernetes cluster snapshot: it parses "
+         "kubectl and helm output and returns affected CVEs with fix commands."),
     ],
     "skills": {
         "platform": "Platform", "ai": "AI and agents", "iac": "Automation and IaC", "cloud": "Cloud", "cicd": "CI/CD",
@@ -198,20 +202,24 @@ SK = {
     ],
     "agents": [
         ("Agent Claude Code v GitLabe",
-         "Preberá označené úlohy, pracuje v sandboxe bez prístupu k sieti a otvára merge requesty na kontrolu tímom. "
-         "K úlohám a tímovej wiki sa dostane cez MCP server, ktorý som napísal v Pythone. Každý beh má limit času "
-         "a rozpočtu. Open source: github.com/kalikys/claude-gitlab-agent."),
-        ("RAG služba pre dokumenty",
-         "MCP služba v Pythone a FastAPI s OAuth 2.1. Vyhľadávanie beží na lokálnych embeddingoch a rerankeri na "
-         "mojom GPU; osobné údaje sa maskujú a každá odpoveď sa kontroluje, aby neunikol zdrojový text."),
-        ("Filter správ pre obchodného bota",
-         "Claude každých 30 minút číta trhové správy a vie spomaliť alebo zastaviť bota Freqtrade. Len paper trading."),
-        ("Tracker pre agentov",
-         "FastAPI, SQLite a React. Moji agenti doň zapisujú prácu a rozhodnutia, aby dlhé projekty udržali kontext "
-         "medzi sedeniami."),
-        ("Telegram boty pre CVE",
-         "Upozornenia zo zdroja CISA KEV a bot, ktorý prečíta výstup kubectl a helm a vypíše dotknuté CVE "
-         "s príkazmi na opravu."),
+         "Beží ako izolovaný worker (bubblewrap, shell bez siete) pod vlastným servisným účtom GitLabu. Preberá "
+         "označené úlohy, pracuje v repozitári a otvára merge requesty na kontrolu ľuďmi. Úlohy, "
+         "vlákna, rozhodnutia a báza znalostí idú cez môj MCP server (Python, OAuth), obojsmerne synchronizovaný "
+         "s GitLab issues. Limity času a rozpočtu, po opakovaných zlyhaniach volá človeka. "
+         "Open source: github.com/kalikys/claude-gitlab-agent."),
+        ("Služba na tvorbu dokumentov s RAG",
+         "Remote MCP služba (Python, FastAPI, OAuth 2.1 cez Streamable HTTP). Vyhľadávanie používa lokálne "
+         "embeddingy BGE-M3 a reranker na mojom GPU. Anonymizácia osobných údajov a strážca výstupu (podobnosť "
+         "n-gramov a embeddingov, canary značky, model-sudca) chránia zdrojové materiály pred únikom."),
+        ("LLM strážca rizika pre obchodného bota",
+         "Filter správ a rizika na báze Claude okolo bota Freqtrade v paper režime. Každých 30 minút číta trhové "
+         "a spravodajské zdroje a vie obmedziť či zastaviť obchodovanie."),
+        ("Dashboard na orchestráciu agentov",
+         "Vlastný tracker (FastAPI, SQLite, React). Agenti doň zapisujú prácu, rozhodnutia a zistenia cez CLI "
+         "a session-end hook, aby dlhé projekty udržali kontext medzi sedeniami."),
+        ("Telegram bezpečnostné boty",
+         "React Mini Apps. CVE upozornenia zo zdroja CISA KEV a cluster snapshot pre Kubernetes: parsuje "
+         "výstup kubectl a helm a vráti dotknuté CVE s príkazmi na opravu."),
     ],
     "skills": {
         "platform": "Platforma", "ai": "AI a agenti", "iac": "Automatizácia a IaC", "cloud": "Cloud", "cicd": "CI/CD",
