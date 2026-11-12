@@ -176,7 +176,8 @@ privilege, sandboxing, human review and guards against data leaks.
 · Platform: Kubernetes, Helm, Docker, Docker Compose, Linux, microservices,
   disaster recovery
 · Automation & IaC: Terraform, Ansible, Python, Bash, OOP
-· Cloud: AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC
+· Cloud: AWS, [38;5;208m2[0m years in production on own projects (EC2, VPC, S3, IAM, RDS,
+  Route [38;5;208m53,[0m EKS, ECS; Terraform), Timeweb Cloud, Yandex Cloud
 · CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing
 · Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub,
   AppSec.Track, GPG, OSA Firewall

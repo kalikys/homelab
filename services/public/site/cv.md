@@ -102,7 +102,7 @@ My own projects in 2026. I build autonomous agents, MCP servers and RAG systems 
 
 - Platform: Kubernetes, Helm, Docker, Docker Compose, Linux, microservices, disaster recovery
 - Automation & IaC: Terraform, Ansible, Python, Bash, OOP
-- Cloud: AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC
+- Cloud: AWS, 2 years in production on own projects (EC2, VPC, S3, IAM, RDS, Route 53, EKS, ECS; Terraform), Timeweb Cloud, Yandex Cloud
 - CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing
 - Security: SAST, DAST, SCA, Semgrep, Trivy, AppScreener, AppSec.Hub, AppSec.Track, GPG, OSA Firewall
 - AI agents & LLM automation: Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code
