@@ -110,11 +110,17 @@
     {
       "name": "Cloud",
       "keywords": [
-        "AWS (basic)",
-        "Yandex Cloud",
-        "Timeweb Cloud",
+        "AWS",
+        "2 years in production on own projects (EC2",
+        "VPC",
         "S3",
-        "VPC"
+        "IAM",
+        "RDS",
+        "Route 53",
+        "EKS",
+        "ECS; Terraform)",
+        "Timeweb Cloud",
+        "Yandex Cloud"
       ]
     },
     {

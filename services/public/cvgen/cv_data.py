@@ -12,7 +12,7 @@ SKILLS_TAGS = {
     "platform": "Kubernetes, Helm, Docker, Docker Compose, Linux, Proxmox, ZFS, disaster recovery",
     "ai": "Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code, Python",
     "iac": "Terraform, Ansible, Python, Bash",
-    "cloud": "AWS (basic), Yandex Cloud, Timeweb Cloud, S3, VPC",
+    "cloud": "AWS, 2 years in production on own projects (EC2, VPC, S3, IAM, RDS, Route 53, EKS, ECS; Terraform), Timeweb Cloud, Yandex Cloud",
     "cicd": "GitLab CI, GitOps, ArgoCD, GitLab, Jenkins, Nexus, Git",
     "obs": "Prometheus, Grafana, Alertmanager, ELK, Loki, OpenTelemetry",
     "data": "PostgreSQL, ClickHouse, RabbitMQ, Airflow",
