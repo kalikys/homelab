@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Building2, Inbox, LayoutList, Plus, Users } from "lucide-react";
+import { Bot, Building2, GitPullRequest, Inbox, LayoutList, Plus, Users } from "lucide-react";
 import { jobs, type Summary } from "./api";
 
 export function useJobsSummary() {
@@ -26,8 +26,10 @@ export function JobsNav({ summary }: { summary: Summary | null }) {
         <NavLink to="/jobs" end className={navItem}><LayoutList size={16} />Отклики
           {open > 0 && <span className="ml-auto text-xs tabular-nums text-muted">{open}</span>}
         </NavLink>
+        <NavLink to="/jobs/autopilot" className={navItem}><Bot size={16} />Автопилот</NavLink>
         <NavLink to="/jobs/contacts" className={navItem}><Users size={16} />Контакты</NavLink>
         <NavLink to="/jobs/platforms" className={navItem}><Building2 size={16} />Платформы</NavLink>
+        <NavLink to="/jobs/outreach" className={navItem}><GitPullRequest size={16} />Fix-PR кампания</NavLink>
       </nav>
       {summary && summary.due.length > 0 && (
         <NavLink to="/jobs" className="rounded-xl bg-amber-bg px-3 py-2.5 text-xs text-amber-fg">
@@ -49,8 +51,8 @@ export function JobsTabs({ summary }: { summary: Summary | null }) {
       <NavLink to="/jobs/new" className={tab}>
         <span className="-mt-0.5 grid size-7 place-items-center rounded-full bg-accent text-white"><Plus size={18} /></span>Новый
       </NavLink>
+      <NavLink to="/jobs/autopilot" className={tab}><Bot size={20} />Автопилот</NavLink>
       <NavLink to="/jobs/contacts" className={tab}><Users size={20} />Контакты</NavLink>
-      <NavLink to="/jobs/platforms" className={tab}><Building2 size={20} />Платформы</NavLink>
     </>
   );
 }

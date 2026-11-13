@@ -16,6 +16,8 @@ import ApplicationPage from "./jobs/Application";
 import NewApplication from "./jobs/NewApplication";
 import Contacts from "./jobs/Contacts";
 import Platforms from "./jobs/Platforms";
+import Outreach, { TargetPage } from "./outreach/Outreach";
+import Autopilot from "./jobs/Autopilot";
 import { JobsNav, JobsTabs, useJobsSummary } from "./jobs/Shell";
 import type { Summary } from "./jobs/api";
 
@@ -137,6 +139,9 @@ export default function App() {
             <Route path="/jobs/a/:id" element={<ApplicationPage />} />
             <Route path="/jobs/contacts" element={<Contacts />} />
             <Route path="/jobs/platforms" element={<Platforms />} />
+            <Route path="/jobs/outreach" element={<Outreach />} />
+            <Route path="/jobs/outreach/:id" element={<TargetPage />} />
+            <Route path="/jobs/autopilot" element={<Autopilot />} />
             <Route path="/p/:slug" element={<ProjectPage />} />
             <Route path="/i/:id" element={<ItemPage />} />
             <Route path="/s/:id" element={<SessionPage />} />

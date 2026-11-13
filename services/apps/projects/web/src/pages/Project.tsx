@@ -5,6 +5,7 @@ import { api, type Card as CardT, type Item } from "../api";
 import { AREAS, ago, day, resume } from "../format";
 import { ItemList, Location } from "../items";
 import { STATUS, TYPE, isOpen, tone, type ItemType } from "../types";
+import { AnswerBox, splitBody } from "../answer";
 import { AreaDot, Badge, Card, CopyButton, Empty, ErrorBox, Progress, Section, Skeleton, Tabs } from "../ui";
 
 export default function Project() {
@@ -25,8 +26,11 @@ export default function Project() {
   const claudeTodos = todos.filter((i) => i.owner !== "user" && isOpen(i.status));
   const closedTodos = todos.filter((i) => !isOpen(i.status));
   const log: Item[] = [...of("decision"), ...of("finding"), ...of("note")].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const questions = of("question");
+  const openQuestions = questions.filter((q) => q.status === "open").length;
   const tabs = [
     { id: "overview", label: "Обзор" },
+    ...(questions.length ? [{ id: "questions", label: "Вопросы", count: openQuestions }] : []),
     { id: "todos", label: "Задачи", count: userTodos.length + claudeTodos.length },
     { id: "artifacts", label: "Артефакты", count: of("artifact").length },
     { id: "log", label: "Решения", count: log.length },
@@ -66,6 +70,13 @@ export default function Project() {
         <div className="grid gap-6 md:grid-cols-2">
           {of("milestone").length > 0 && <Section title="Этапы"><ItemList items={of("milestone")} onChange={load} /></Section>}
           {of("feature").length > 0 && <Section title="Фичи"><ItemList items={of("feature")} /></Section>}
+          {openQuestions > 0 && (
+            <Section title="Вопросы">
+              <button className="text-sm text-accent hover:underline" onClick={() => setParams({ tab: "questions" }, { replace: true })}>
+                Открытых вопросов: {openQuestions} из {questions.length} →
+              </button>
+            </Section>
+          )}
           {of("plan").length > 0 && <Section title="Планы"><ItemList items={of("plan")} /></Section>}
           {claudeTodos.length > 0 && <Section title="Задачи Claude"><ItemList items={claudeTodos.slice(0, 8)} onChange={load} /></Section>}
           {log.length > 0 && <Section title="Последние решения и находки"><ItemList items={log.slice(0, 5)} /></Section>}
@@ -85,6 +96,8 @@ export default function Project() {
           )}
         </div>
       )}
+
+      {tab === "questions" && <Questions items={questions} all={p.items} />}
 
       {tab === "artifacts" && (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -151,6 +164,52 @@ export default function Project() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Questions grouped by their parent (e.g. a meeting plan), each with its answer field inline. */
+function Questions({ items, all }: { items: Item[]; all: Item[] }) {
+  const groups = new Map<number | null, Item[]>();
+  for (const q of items) groups.set(q.parent_id, [...(groups.get(q.parent_id) ?? []), q]);
+  const title = (id: number | null) => all.find((i) => i.id === id);
+  return (
+    <div className="space-y-8">
+      {[...groups].map(([pid, qs]) => {
+        const parent = title(pid);
+        const done = qs.filter((q) => q.status === "answered").length;
+        return (
+          <div key={pid ?? 0} className="space-y-3">
+            {parent && (
+              <div className="space-y-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <Link to={`/i/${parent.id}`} className="text-lg font-semibold hover:text-accent">{parent.title}</Link>
+                  <span className="shrink-0 text-xs text-muted">отвечено {done} из {qs.length}</span>
+                </div>
+                {parent.body && <p className="whitespace-pre-wrap text-sm text-muted">{splitBody(parent.body).context}</p>}
+              </div>
+            )}
+            {qs.map((q) => {
+              const { context } = splitBody(q.body);
+              return (
+                <Card key={q.id} className={`space-y-3 border-l-4 ${q.status === "answered" ? "border-l-ok" : "border-l-accent"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <Link to={`/i/${q.id}`} className="font-medium hover:text-accent">{q.title}</Link>
+                    <Badge tone={tone(q.status)}>{STATUS[q.status]}</Badge>
+                  </div>
+                  {context && (
+                    <details>
+                      <summary className="cursor-pointer text-sm text-muted">Контекст, варианты, рекомендация</summary>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{context}</p>
+                    </details>
+                  )}
+                  <AnswerBox id={q.id} body={q.body} question label="Ответ" />
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }

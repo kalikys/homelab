@@ -20,7 +20,7 @@ from pathlib import Path
 
 DEFAULT_URL = "https://projects.home.kalik8s.ru"
 AREAS = ["youtube", "sites", "infra", "jobs", "crypto", "research", "other"]
-TYPES = ["feature", "milestone", "plan", "todo", "artifact", "decision", "finding", "note"]
+TYPES = ["feature", "milestone", "plan", "todo", "artifact", "decision", "finding", "note", "question"]
 RELATIONS = ["implements", "produced", "depends_on", "relates"]
 STATUSES = ["active", "paused", "done", "dropped"]
 
@@ -305,6 +305,7 @@ def show_text(p: dict) -> str:
         ("Waiting on the user", [i for i in todos if i["owner"] == "user" and is_open(i)]),
         ("Features", of("feature")),
         ("Plans", of("plan")),
+        ("Open questions", [i for i in of("question") if i["status"] == "open"]),
         ("Open todos (claude)", [i for i in todos if i["owner"] == "claude" and is_open(i)]),
         ("Artifacts", of("artifact")),
     ]

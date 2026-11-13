@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, errors, items, jobs, projects, search, sessions
+from . import autopilot, db, errors, items, jobs, outreach, projects, search, sessions
 
 
 def create_app(db_path: str | None = None, static_dir: str | None = None,
@@ -18,6 +18,9 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
     conn = db.connect(app.state.db_path)
     conn.executescript(jobs.SCHEMA)
     jobs.seed(conn)
+    outreach.migrate(conn)
+    conn.executescript(autopilot.SCHEMA)
+    autopilot.migrate(conn)
     conn.commit()
     conn.close()
     # Attachments live next to the database unless JOBS_FILES says otherwise.
@@ -41,6 +44,8 @@ def create_app(db_path: str | None = None, static_dir: str | None = None,
     app.include_router(sessions.router)
     app.include_router(search.router)
     app.include_router(jobs.router)
+    app.include_router(outreach.router)
+    app.include_router(autopilot.router)
 
     static = Path(static_dir or os.environ.get("STATIC_DIR", "/app/static"))
     index = static / "index.html"
