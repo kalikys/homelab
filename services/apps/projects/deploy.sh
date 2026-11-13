@@ -6,7 +6,7 @@ CT=103
 in_ct() { ssh homeserver "sudo pct exec $CT -- bash -lc $(printf %q "$1")"; }
 
 COPYFILE_DISABLE=1 tar --no-xattrs -czf - \
-  --exclude=data --exclude=.secrets --exclude=.venv --exclude=web/node_modules --exclude=web/dist \
+  --exclude=data --exclude=ts-state --exclude=.secrets --exclude=.venv --exclude=web/node_modules --exclude=web/dist \
   --exclude=__pycache__ --exclude=.pytest_cache --exclude=tests --exclude=client \
   . | ssh homeserver "sudo pct exec $CT -- bash -c 'mkdir -p /opt/projects/data && tar -xzf - -C /opt/projects'"
 

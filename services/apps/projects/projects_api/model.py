@@ -12,12 +12,13 @@ TYPES: dict[str, list[str]] = {
     "decision": ["logged"],
     "finding": ["logged"],
     "note": ["logged"],
+    "question": ["open", "answered"],
 }
 LABELS = {"feature": "Фича", "milestone": "Этап", "plan": "План", "todo": "Задача", "artifact": "Артефакт",
-          "decision": "Решение", "finding": "Находка", "note": "Заметка"}
+          "decision": "Решение", "finding": "Находка", "note": "Заметка", "question": "Вопрос"}
 STATUS_LABELS = {"planned": "запланировано", "in_progress": "в работе", "done": "готово", "dropped": "отменено",
                  "open": "открыто", "doing": "в работе", "draft": "черновик", "approved": "утверждено",
-                 "final": "финал", "published": "опубликовано", "logged": "записано"}
+                 "final": "финал", "published": "опубликовано", "logged": "записано", "answered": "отвечено"}
 FINISHED = {"done", "final", "published"}
 
 

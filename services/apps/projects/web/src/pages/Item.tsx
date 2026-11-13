@@ -5,6 +5,7 @@ import { ago, day, resume } from "../format";
 import { ItemList, Location } from "../items";
 import { REL, ROLE, STATUS, STATUSES, TYPE } from "../types";
 import { Card, CopyButton, Empty, Progress, Section } from "../ui";
+import { AnswerBox, splitBody } from "../answer";
 
 const select = "rounded-lg border border-line bg-card px-2 py-1 text-sm";
 
@@ -45,7 +46,10 @@ export default function ItemPage() {
         <Progress value={it.progress} />
       </div>
 
-      {it.body && <Card><p className="whitespace-pre-wrap text-sm">{it.body}</p></Card>}
+      <div className="space-y-3">
+        {splitBody(it.body).context && <Card><p className="whitespace-pre-wrap text-sm">{splitBody(it.body).context}</p></Card>}
+        <AnswerBox key={it.id} id={it.id} body={it.body} question={it.type === "question"} label={it.type === "question" ? "Ответ" : "Ответ / заметки"} />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {it.children.length > 0 && <Section title="Внутри"><ItemList items={it.children} onChange={load} /></Section>}
@@ -86,3 +90,4 @@ export default function ItemPage() {
     </div>
   );
 }
+

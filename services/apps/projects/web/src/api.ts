@@ -40,7 +40,7 @@ export const api = {
   projects: () => call<Project[]>("GET", "/api/projects"),
   project: (slug: string) => call<Card>("GET", `/api/projects/${slug}`),
   item: (id: number) => call<ItemDetail>("GET", `/api/items/${id}`),
-  patchItem: (id: number, body: { status?: string; owner?: string }) => call<Item>("PATCH", `/api/items/${id}`, body),
+  patchItem: (id: number, body: { status?: string; owner?: string; body?: string }) => call<Item>("PATCH", `/api/items/${id}`, body),
   userTodos: () => call<Item[]>("GET", "/api/todos?owner=user"),
   unsorted: () => call<Session[]>("GET", "/api/sessions?unsorted=1"),
   session: (id: string) => call<SessionDetail>("GET", `/api/sessions/${id}`),

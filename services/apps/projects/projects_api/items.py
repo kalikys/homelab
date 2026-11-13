@@ -9,7 +9,7 @@ from .model import LABELS, STATUS_LABELS, check_status, default_status, done_sta
 
 router = APIRouter(prefix="/api", route_class=CommitRoute)
 
-ItemType = Literal["feature", "milestone", "plan", "todo", "artifact", "decision", "finding", "note"]
+ItemType = Literal["feature", "milestone", "plan", "todo", "artifact", "decision", "finding", "note", "question"]
 Owner = Literal["claude", "user"]
 RelKind = Literal["implements", "produced", "depends_on", "relates"]
 

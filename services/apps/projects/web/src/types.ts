@@ -1,6 +1,6 @@
-import { Box, FileText, Flag, Lightbulb, ListChecks, Puzzle, Scale, StickyNote, type LucideIcon } from "lucide-react";
+import { Box, FileText, Flag, Lightbulb, ListChecks, MessageCircleQuestion, Puzzle, Scale, StickyNote, type LucideIcon } from "lucide-react";
 
-export type ItemType = "feature" | "milestone" | "plan" | "todo" | "artifact" | "decision" | "finding" | "note";
+export type ItemType = "feature" | "milestone" | "plan" | "todo" | "artifact" | "decision" | "finding" | "note" | "question";
 
 export const TYPE: Record<ItemType, { label: string; icon: LucideIcon }> = {
   feature: { label: "Фича", icon: Puzzle },
@@ -11,6 +11,7 @@ export const TYPE: Record<ItemType, { label: string; icon: LucideIcon }> = {
   decision: { label: "Решение", icon: Scale },
   finding: { label: "Находка", icon: Lightbulb },
   note: { label: "Заметка", icon: StickyNote },
+  question: { label: "Вопрос", icon: MessageCircleQuestion },
 };
 
 // Must match projects_api/model.py TYPES.
@@ -21,11 +22,12 @@ export const STATUSES: Record<ItemType, string[]> = {
   todo: ["open", "doing", "done", "dropped"],
   artifact: ["draft", "final", "published"],
   decision: ["logged"], finding: ["logged"], note: ["logged"],
+  question: ["open", "answered"],
 };
 
 export const STATUS: Record<string, string> = {
   planned: "запланировано", in_progress: "в работе", done: "готово", dropped: "отменено", open: "открыто",
-  doing: "в работе", draft: "черновик", approved: "утверждено", final: "финал", published: "опубликовано", logged: "записано",
+  doing: "в работе", draft: "черновик", approved: "утверждено", final: "финал", published: "опубликовано", logged: "записано", answered: "отвечено",
 };
 
 export const REL: Record<"out" | "in", Record<string, string>> = {
@@ -35,7 +37,7 @@ export const REL: Record<"out" | "in", Record<string, string>> = {
 
 export const ROLE: Record<string, string> = { created: "создан", updated: "изменён" };
 
-export const isOpen = (s: string) => !["done", "dropped", "final", "published", "logged"].includes(s);
+export const isOpen = (s: string) => !["done", "dropped", "final", "published", "logged", "answered"].includes(s);
 
 export const tone = (s: string): "ok" | "accent" | "muted" =>
-  ["done", "final", "published"].includes(s) ? "ok" : ["in_progress", "doing", "approved"].includes(s) ? "accent" : "muted";
+  ["done", "final", "published", "answered"].includes(s) ? "ok" : ["in_progress", "doing", "approved"].includes(s) ? "accent" : "muted";
