@@ -1,0 +1,6 @@
+[Unit]
+Description=GitOps deploy of the projects dashboard from kalikys/homelab main
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/projects-deploy
