@@ -92,3 +92,19 @@ def test_events_and_stats(client):
 def test_bad_url_is_not_rendered(client):
     client.post("/api/autopilot/sync", json={"vacancies": [vac("9", status="manual", url="javascript:alert(1)")]})
     assert client.get("/api/autopilot/vacancies").json()[0]["url"] == ""
+
+
+def test_daily_series_counts_manual_sends_by_done_day(client):
+    from datetime import timedelta
+    found = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+    client.post("/api/autopilot/sync", json={"vacancies": [
+        vac("old-manual", status="manual", channel="link", date=found, at=f"{found} 10:00"),
+        vac("today-auto"),
+    ]})
+    client.post("/api/autopilot/vacancies/old-manual/done")
+    series = client.get("/api/autopilot/stats?days=7").json()["series"]
+    by_day = {s["date"]: s for s in series}
+    # handed over three days ago, sent by hand today: counted today, not on the day it was found
+    assert by_day[found]["sent"] == 0 and by_day[found]["manual"] == 1
+    assert by_day[TODAY] | {"date": TODAY} == {"date": TODAY, "sent": 2, "auto": 1, "mine": 1,
+                                               "manual": 0, "skipped": 0}
