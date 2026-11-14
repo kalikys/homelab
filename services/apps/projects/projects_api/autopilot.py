@@ -444,10 +444,18 @@ def stats(days: int = 30, conn: sqlite3.Connection = Depends(get_db)):
     by_date: dict[str, list] = {}
     for r in rows:
         by_date.setdefault(r["date"], []).append(r)
+    # Bars count what actually went out that day: the autopilot's own sends (by the day it found and sent them)
+    # plus the handed-over ones Kalik marked as sent, by the day he marked them, whenever they were found.
+    mine: dict[str, int] = {}
+    for r in conn.execute("SELECT substr(manual_done_at,1,10) AS d, count(*) AS n FROM ap_vacancy "
+                          "WHERE manual_done_at IS NOT NULL AND manual_done_at>=? GROUP BY 1", (since,)):
+        mine[r["d"]] = r["n"]
     for i in range(days):
         d = (start + timedelta(days=i)).isoformat()
         c = count(by_date.get(d, []))
-        series.append({"date": d, "sent": c["sent"], "manual": c["manual"], "skipped": c["skipped"]})
+        auto, own = c["sent"], mine.get(d, 0)
+        series.append({"date": d, "sent": auto + own, "auto": auto, "mine": own,
+                       "manual": c["manual"], "skipped": c["skipped"]})
 
     channels: dict[str, int] = {}
     for r in rows:

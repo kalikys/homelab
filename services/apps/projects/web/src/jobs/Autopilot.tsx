@@ -13,7 +13,7 @@ const LOADED = Date.now();
 
 type Counts = { sent: number; manual: number; manual_done: number; failed: number; skipped: number; queued: number; events: Record<string, number> };
 type Stats = {
-  days: number; today: Counts; period: Counts; series: { date: string; sent: number; manual: number; skipped: number }[];
+  days: number; today: Counts; period: Counts; series: { date: string; sent: number; auto: number; mine: number; manual: number; skipped: number }[];
   channels: Record<string, number>; skip_reasons: [string, number][];
   funnel: { sent: number; replied: number; interview: number; offer: number; rejected: number };
   manual_open: number; meta: Record<string, string>;
@@ -102,7 +102,7 @@ function DailyChart({ series }: { series: Stats["series"] }) {
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <span className="text-sm font-medium">Отправлено по дням</span>
         <span className="h-4 text-xs tabular-nums text-muted">
-          {h_ ? `${day(h_.date)}: отправлено ${h_.sent} · вручную ${h_.manual} · отсеяно ${h_.skipped}` : `максимум ${max} в день`}
+          {h_ ? `${day(h_.date)}: отправлено ${h_.sent} (автопилот ${h_.auto}, ты ${h_.mine}) · передано тебе ${h_.manual} · отсеяно ${h_.skipped}` : `максимум ${max} в день`}
         </span>
       </div>
       <div className="relative" style={{ height: h }} onMouseLeave={() => setHover(null)}>
@@ -111,7 +111,7 @@ function DailyChart({ series }: { series: Stats["series"] }) {
         <div className="absolute inset-0 flex items-end gap-[2px]">
           {series.map((s, i) => (
             <div key={s.date} className="flex h-full flex-1 items-end" onMouseEnter={() => setHover(i)}
-              title={`${day(s.date)}: отправлено ${s.sent}`}>
+              title={`${day(s.date)}: отправлено ${s.sent} (автопилот ${s.auto}, ты ${s.mine})`}>
               <motion.div className="w-full rounded-t-[4px]"
                 style={{ background: "var(--accent)", opacity: hover === null || hover === i ? 1 : 0.45 }}
                 initial={{ height: 0 }} animate={{ height: s.sent ? Math.max(3, (s.sent / max) * (h - 4)) : 0 }}
