@@ -193,7 +193,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="preload" as="image" href="/media/launch-169.webp" type="image/webp">
-  <link rel="stylesheet" href="/styles.css?v=202610201800">
+  <link rel="stylesheet" href="/styles.css?v=202611161800">
   <script src="/js-on.js?v=202610201800"></script>
 </head>
 <body>
@@ -297,9 +297,17 @@
       <section class="oss wrap" id="oss" aria-labelledby="oss-title" hidden>
         <div class="oss__head">
           <h2 class="label" id="oss-title"><span class="label__dot label__dot--live" aria-hidden="true"></span><span data-i18n="oss.title">Open source naživo z GitHubu</span></h2>
-          <p class="oss__count" id="oss-count" aria-live="polite"></p>
+                  </div>
+        <div class="oss__cols">
+          <div class="oss__col oss__col--merged">
+            <h3 class="oss__colhead"><span data-i18n="oss.merged">Prijaté do projektov</span> <span class="oss__num" id="oss-merged-n"></span></h3>
+            <ul class="oss__list" id="oss-merged" aria-live="polite"></ul>
+          </div>
+          <div class="oss__col oss__col--review">
+            <h3 class="oss__colhead"><span data-i18n="oss.review">Na review</span> <span class="oss__num" id="oss-review-n"></span></h3>
+            <ul class="oss__list" id="oss-review" aria-live="polite"></ul>
+          </div>
         </div>
-        <ul class="oss__list" id="oss-list" aria-live="polite"></ul>
         <a class="link-arrow" href="https://github.com/pulls?q=author%3Akalikys+type%3Apr+-user%3Akalikys" target="_blank" rel="noopener" data-i18n="oss.all">Všetky moje pull requesty na GitHube</a>
       </section>
 
@@ -732,7 +740,8 @@
 
   <script src="/lab-core.js?v=202610111200" defer></script>
   <script src="/track-core.js?v=202610201800" defer></script>
-  <script src="/app.js?v=202610201800" defer></script>
+  <script src="/oss-core.js?v=202611161800" defer></script>
+  <script src="/app.js?v=202611161800" defer></script>
   <script src="/aero.js?v=202610201800" defer></script>
   <script src="/motion-core.js?v=202610201800" defer></script>
   <script src="/motion.js?v=202610201800" defer></script>

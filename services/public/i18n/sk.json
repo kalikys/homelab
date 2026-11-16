@@ -196,5 +196,7 @@
   "blog.latest": "Najnovšie poznámky",
   "blog.all": "Všetky poznámky →",
   "oss.title": "Open source naživo z GitHubu",
-  "oss.all": "Všetky moje pull requesty na GitHube"
+  "oss.all": "Všetky moje pull requesty na GitHube",
+  "oss.merged": "Prijaté do projektov",
+  "oss.review": "Na review"
 }

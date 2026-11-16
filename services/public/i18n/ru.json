@@ -196,5 +196,7 @@
   "blog.latest": "Свежие заметки",
   "blog.all": "Все заметки →",
   "oss.title": "Open source: вживую с GitHub",
-  "oss.all": "Все мои pull request'ы на GitHub"
+  "oss.all": "Все мои pull request'ы на GitHub",
+  "oss.merged": "Принято в проекты",
+  "oss.review": "На ревью"
 }
