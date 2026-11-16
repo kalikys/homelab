@@ -40,6 +40,13 @@ main() {
     cp "$pub"/cvgen/out/Kalislav-Smirnov-CV*.pdf "$stage/"
     mkdir -p "$stage/cv"
     cp "$pub"/cvgen/out/cv/*.pdf "$pub"/cvgen/out/cv/*.txt "$pub"/cvgen/out/cv/*.docx "$stage/cv/"
+
+    # Version the CV links (?v=<hash of cvgen/>) so Cloudflare and browsers fetch a new file
+    # whenever the CV sources change, and keep serving the cached one otherwise.
+    local cv_ver
+    cv_ver=$(git -C "$repo" rev-parse --short=10 "$sha:services/public/cvgen")
+    find "$stage" -name '*.html' -exec sed -i -E \
+        "s#(href=\"(https://kalik8s\.com)?/(cv/)?Kalislav-Smirnov-[A-Za-z-]+\.(pdf|docx|txt))\"#\1?v=$cv_ver\"#g" {} +
     chmod -R a+rX "$stage"
     rsync -a --delete --exclude=/data/ "$stage/" "$dest/"
 
