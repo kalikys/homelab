@@ -28,7 +28,7 @@
     if (/^https:\/\/t\.me\//.test(h)) return "telegram";
     if (/^https:\/\/(www\.)?linkedin\.com\//.test(h)) return "linkedin";
     if (/^https:\/\/github\.com\//.test(h)) return "github";
-    if (/\.pdf$/.test(h)) return "cv_pdf";
+    if (/\.pdf(?:[?#]|$)/.test(h)) return "cv_pdf";
     return null;
   }
 

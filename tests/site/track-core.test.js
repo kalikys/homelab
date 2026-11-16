@@ -34,6 +34,7 @@ test("eventFor names the contact a link leads to", () => {
   assert.equal(Track.eventFor("https://www.linkedin.com/in/devops-kalislav-smirnov/"), "linkedin");
   assert.equal(Track.eventFor("https://github.com/kalikys"), "github");
   assert.equal(Track.eventFor("/Kalislav-Smirnov-CV.pdf"), "cv_pdf");
+  assert.equal(Track.eventFor("/Kalislav-Smirnov-CV.pdf?v=29bfba5a62"), "cv_pdf");
   assert.equal(Track.eventFor("/lab/"), null);
   assert.equal(Track.eventFor("#experience"), null);
   assert.equal(Track.eventFor(""), null);
