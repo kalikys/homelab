@@ -21,6 +21,8 @@
   "exp.j1.p5": "Navrhoval a spravoval som platformy Kubernetes vo viacerých dátových centrách (100+ VM) s plánom obnovy po havárii pre finančné systémy s vysokou dostupnosťou.",
   "exp.j1.p6": "Pripravoval a viedol som produktové ukážky a akceptačné testy (Nexus, GitLab, DevSecOps produkty).",
   "exp.j1.p7": "Spravoval som internú infraštruktúru: GitLab, vlastné produkty, prostredia RnD a PROD",
+  "exp.j1.p8": "Nasadil som cez Ansible vysoko dostupné klastre GitLab, Nexus a PostgreSQL (Patroni, Keepalived) a staral sa o ich prevádzku.",
+  "exp.j1.p9": "Riešil som problémy v infraštruktúre klientov: Consul pri nasadzovaní produktov, klastre PostgreSQL, sieť cez tcpdump; záťažovo som testoval firewall klienta cez wrk (scenáre v Lua).",
   "exp.j2.period": "okt 2024 - feb 2025",
   "exp.j2.p1": "Automatizoval som celé nasadenie infraštruktúry pre edge zariadenia (mini-PC) pomocou Ansible a vlastných skriptov: z 10 hodín na 20 minút.",
   "exp.j2.p2": "Navrhol a zrealizoval som prvú migráciu hlavnej monolitickej aplikácie na 10 kontajnerizovaných mikroslužieb v Kubernetes.",

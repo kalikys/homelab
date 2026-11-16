@@ -36,7 +36,7 @@
       "@id": "https://kalik8s.com/sk/#page",
       "url": "https://kalik8s.com/sk/",
       "name": "Kalislav Smirnov | DevOps inžinier · Kubernetes, DevSecOps · Na diaľku alebo relokácia",
-      "dateModified": "2026-10-20T12:00:00+04:00",
+      "dateModified": "2026-11-16T12:00:00+04:00",
       "inLanguage": "sk",
       "mainEntity": {
         "@id": "https://kalik8s.com/#person"
@@ -92,7 +92,7 @@
           "@type": "City",
           "name": "Tbilisi"
         },
-        "skills": "Kubernetes, Helm, Docker, GitLab CI/CD, GitOps, ArgoCD, Jenkins, Nexus, Ansible, Terraform, AWS, Python, Bash, Linux, Prometheus, Grafana, ELK, SAST, DAST, SCA, Semgrep, Trivy, PostgreSQL, ClickHouse, RabbitMQ, Airflow"
+        "skills": "Kubernetes, Helm, Docker, GitLab CI/CD, GitOps, ArgoCD, Jenkins, Nexus, Ansible, Terraform, AWS, Python, Go, Bash, Linux, Prometheus, Grafana, ELK, SAST, DAST, SCA, Semgrep, Trivy, PostgreSQL, Patroni, Consul, ClickHouse, Kafka, RabbitMQ, Airflow"
       },
       "knowsLanguage": [
         "en",
@@ -443,8 +443,10 @@
             <li data-i18n="exp.j1.p5">Navrhoval a spravoval som platformy Kubernetes vo viacerých dátových centrách (100+ VM) s plánom obnovy po havárii pre finančné systémy s vysokou dostupnosťou.</li>
             <li data-i18n="exp.j1.p6">Pripravoval a viedol som produktové ukážky a akceptačné testy (Nexus, GitLab, DevSecOps produkty).</li>
             <li data-i18n="exp.j1.p7">Spravoval som internú infraštruktúru: GitLab, vlastné produkty, prostredia RnD a PROD</li>
+            <li data-i18n="exp.j1.p8">Nasadil som cez Ansible vysoko dostupné klastre GitLab, Nexus a PostgreSQL (Patroni, Keepalived) a staral sa o ich prevádzku.</li>
+            <li data-i18n="exp.j1.p9">Riešil som problémy v infraštruktúre klientov: Consul pri nasadzovaní produktov, klastre PostgreSQL, sieť cez tcpdump; záťažovo som testoval firewall klienta cez wrk (scenáre v Lua).</li>
           </ul>
-          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>ArgoCD</span><span>Ansible</span><span>GitLab CI</span><span>Nexus</span><span>Python</span><span>Bash</span><span>Linux</span><span>SAST/DAST/SCA scanners</span></p>
+          <p class="tags"><span>Docker</span><span>Kubernetes</span><span>Helm</span><span>ArgoCD</span><span>Ansible</span><span>GitLab CI</span><span>Nexus</span><span>PostgreSQL</span><span>Patroni</span><span>Consul</span><span>Python</span><span>Bash</span><span>Linux</span><span>SAST/DAST/SCA scanners</span></p>
         </li>
         <li class="job reveal">
           <div class="job__head">
@@ -479,13 +481,13 @@
       <section class="block" id="skills" aria-labelledby="skills-title">
         <h3 class="block__title reveal" id="skills-title" data-i18n="skills.title">Zručnosti</h3>
         <div class="stack">
-          <div class="stack__group reveal"><h4 data-i18n="skills.platform">Platforma</h4><p class="tags"><span>kubernetes</span><span>kubeadm</span><span>helm</span><span>docker</span><span>docker compose</span><span>linux</span><span>microservices</span><span>disaster recovery</span></p></div>
-          <div class="stack__group reveal"><h4 data-i18n="skills.iac">Automatizácia a IaC</h4><p class="tags"><span>terraform</span><span>ansible</span><span>python</span><span>bash</span><span>oop</span></p></div>
+          <div class="stack__group reveal"><h4 data-i18n="skills.platform">Platforma</h4><p class="tags"><span>kubernetes</span><span>kubeadm</span><span>helm</span><span>docker</span><span>docker compose</span><span>linux</span><span>proxmox</span><span>kvm</span><span>zfs</span><span>vmware</span><span>patroni</span><span>keepalived</span><span>consul</span><span>tcpdump</span><span>microservices</span><span>disaster recovery</span></p></div>
+          <div class="stack__group reveal"><h4 data-i18n="skills.iac">Automatizácia a IaC</h4><p class="tags"><span>terraform</span><span>ansible</span><span>python</span><span>go</span><span>bash</span><span>oop</span></p></div>
           <div class="stack__group reveal"><h4 data-i18n="skills.cloud">Cloud</h4><p class="tags"><span>aws (2 years prod)</span><span>eks</span><span>ec2</span><span>rds</span><span>s3</span><span>iam</span><span>timeweb cloud</span><span>yandex cloud</span></p></div>
           <div class="stack__group reveal"><h4 data-i18n="skills.cicd">CI/CD</h4><p class="tags"><span>gitlab ci</span><span>gitops</span><span>argocd</span><span>jenkins</span><span>nexus</span><span>git</span><span>ci cd</span><span>acceptance testing</span></p></div>
           <div class="stack__group reveal"><h4 data-i18n="skills.security">Bezpečnosť</h4><p class="tags"><span>sast</span><span>dast</span><span>sca</span><span>semgrep</span><span>trivy</span><span>appscreener</span><span>appsec.hub</span><span>appsec.track</span><span>gpg</span><span>osa firewall</span></p></div>
           <div class="stack__group reveal"><h4 data-i18n="skills.observability">Observability</h4><p class="tags"><span>prometheus</span><span>grafana</span><span>alertmanager</span><span>elk</span><span>observability</span></p></div>
-          <div class="stack__group reveal"><h4 data-i18n="skills.data">Dáta a správy</h4><p class="tags"><span>postgresql</span><span>clickhouse</span><span>rabbitmq</span><span>airflow</span></p></div>
+          <div class="stack__group reveal"><h4 data-i18n="skills.data">Dáta a správy</h4><p class="tags"><span>postgresql</span><span>clickhouse</span><span>kafka</span><span>rabbitmq</span><span>airflow</span></p></div>
           <div class="stack__group reveal"><h4 data-i18n="skills.engineering">Inžinierstvo</h4><p class="tags"><span>solidworks</span><span>kompas-3d</span><span>ansys</span><span>matlab</span><span>simulink</span><span>strength analysis</span></p></div>
         </div>
       </section>
@@ -733,7 +735,7 @@
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Aktualizované</span> <time datetime="2026-10-20">2026-10-20</time></span>
+      <span>© 2026 Kalislav Smirnov · <span data-i18n="footer.updated">Aktualizované</span> <time datetime="2026-11-16">2026-11-16</time></span>
       <span class="footer__mono" data-i18n="footer.served">hostované doma, publikované cez Cloudflare Tunnel</span>
     </div>
   </footer>

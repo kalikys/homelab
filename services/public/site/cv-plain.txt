@@ -111,8 +111,13 @@ Client names are left out on purpose.
      (Nexus, GitLab, DevSecOps products).
    · Maintained internal infrastructure: GitLab, proprietary products, RnD and
      PROD environments
+   · Deployed highly available GitLab, Nexus and PostgreSQL clusters (Patroni,
+     Keepalived) with Ansible and kept them running.
+   · Troubleshot client infrastructure: Consul during product rollouts,
+     PostgreSQL clusters, network issues with tcpdump; load-tested a client
+     firewall with wrk (Lua scenarios).
    · Stack: Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus,
-     Python, Bash, Linux, SAST/DAST/SCA scanners
+     PostgreSQL, Patroni, Consul, Python, Bash, Linux, SAST/DAST/SCA scanners
 
 >> DevOps Engineer, Sinara Investment Bank (Oct 2024 - Feb 2025)
    · Automated the entire infrastructure deployment process for edge devices
@@ -173,9 +178,10 @@ privilege, sandboxing, human review and guards against data leaks.
 
 == SKILLS ====================================================================
 
-· Platform: Kubernetes, Helm, Docker, Docker Compose, Linux, microservices,
-  disaster recovery
-· Automation & IaC: Terraform, Ansible, Python, Bash, OOP
+· Platform: Kubernetes, Helm, Docker, Docker Compose, Linux, Proxmox, KVM,
+  ZFS, VMware, Patroni, Keepalived, Consul, tcpdump, microservices, disaster
+  recovery
+· Automation & IaC: Terraform, Ansible, Python, Go, Bash, OOP
 · Cloud: AWS, 2 years in production on own projects (EC2, VPC, S3, IAM, RDS,
   Route 53, EKS, ECS; Terraform), Timeweb Cloud, Yandex Cloud
 · CI/CD: GitLab CI, GitOps, ArgoCD, Jenkins, Nexus, Git, acceptance testing
@@ -184,7 +190,7 @@ privilege, sandboxing, human review and guards against data leaks.
 · AI agents & LLM automation: Claude API, MCP servers, RAG (embeddings +
   reranker), agent orchestration, Claude Code
 · Observability: Prometheus, Grafana, Alertmanager, ELK
-· Data & messaging: PostgreSQL, ClickHouse, RabbitMQ, Airflow
+· Data & messaging: PostgreSQL, ClickHouse, Kafka, RabbitMQ, Airflow
 · Engineering: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink, strength
   analysis
 
@@ -216,8 +222,9 @@ This site runs on a Proxmox VE mini-PC at home, managed with Terraform
 through Cloudflare Tunnel, and the page includes a public sandbox shell in an
 isolated, throwaway VM (https://shell.kalik8s.com). Kubernetes clusters in the
 lab are deployed with kubeadm.
-In my own projects I brought in a GitOps approach: signed, digest-pinned
-images rolled out from git. The cloud infrastructure is described in Terraform
+My own projects run backend services in Go and Python on PostgreSQL and
+RabbitMQ. I brought a GitOps approach into them: signed, digest-pinned images
+rolled out from git. The cloud infrastructure is described in Terraform
 (servers, VPC, managed PostgreSQL, S3, firewall, DNS), with Prometheus,
 Grafana, Loki, Tempo and OpenTelemetry for observability.
 

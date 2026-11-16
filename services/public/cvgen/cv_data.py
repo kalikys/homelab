@@ -9,13 +9,13 @@ CONTACTS = [
 ]
 
 SKILLS_TAGS = {
-    "platform": "Kubernetes, Helm, Docker, Docker Compose, Linux, Proxmox, ZFS, disaster recovery",
+    "platform": "Kubernetes, Helm, Docker, Linux, Proxmox, ZFS, VMware, Patroni, Keepalived, Consul",
     "ai": "Claude API, MCP servers, RAG (embeddings + reranker), agent orchestration, Claude Code, Python",
-    "iac": "Terraform, Ansible, Python, Bash",
+    "iac": "Terraform, Ansible, Python, Go, Bash",
     "cloud": "AWS, 2 years in production on own projects (EC2, VPC, S3, IAM, RDS, Route 53, EKS, ECS; Terraform), Timeweb Cloud, Yandex Cloud",
     "cicd": "GitLab CI, GitOps, ArgoCD, GitLab, Jenkins, Nexus, Git",
     "obs": "Prometheus, Grafana, Alertmanager, ELK, Loki, OpenTelemetry",
-    "data": "PostgreSQL, ClickHouse, RabbitMQ, Airflow",
+    "data": "PostgreSQL, ClickHouse, Kafka, RabbitMQ, Airflow",
     "sec": "SAST, DAST, SCA, Semgrep, Trivy, GPG",
     "eng": "SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink",
 }
@@ -46,14 +46,15 @@ EN = {
                      "government, including fully air-gapped environments.",
             "points": [
                 "Led 5 end-to-end platform implementations for banking and government clients, from architecture design to handover.",
-                "Deployed highly available GitLab clusters, plus Nexus and PostgreSQL clusters, fully automated with Ansible, and kept them running.",
+                "Deployed and ran HA GitLab, Nexus and PostgreSQL clusters (Patroni, Keepalived) with Ansible.",
                 "Built a GPG-signed package delivery service (Python, Kubernetes) for a major bank's air-gapped Nexus repository.",
                 "Integrated SAST, DAST and SCA tools (Semgrep, Trivy) into GitLab CI: security scans on 100% of new commits.",
                 "Wrote 15+ reusable Ansible roles that standardized deployments across clients (about 30% faster setup of new projects).",
                 "Designed and ran multi-datacenter Kubernetes platforms (100+ VMs) with disaster recovery for financial systems.",
                 "Ran product demonstrations and acceptance testing (Nexus, GitLab, DevSecOps products).",
+                "Troubleshot Consul, PostgreSQL clusters and networks at client sites (tcpdump); load-tested a firewall with wrk.",
             ],
-            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
+            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Patroni, Consul, Python, Bash, Linux, SAST/DAST/SCA",
         },
         {
             "role": "DevOps Engineer", "company": "Sinara Investment Bank", "type": "",
@@ -90,11 +91,9 @@ EN = {
     ],
     "aero_tools": "Tools: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink",
     "lab": [
-        "Proxmox VE on ZFS managed with Terraform: LXC containers, VMs and Kubernetes clusters deployed with kubeadm. "
-        "My CV site runs on it.",
-        "Brought a GitOps approach into my own projects: signed, digest-pinned images rolled out from git. Terraform for "
-        "cloud infrastructure (servers, VPC, managed PostgreSQL, S3, firewall, DNS), GitLab CI, Docker Compose, "
-        "Prometheus, Grafana, Loki, Tempo, OpenTelemetry.",
+        "Proxmox VE on ZFS under Terraform: LXC, VMs and kubeadm Kubernetes clusters. My CV site runs on it.",
+        "Own projects: Go and Python services on PostgreSQL and RabbitMQ. GitOps with signed, digest-pinned images, "
+        "Terraform, GitLab CI, Prometheus, Grafana, Loki, OpenTelemetry.",
     ],
     "agents": [
         ("Claude Code agent in GitLab",
@@ -151,14 +150,15 @@ SK = {
                      "a štátneho sektora, vrátane úplne izolovaných prostredí.",
             "points": [
                 "Viedol som 5 kompletných implementácií platforiem pre banky a štátne inštitúcie, od návrhu architektúry po odovzdanie.",
-                "Nasadil som vysoko dostupné klastre GitLab, Nexus a PostgreSQL plne automatizované cez Ansible a staral sa o ich prevádzku.",
+                "Nasadil a prevádzkoval som HA klastre GitLab, Nexus a PostgreSQL (Patroni, Keepalived) automatizované cez Ansible.",
                 "Postavil som službu na dodávku balíčkov podpísaných cez GPG (Python, Kubernetes) do izolovaného repozitára Nexus veľkej banky.",
                 "Integroval som nástroje SAST, DAST a SCA (Semgrep, Trivy) do GitLab CI: kontroluje sa 100 % nových commitov.",
                 "Vytvoril som 15+ opakovane použiteľných Ansible rolí, ktoré zjednotili nasadenia u klientov (príprava nových projektov asi o 30 % rýchlejšia).",
                 "Navrhoval a prevádzkoval som platformy Kubernetes vo viacerých dátových centrách (100+ VM) s plánom obnovy po havárii pre finančné systémy.",
                 "Viedol som produktové ukážky a akceptačné testy (Nexus, GitLab, DevSecOps produkty).",
+                "Riešil som problémy s Consul, klastrami PostgreSQL a sieťou u klientov (tcpdump); záťažovo testoval firewall cez wrk.",
             ],
-            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Python, Bash, Linux, SAST/DAST/SCA",
+            "stack": "Docker, Kubernetes, Helm, ArgoCD, Ansible, GitLab CI, Nexus, PostgreSQL, Patroni, Consul, Python, Bash, Linux, SAST/DAST/SCA",
         },
         {
             "role": "DevOps inžinier", "company": "Sinara Investment Bank", "type": "",
@@ -196,9 +196,8 @@ SK = {
     "aero_tools": "Nástroje: SolidWorks, KOMPAS-3D, ANSYS, MATLAB, Simulink",
     "lab": [
         "Proxmox VE na ZFS spravovaný cez Terraform: LXC kontajnery, VM a klastre Kubernetes nasadené cez kubeadm.",
-        "Do vlastných projektov som zaviedol prístup GitOps: podpísané obrazy pripnuté cez digest sa nasadzujú z gitu. "
-        "Terraform pre cloudovú infraštruktúru (servery, VPC, spravovaný PostgreSQL, S3, firewall, DNS), GitLab CI, "
-        "Docker Compose, Prometheus, Grafana, Loki, Tempo, OpenTelemetry.",
+        "Vlastné projekty: služby v Go a Pythone nad PostgreSQL a RabbitMQ. GitOps s podpísanými obrazmi pripnutými cez digest, "
+        "Terraform, GitLab CI, Prometheus, Grafana, Loki, OpenTelemetry.",
     ],
     "agents": [
         ("Agent Claude Code v GitLabe",
@@ -280,7 +279,7 @@ ENG = {
 # Role variants served from /cv/ (2026-10-29). Same facts as EN; only the headline, the first summary
 # paragraph and the order of the Swordfish bullets change. Indexes into EN["jobs"][0]["points"]:
 # 0 platform implementations, 1 HA GitLab/Nexus/PostgreSQL, 2 GPG delivery, 3 SAST/DAST/SCA,
-# 4 Ansible roles, 5 multi-datacenter Kubernetes, 6 demos and acceptance testing.
+# 4 Ansible roles, 5 multi-datacenter Kubernetes, 6 demos and acceptance testing, 7 troubleshooting at clients.
 AGENTS_LINE = ("I also build and run AI agents on Claude: a sandboxed Claude Code worker in GitLab, my own MCP "
                "servers and a RAG service (details below).")
 
@@ -297,23 +296,23 @@ ROLE_CVS = {
         "DevOps engineer focused on Kubernetes, GitLab CI/CD, Linux and infrastructure automation with Ansible and "
         "Terraform. Cut the release cycle for 20+ microservices from two weeks to three days and automated edge-device "
         "setup from ten hours to 20 minutes. Professional experience since April 2022.",
-        [0, 4, 1, 5, 2, 3, 6]),
+        [0, 4, 1, 7, 5, 2, 3, 6]),
     "Kalislav-Smirnov-DevSecOps": _role(
         "DevSecOps Engineer",
         "DevSecOps engineer with five end-to-end platform implementations for banking and government clients. Built "
         "GPG-signed package delivery for an air-gapped Nexus repository and integrated SAST, DAST and SCA checks into "
         "GitLab CI. Combines security automation with Kubernetes operations and repeatable Ansible deployments.",
-        [3, 2, 0, 4, 1, 5, 6]),
+        [3, 2, 0, 4, 1, 5, 7, 6]),
     "Kalislav-Smirnov-Platform-SRE": _role(
         "DevOps Engineer · Platform and SRE",
         "DevOps engineer with experience in platform engineering and site reliability: multi-datacenter Kubernetes "
         "platforms with 100+ VMs, disaster recovery, Helm-based deployments and observability with Prometheus, Grafana "
         "and ELK. Professional experience since April 2022, including financial and air-gapped environments.",
-        [5, 1, 0, 4, 2, 3, 6]),
+        [5, 1, 7, 0, 4, 2, 3, 6]),
     "Kalislav-Smirnov-Master": _role(
         "DevOps and DevSecOps Engineer",
         "DevOps and DevSecOps engineer with professional experience since April 2022. Built Kubernetes platforms, "
         "GitLab CI/CD pipelines and infrastructure automation for banking, fintech and government environments, "
         "including air-gapped networks. Experience spans platform delivery, observability and security checks in CI/CD.",
-        [0, 1, 2, 3, 4, 5, 6]),
+        [0, 1, 2, 3, 4, 5, 7, 6]),
 }
