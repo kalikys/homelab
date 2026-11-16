@@ -5,8 +5,8 @@
 
   const UI = {
     en: {
-      ossCount: (o, m) => `${o} open · ${m} merged`,
-      ossState: { open: "open", merged: "merged", closed: "closed" },
+      ossBackports: (n) => `+${n} backport${n > 1 ? "s" : ""}`,
+      ossMore: (n) => `+${n} more`,
       updated: "updated",
       stars: "stars",
       noDesc: "No description yet.",
@@ -36,8 +36,8 @@
       },
     },
     ru: {
-      ossCount: (o, m) => `${o} открыто · ${m} принято`,
-      ossState: { open: "открыт", merged: "принят", closed: "закрыт" },
+      ossBackports: (n) => `+${n} бэкпорт${n === 1 ? "" : n < 5 ? "а" : "ов"}`,
+      ossMore: (n) => `ещё ${n}`,
       updated: "обновлён",
       stars: "звёзд",
       noDesc: "Описания пока нет.",
@@ -84,8 +84,8 @@
       },
     },
     sk: {
-      ossCount: (o, m) => `${o} otvorené · ${m} prijaté`,
-      ossState: { open: "otvorený", merged: "prijatý", closed: "zatvorený" },
+      ossBackports: (n) => `+${n} backport${n === 1 ? "" : n < 5 ? "y" : "ov"}`,
+      ossMore: (n) => `ďalších ${n}`,
       updated: "aktualizované",
       stars: "hviezd",
       noDesc: "Zatiaľ bez popisu.",
@@ -384,27 +384,42 @@
   }
 
   // ---- Open source: my pull requests to other projects, live from GitHub search ----
-  function renderOss(items) {
-    const box = document.getElementById("oss");
-    const list = document.getElementById("oss-list");
-    if (!box || !list || !items || !items.length) return;
+  // Two columns: merged upstream and still in review (OssCore.split; closed-unmerged ones are left out).
+  const OSS_LIMIT = 5;
+  const OSS_SEARCH = "https://github.com/pulls?q=author%3Akalikys+type%3Apr+-user%3Akalikys+";
+  function renderOssColumn(rows, listId, numId, filter) {
     const t = UI[lang];
-    const merged = items.filter((i) => i.pull_request && i.pull_request.merged_at).length;
-    const open = items.filter((i) => i.state === "open").length;
-    document.getElementById("oss-count").textContent = t.ossCount(open, merged);
+    const list = document.getElementById(listId);
+    document.getElementById(numId).textContent = String(rows.length);
     list.replaceChildren();
-    items.slice(0, 4).forEach((i) => {
-      const state = i.pull_request && i.pull_request.merged_at ? "merged" : i.state === "open" ? "open" : "closed";
-      const repo = i.repository_url.replace("https://api.github.com/repos/", "");
+    rows.slice(0, OSS_LIMIT).forEach((r) => {
       const li = el("li", "oss__item");
-      const a = el("a", "oss__title", i.title);
-      a.href = i.html_url;
+      const a = el("a", "oss__title", r.title);
+      a.href = r.url;
       a.target = "_blank";
       a.rel = "noopener";
-      li.append(el("span", `oss__state oss__state--${state}`, t.ossState[state]), a,
-        el("span", "oss__repo", repo), el("span", "oss__time", relativeTime(i.created_at)));
+      const meta = el("span", "oss__repo", r.repo);
+      if (r.backports) meta.append(el("span", "oss__backports", t.ossBackports(r.backports)));
+      li.append(a, el("span", "oss__time", relativeTime(r.date)), meta);
       list.append(li);
     });
+    if (rows.length > OSS_LIMIT) {
+      const li = el("li", "oss__item oss__item--more");
+      const a = el("a", "oss__more", t.ossMore(rows.length - OSS_LIMIT));
+      a.href = OSS_SEARCH + filter;
+      a.target = "_blank";
+      a.rel = "noopener";
+      li.append(a);
+      list.append(li);
+    }
+  }
+  function renderOss(items) {
+    const box = document.getElementById("oss");
+    if (!box || !items || !items.length || !window.OssCore) return;
+    const { merged, review } = window.OssCore.split(items);
+    if (!merged.length && !review.length) return;
+    renderOssColumn(merged, "oss-merged", "oss-merged-n", "is%3Amerged");
+    renderOssColumn(review, "oss-review", "oss-review-n", "is%3Aopen");
     box.hidden = false;
   }
   getJSON("/api/github/prs")
