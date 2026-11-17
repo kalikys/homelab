@@ -1,4 +1,26 @@
+# Live copy: /opt/public/docker-compose.yml on LXC 104 ("public"). Synced from the live file 2026-11-17.
+# Services are added there IN PLACE (append a block, e.g. oneword's deploy/compose-insert.py) and then
+# here by PR. Never copy this file (or an old copy) over the live one: it silently drops every service
+# added since, and their deploys fail with "no such service". Check `diff` against the live file first.
 services:
+  # One Word (lumolab.club). Added in place to /opt/public/docker-compose.yml on LXC 104 by oneword's
+  # deploy/install-autodeploy.sh (deploy/compose-insert.py); homelab services/public/docker-compose.yml keeps a copy.
+  # Same compose project as cloudflared, so it is on the same docker network and is reached as
+  # http://oneword:8096 (homelab terraform/cloudflare.tf).
+  # No host port on purpose: the app trusts CF-Connecting-IP, so only cloudflared may reach it.
+  oneword:
+    build:
+      context: ./oneword/src
+      dockerfile: deploy/Dockerfile
+    image: oneword:latest
+    container_name: oneword
+    restart: unless-stopped
+    volumes:
+      - ./oneword-data:/data
+      - ./oneword/.env:/run/oneword.env:ro
+    mem_limit: 192m
+    stop_grace_period: 15s
+
   site:
     image: nginx:1.27-alpine
     container_name: site
@@ -11,6 +33,151 @@ services:
       - ./logs:/var/log/site
     depends_on:
       - gatus
+
+  research:
+    image: nginx:1.27-alpine
+    container_name: research
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    volumes:
+      - ./research:/usr/share/nginx/html:ro
+      - ./nginx/research.conf:/etc/nginx/conf.d/default.conf:ro
+
+  nodesize:
+    image: nginx:1.27-alpine
+    container_name: nodesize
+    restart: unless-stopped
+    ports:
+      - "8084:80"
+    volumes:
+      - ./nodesize:/usr/share/nginx/html:ro
+      - ./nginx/nodesize.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs/nodesize:/var/log/nodesize
+
+  goaccess:
+    image: allinurl/goaccess:1.9.3
+    container_name: goaccess
+    restart: unless-stopped
+    ports:
+      - "7890:7890"
+    volumes:
+      - ./logs/nodesize:/logs:ro
+      - ./goaccess:/report
+    command: /logs/access.log --log-format=COMBINED --real-time-html --ws-url=ws://192.168.1.11:7890 --port=7890 -o /report/index.html --persist --restore --db-path=/report
+
+  stats:
+    image: nginx:1.27-alpine
+    container_name: stats
+    restart: unless-stopped
+    ports:
+      - "7891:80"
+    volumes:
+      - ./goaccess:/usr/share/nginx/html:ro
+
+  toolsites:
+    image: nginx:1.27-alpine
+    container_name: toolsites
+    restart: unless-stopped
+    ports:
+      - "8085:80"
+    volumes:
+      - ./toolsites:/srv:ro
+      - ./nginx/toolsites.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs/toolsites:/var/log/toolsites
+
+  pixfit-bot:
+    build: ./tg-bots
+    image: tg-bots:latest
+    container_name: pixfit-bot
+    command: python -m pixfit.bot
+    restart: unless-stopped
+    env_file: [./tg-bots/.env, ./tg-bots/bots.env]
+    environment:
+      PIXFIT_DB: /data/pixfit.db
+      PIXFIT_TMP: /data/tmp
+      PIXFIT_WEB_PORT: "8090"
+      PIXFIT_APP_URL: https://px.kalik8s.com/
+      PIXFIT_WORKERS: "2"
+    volumes:
+      - ./tg-bots-data/pixfit:/data
+    mem_limit: 700m
+    cpus: 1.5
+    pids_limit: 200
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  cve-bot:
+    image: tg-bots:latest
+    container_name: cve-bot
+    command: python -m cve.bot
+    restart: unless-stopped
+    depends_on: [pixfit-bot]
+    env_file: [./tg-bots/.env, ./tg-bots/bots.env]
+    environment:
+      CVE_DB: /data/cve.db
+      CVE_WEB_PORT: "8091"
+      CVE_APP_URL: https://cve.kalik8s.com/
+    volumes:
+      - ./tg-bots-data/cve:/data
+    mem_limit: 200m
+    cpus: 0.5
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+  punkt:
+    image: nginx:1.27-alpine
+    container_name: punkt
+    restart: unless-stopped
+    ports:
+      - "8086:80"
+    volumes:
+      - ./punkt:/srv:ro
+      - ./nginx/punkt.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs/punkt:/var/log/punkt
+
+  genplat:
+    image: nginx:1.27-alpine
+    container_name: genplat
+    restart: unless-stopped
+    ports:
+      - "8087:80"
+    volumes:
+      - ./genplat:/usr/share/nginx/html:ro
+      - ./nginx/genplat.conf:/etc/nginx/conf.d/default.conf:ro
+
+  esim-shop:
+    build: ./esim-shop
+    image: esim-shop:latest
+    container_name: esim-shop
+    restart: unless-stopped
+    volumes:
+      - ./esim-shop-data:/data
+      - ./esim-shop/.env:/run/esim.env:ro
+    mem_limit: 128m
+
+  daryaovechkina:
+    image: nginx:1.27-alpine
+    container_name: daryaovechkina
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    volumes:
+      - ./daryaovechkina:/usr/share/nginx/html:ro
+      - ./nginx/daryaovechkina.conf:/etc/nginx/conf.d/default.conf:ro
+
+  deals-bot:
+    image: tg-bots:latest
+    container_name: deals-bot
+    command: python -m deals.bot
+    restart: unless-stopped
+    depends_on: [pixfit-bot]
+    env_file: [./tg-bots/.env, ./tg-bots/bots.env]
+    environment:
+      DEALS_DB: /data/deals.db
+    volumes:
+      - ./tg-bots-data/deals:/data
+    mem_limit: 200m
+    cpus: 0.5
+    logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
 
   gatus:
     image: twinproduction/gatus:latest
@@ -35,3 +202,4 @@ services:
     depends_on:
       - site
       - gatus
+      - research
